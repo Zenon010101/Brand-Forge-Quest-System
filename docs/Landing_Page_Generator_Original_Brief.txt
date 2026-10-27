@@ -1,0 +1,602 @@
+I want you to add a new **Landing Page Generator** module to my existing Electron desktop project.
+
+The current project already uses:
+
+- Electron
+- JavaScript
+- HTML
+- CSS
+- Photoshop automation / JSX integration
+
+Do not rebuild the entire application. Add this as a new module/page while preserving all existing working modules.
+
+The purpose of this feature is to reduce manual work when creating ecommerce landing pages from screenshots.
+
+# MAIN GOAL
+
+The user should be able to upload:
+
+1. An optional **Single** image for the top of the landing page
+2. One or multiple landing-page screenshots
+
+The system should then reconstruct those screenshots into a **structured, editable Photoshop PSD**, not simply paste the screenshots as flat images.
+
+The goal is:
+
+Screenshot(s) → editable PSD structure
+
+The final PSD should require only minor manual correction.
+
+# CORE LANDING PAGE RULES
+
+## Canvas width
+
+The final landing page PSD must always be:
+
+1000 px wide
+
+## Canvas height
+
+Height is dynamic / content-driven.
+
+Do not force any fixed height.
+
+The PSD can be very long as long as the entire landing page content is included.
+
+## No artificial whitespace
+
+There must be no automatically added white gaps between landing-page sections.
+
+Do not add:
+
+- unnecessary padding
+- blank separators
+- fixed empty areas between LP screenshots
+- artificial white borders
+
+The only intentional reserved area is the optional Single section at the top.
+
+# SINGLE IMAGE RULE
+
+Landing pages often have a separate ecommerce "Single" image at the top.
+
+Typical original Single source size:
+
+600 × 600 px
+
+When placed inside the generated landing page PSD, the Single section must occupy:
+
+1000 × 1000 px
+
+The Single should be placed at the very top of the landing page.
+
+If the user uploads a Single image:
+
+- place it in the top 1000 × 1000 section
+- scale it proportionally to fill the intended Single section
+- do not distort the image
+
+If the user does NOT upload a Single:
+
+- still allow generation
+- leave a clearly defined 1000 × 1000 editable/reserved space at the top
+- the designer can manually add the Single later
+
+The LP body starts immediately after this 1000 px-high section.
+
+# LANDING PAGE SCREENSHOT INPUT
+
+The user may upload:
+
+- one long screenshot
+
+OR
+
+- multiple screenshots / split parts
+
+Multiple screenshot upload is required.
+
+Support:
+
+- drag and drop
+- multi-file selection
+
+The order in which the user uploads or arranges the screenshots must be the exact order used in the final PSD.
+
+Provide:
+
+- Move Up
+- Move Down
+- Remove
+- Clear
+- drag-to-reorder if practical
+
+Do not automatically reorder screenshots by filename unless the user explicitly chooses that behavior.
+
+# IMPORTANT: DO NOT FLATTEN THE SCREENSHOTS INTO ONE IMAGE
+
+The purpose of this module is NOT to simply:
+
+upload screenshot → place screenshot as one flat PSD layer
+
+Instead, the system must analyze the screenshots and reconstruct their internal content as editable PSD elements wherever possible.
+
+The system should detect:
+
+- text areas
+- headings
+- body text
+- captions
+- labels
+- product images
+- lifestyle images
+- banners
+- icons
+- tables
+- charts
+- backgrounds
+- colored blocks
+- section boundaries
+- multi-column layouts
+
+# TEXT EXTRACTION
+
+Use OCR / text recognition to extract visible text from the screenshot.
+
+Where reasonably possible, convert detected text into editable Photoshop text layers.
+
+Examples:
+
+TITLE
+BODY_TEXT_01
+BODY_TEXT_02
+CAPTION_01
+
+Preserve as much as possible:
+
+- text position
+- approximate font size
+- approximate font weight
+- alignment
+- text box width
+- line breaks
+- text color
+
+IMPORTANT:
+
+Do not claim or assume the exact original font can always be recovered from a screenshot.
+
+If the exact font cannot be identified:
+
+- use the closest available font or a configurable fallback
+- keep the text editable
+- preserve approximate size and layout
+- allow the designer to manually replace the font afterward
+
+The priority is editability and correct structure, not perfect font identification.
+
+# IMAGE EXTRACTION
+
+Image-heavy areas should be separated from text wherever possible.
+
+Examples:
+
+product photos
+lifestyle photos
+detail photos
+icons
+feature illustrations
+size diagrams
+charts
+
+These should become separate PSD layers instead of remaining embedded in one flat screenshot whenever feasible.
+
+Suggested layer names:
+
+IMG_01
+IMG_02
+PRODUCT_IMAGE
+DETAIL_IMAGE
+ICON_01
+CHART_01
+
+If an image cannot be reliably separated from surrounding design elements, keep that area as a cropped raster layer instead of generating a broken extraction.
+
+Quality is more important than aggressive extraction.
+
+# BACKGROUND / GRAPHIC AREAS
+
+Detect simple backgrounds where possible:
+
+- solid colors
+- white backgrounds
+- black backgrounds
+- simple rectangular color blocks
+
+Recreate them as separate fill/background layers when reliable.
+
+If reconstruction is uncertain, preserve that section as a raster layer rather than damaging the visual result.
+
+# SCREENSHOT ORDER AND SECTION STRUCTURE
+
+Each uploaded screenshot should become its own logical PSD group.
+
+Example:
+
+LP_NAME.psd
+
+01_SINGLE
+02_LP_PART_01
+03_LP_PART_02
+04_LP_PART_03
+05_LP_PART_04
+
+Inside each LP group:
+
+BACKGROUND
+IMAGES
+TEXT
+
+or more specifically:
+
+02_LP_PART_01
+├─ BG
+├─ IMG_01
+├─ IMG_02
+├─ TITLE
+├─ BODY_01
+└─ CAPTION_01
+
+The exact hierarchy can be improved, but keep the PSD organized and easy for designers to edit.
+
+# POSITIONING RULE
+
+Every LP screenshot must be normalized proportionally to:
+
+1000 px width
+
+Do not stretch or distort the screenshot.
+
+All reconstructed elements must use the normalized 1000 px coordinate system.
+
+If an uploaded screenshot originally measures:
+
+750 × 1200
+
+it becomes proportionally:
+
+1000 × 1600
+
+All detected elements should be mapped into that normalized size.
+
+# FINAL VERTICAL STRUCTURE
+
+If Single is included:
+
+Y 0–999
+Single section
+
+Y 1000 onward
+Landing Page Part 1
+
+then directly:
+
+Landing Page Part 2
+
+then:
+
+Landing Page Part 3
+
+etc.
+
+There must be no automatically added blank space between LP parts.
+
+# MULTIPLE SCREENSHOT COVERAGE
+
+Every uploaded screenshot must be included.
+
+No screenshot should:
+
+- disappear
+- be skipped silently
+- overlap another screenshot
+- be reordered unexpectedly
+
+The final height should equal:
+
+1000 px Single section
++
+normalized height of Screenshot 1
++
+normalized height of Screenshot 2
++
+normalized height of Screenshot 3
++
+etc.
+
+If no Single is included but reserved Single space is enabled, still add the 1000 px top area.
+
+# PSD OUTPUT
+
+Generate one Photoshop PSD.
+
+The PSD must:
+
+- be 1000 px wide
+- have dynamic total height
+- preserve all groups/layers
+- keep text editable
+- keep images as separate layers when possible
+- preserve visual order
+- avoid unnecessary flattening
+- remain easy to manually adjust
+
+Suggested PSD structure:
+
+LP_PRODUCT_NAME.psd
+
+01_SINGLE
+├─ Single
+
+02_LP_PART_01
+├─ BG
+├─ IMG_01
+├─ TITLE
+├─ BODY_01
+
+03_LP_PART_02
+├─ BG
+├─ IMG_01
+├─ IMG_02
+├─ TEXT_01
+
+04_LP_PART_03
+...
+
+# FALLBACK RULE
+
+Do not force unreliable OCR or image extraction.
+
+Use this priority:
+
+1. Editable reconstruction if reliable
+2. Partial editable reconstruction if partially reliable
+3. Raster fallback for that specific section if reconstruction is unsafe
+
+Do NOT let one difficult section destroy the entire LP.
+
+The final PSD must always remain visually complete.
+
+# UI REQUIREMENTS
+
+Add a new module/page:
+
+Landing Page Generator
+
+Suggested UI:
+
+LEFT PANEL
+
+SINGLE
+[ Add Single ]
+
+LP SCREENSHOTS
+[ Add Screenshots ]
+[ Drag & Drop ]
+
+Screenshot queue:
+
+01 screenshot_part_01.png
+02 screenshot_part_02.png
+03 screenshot_part_03.png
+
+Controls:
+
+Move Up
+Move Down
+Remove
+Clear
+
+CENTER / RIGHT PANEL
+
+Large preview area
+
+The user must be able to click any uploaded screenshot and inspect it at a useful size.
+
+Show:
+
+Original screenshot preview
+
+Later, after analysis, allow preview of:
+
+Detected text
+Detected images
+Section boundaries
+
+# ANALYZE BUTTON
+
+Add:
+
+ANALYZE LANDING PAGE
+
+This stage should:
+
+- normalize screenshots to 1000 px width
+- run OCR
+- detect image blocks
+- detect text blocks
+- detect backgrounds
+- generate section structure
+- show analysis preview
+- show warnings
+
+Do not immediately generate the PSD before analysis finishes.
+
+# ANALYSIS WARNINGS
+
+Examples:
+
+Font could not be identified
+Text confidence low
+Image extraction uncertain
+Table detected as raster
+Screenshot contains overlapping text and image
+OCR confidence low
+
+The user should still be allowed to continue.
+
+# GENERATE PSD BUTTON
+
+After analysis:
+
+GENERATE PSD
+
+The system should:
+
+1. Create total 1000 px-wide canvas
+2. Add Single section
+3. Add LP parts in user-defined order
+4. Recreate editable text layers
+5. Insert separated image layers
+6. Add fallback raster areas where required
+7. Save PSD
+
+# OUTPUT LOCATION
+
+Allow the user to choose:
+
+Output folder
+
+Suggested output:
+
+Output/
+└─ PRODUCT_CODE/
+   ├─ PRODUCT_CODE.psd
+   ├─ extracted/
+   │  ├─ part01_img01.png
+   │  ├─ part01_img02.png
+   │  └─ ...
+   ├─ ocr/
+   │  └─ extracted_text.json
+   └─ manifest.json
+
+The PSD is the primary output.
+
+Supporting extracted files can be kept for debugging/editing.
+
+# MANIFEST FILE
+
+Generate a JSON manifest containing:
+
+- Single source
+- screenshot order
+- original dimensions
+- normalized dimensions
+- Y positions
+- detected text blocks
+- detected image blocks
+- confidence values
+- fallback sections
+- final PSD height
+
+This will make debugging and future regeneration much easier.
+
+# ERROR HANDLING
+
+One failed OCR block must not cancel the whole project.
+
+One failed image extraction must not cancel the whole project.
+
+Continue processing and use fallback raster content for failed regions.
+
+Final generation should clearly report:
+
+Successful editable blocks
+Raster fallback blocks
+OCR warnings
+Image extraction warnings
+Photoshop errors
+
+# NON-DESTRUCTIVE RULE
+
+Do not modify or overwrite the user's original screenshots.
+
+Use temporary working files.
+
+Clean temporary files after successful PSD generation.
+
+# DO NOT BREAK EXISTING PROJECT MODULES
+
+Do not modify unrelated behavior in:
+
+- Amazon Generator
+- Slider Maker
+- Remove Background / Image Tools
+- profiles
+- EXP / history
+- settings
+
+Add Landing Page Generator as an isolated module that uses the same application architecture.
+
+# TECH STACK
+
+Use the current project stack:
+
+- Electron
+- JavaScript
+- HTML
+- CSS
+
+Use Photoshop JSX / automation where PSD-specific behavior is needed.
+
+If OCR or image segmentation requires an additional library, keep it isolated inside the Landing Page module and document the dependency clearly.
+
+Do not introduce Python as a required runtime.
+
+# DEVELOPMENT PRIORITY
+
+Build this progressively.
+
+PHASE 1
+- new Landing Page module
+- Single upload
+- multiple screenshot upload
+- drag/drop
+- reorder
+- 1000 px normalization
+- correct vertical composition
+- organized PSD groups
+- raster fallback
+
+PHASE 2
+- OCR text detection
+- editable text layers
+- approximate font/style recreation
+
+PHASE 3
+- image block extraction
+- separate image layers
+- better background reconstruction
+
+PHASE 4
+- more advanced layout understanding
+- multi-column reconstruction
+- smarter font matching
+- table/diagram handling
+
+Do not sacrifice Phase 1 stability in order to overcomplicate the first implementation.
+
+# MOST IMPORTANT SUCCESS CRITERIA
+
+The generated PSD should allow a designer to open the file and continue editing immediately.
+
+The goal is NOT perfect screenshot cloning.
+
+The goal is:
+
+Upload Single + screenshots
+→ automatically reconstruct the LP
+→ get an organized editable PSD
+→ only minor manual design corrections remain
+
+The final landing page must stay visually complete even when some portions cannot be perfectly reconstructed.

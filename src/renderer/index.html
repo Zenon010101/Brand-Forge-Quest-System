@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Workflow Studio</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="auth-overlay" id="authOverlay" hidden>
+        <div class="auth-card">
+            <div class="auth-brand">
+                <div class="brand-mark">IW</div>
+                <div>
+                    <strong>Image Workflow Studio</strong>
+                    <span>Local production profile</span>
+                </div>
+            </div>
+
+            <div class="auth-tabs">
+                <button id="signInTab" class="auth-tab active" type="button">Sign In</button>
+                <button id="createTab" class="auth-tab" type="button">Create Profile</button>
+            </div>
+
+            <form id="authForm">
+                <div class="auth-field create-only" id="displayNameField" hidden>
+                    <label for="authDisplayName">Display name</label>
+                    <input id="authDisplayName" type="text" maxlength="40" autocomplete="name" placeholder="Your display name">
+                </div>
+                <div class="auth-field">
+                    <label for="authUsername">Username</label>
+                    <input id="authUsername" type="text" maxlength="24" autocomplete="username" placeholder="username" required>
+                </div>
+                <div class="auth-field">
+                    <label for="authPassword">Password</label>
+                    <input id="authPassword" type="password" maxlength="128" autocomplete="current-password" placeholder="Password" required>
+                </div>
+                <div class="auth-error" id="authError"></div>
+                <button class="auth-submit" id="authSubmit" type="submit">Sign In</button>
+            </form>
+
+            <p class="auth-note">Profiles are stored locally on this computer. Passwords are stored as salted hashes, not plain text. Cloud sync is not enabled.</p>
+        </div>
+    </div>
+
+    <div class="app-shell" id="appShell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-mark">IW</div>
+                <div>
+                    <strong>Image Workflow</strong>
+                    <span>Studio</span>
+                </div>
+            </div>
+
+            <nav class="nav" aria-label="Main navigation">
+                <button class="nav-item active" data-page="dashboard">Dashboard</button>
+                <button class="nav-item" data-page="slider">Slider Maker</button>
+                <button class="nav-item" data-page="amazon">Amazon Generator</button>
+                <button class="nav-item" data-page="remove-bg">Remove BG + Shadow</button>
+                <button class="nav-item" data-page="landing-page">Landing Page Generator</button>
+                <button class="nav-item" data-page="lp-folder">LP Folder Generator</button>
+                <button class="nav-item" data-page="progress">Progress & History</button>
+                <button class="nav-item" data-page="settings">Settings</button>
+            </nav>
+
+            <div class="profile-mini" id="profileMini">
+                <div class="profile-avatar" id="profileAvatar">?</div>
+                <div class="profile-mini-copy">
+                    <strong id="profileMiniName">Not signed in</strong>
+                    <span id="profileMiniLevel">—</span>
+                </div>
+                <button class="profile-logout" id="logoutBtn" type="button" title="Sign out">↪</button>
+            </div>
+
+            <div class="sidebar-footer" id="appVersion">Loading...</div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar" id="shellTopbar">
+                <div>
+                    <h1 id="pageTitle">Dashboard</h1>
+                    <p id="pageSubtitle">Production progress and workflow shortcuts.</p>
+                </div>
+                <span class="status-pill">Production Workspace</span>
+            </header>
+
+            <section class="page active" id="page-dashboard">
+                <div class="dashboard-profile-card">
+                    <div>
+                        <span class="eyebrow">CURRENT PROFILE</span>
+                        <h2><span id="dashboardDisplayName">—</span> <span class="level-chip" id="dashboardLevel">LV. 1</span></h2>
+                        <p id="dashboardRank">Rookie Operator</p>
+                    </div>
+                    <div class="xp-block">
+                        <div class="xp-row"><strong id="dashboardXpText">0 / 100 EXP</strong><span id="dashboardXpTotal">0 total EXP</span></div>
+                        <div class="xp-track"><div class="xp-fill" id="dashboardXpFill"></div></div>
+                    </div>
+                </div>
+
+                <div class="quick-stats">
+                    <div class="stat-card"><span>This Week</span><strong id="weekJobsStat">0</strong><small>history entries</small></div>
+                    <div class="stat-card"><span>Unique Brands</span><strong id="brandStat">0</strong><small>discovered</small></div>
+                    <div class="stat-card"><span>Slider PSDs</span><strong id="sliderStat">0</strong><small>completed jobs</small></div>
+                    <div class="stat-card"><span>Amazon Variants</span><strong id="amazonStat">0</strong><small>completed variants</small></div>
+                    <div class="stat-card"><span>Streak</span><strong id="streakStat">0</strong><small>successful jobs</small></div>
+                </div>
+
+                <div class="card-grid">
+                    <button class="workflow-card" data-open="slider">
+                        <span class="card-kicker">SLIDER</span>
+                        <strong>Slider Maker</strong>
+                        <p>Creative, Lineup, Detail, visible-pixel placement, Cut Image, editable PSD output, and production EXP.</p>
+                        <span class="card-link">Open module →</span>
+                    </button>
+
+                    <button class="workflow-card" data-open="amazon">
+                        <span class="card-kicker">AMAZON</span>
+                        <strong>Amazon Generator</strong>
+                        <p>Strict 1–8 scanning, 801/921 sizing, flat JPG output, master PSD, Colorbox, brand discovery, and EXP.</p>
+                        <span class="card-link">Open module →</span>
+                    </button>
+                    <button class="workflow-card" data-open="landing-page">
+                        <span class="card-kicker">DESIGN TOOLS</span>
+                        <strong>Landing Page Generator</strong>
+                        <p>1000 px LPs from Single + ordered screenshots, editable OCR text, isolated image blocks, layered Photoshop PSD and safe raster fallback.</p>
+                        <span class="card-link">Open module →</span>
+                    </button>
+                    <button class="workflow-card" data-open="lp-folder">
+                        <span class="card-kicker">DESIGN TOOLS</span>
+                        <strong>LP Folder Generator</strong>
+                        <p>Select a folder of mixed-format images. Detect Single, arrange parts, and export an editable Photoshop PSD/PSB plus a high-quality JPEG into the same source folder.</p>
+                        <span class="card-link">Open module →</span>
+                    </button>
+                    <button class="workflow-card" data-open="remove-bg">
+                        <span class="card-kicker">IMAGE TOOLS</span>
+                        <strong>Remove Background + Shadow</strong>
+                        <p>Batch transparent PNG export, large visual QC, then matching 2-layer Smart Object PSDs with Slider contact shadows.</p>
+                        <span class="card-link">Open module →</span>
+                    </button>
+                </div>
+
+                <div class="dashboard-bottom-grid">
+                    <section class="dashboard-panel">
+                        <div class="panel-title-row">
+                            <div><span class="eyebrow">THIS WEEK</span><h3>Monday–Friday</h3></div>
+                            <button class="text-button" data-open="progress">View full history →</button>
+                        </div>
+                        <div class="week-mini" id="weekMini"></div>
+                    </section>
+                    <section class="dashboard-panel">
+                        <div class="panel-title-row"><div><span class="eyebrow">LATEST UNLOCKS</span><h3>Achievements</h3></div></div>
+                        <div class="achievement-mini" id="achievementMini"></div>
+                    </section>
+                </div>
+            </section>
+
+            <section class="page module-page" id="page-slider">
+                <iframe id="sliderFrame" class="module-frame" src="../modules/slider/renderer/index.html" title="Slider Maker"></iframe>
+            </section>
+
+            <section class="page module-page" id="page-amazon">
+                <iframe id="amazonFrame" class="module-frame" src="../modules/amazon/renderer/index.html" title="Amazon Generator"></iframe>
+            </section>
+
+            <section class="page module-page" id="page-landing-page">
+                <iframe id="landingPageFrame" class="module-frame" src="../modules/landing-page/renderer/index.html" title="Landing Page Generator"></iframe>
+            </section>
+
+            <section class="page module-page" id="page-lp-folder">
+                <iframe id="lpFolderFrame" class="module-frame" src="../modules/lp-folder/renderer/index.html" title="LP Folder Generator"></iframe>
+            </section>
+
+            <section class="page module-page" id="page-remove-bg">
+                <iframe id="removeBgFrame" class="module-frame" src="../modules/remove-bg/renderer/index.html" title="Remove Background + Shadow"></iframe>
+            </section>
+
+            <section class="page" id="page-progress">
+                <div class="progress-hero">
+                    <div>
+                        <span class="eyebrow">PRODUCTION PROFILE</span>
+                        <h2 id="progressName">—</h2>
+                        <p><span id="progressRank">Rookie Operator</span> · <strong id="progressLevel">LV. 1</strong></p>
+                    </div>
+                    <div class="progress-xp-summary">
+                        <strong id="progressXpTotal">0 EXP</strong>
+                        <span id="progressNextLevel">100 EXP to next level</span>
+                    </div>
+                </div>
+
+                <div class="lifetime-stats">
+                    <div><span>Total Jobs</span><strong id="lifetimeJobs">0</strong></div>
+                    <div><span>Brands</span><strong id="lifetimeBrands">0</strong></div>
+                    <div><span>Slider PSDs</span><strong id="lifetimeSlider">0</strong></div>
+                    <div><span>Amazon Jobs</span><strong id="lifetimeAmazonJobs">0</strong></div>
+                    <div><span>Amazon Variants</span><strong id="lifetimeVariants">0</strong></div>
+                    <div><span>Colorboxes</span><strong id="lifetimeColorboxes">0</strong></div>
+                    <div><span>Output Files</span><strong id="lifetimeOutputs">0</strong></div>
+                    <div><span>Best Streak</span><strong id="lifetimeBestStreak">0</strong></div>
+                </div>
+
+                <section class="progress-section">
+                    <div class="section-heading">
+                        <div><span class="eyebrow">WEEKLY HISTORY</span><h3>What you made this week</h3></div>
+                        <div class="week-summary" id="weekSummary">0 entries · 0 EXP</div>
+                    </div>
+                    <div class="week-board" id="weekBoard"></div>
+                </section>
+
+                <section class="progress-section">
+                    <div class="section-heading"><div><span class="eyebrow">ACHIEVEMENTS</span><h3>Milestones</h3></div></div>
+                    <div class="achievement-grid" id="achievementGrid"></div>
+                </section>
+
+                <section class="progress-section">
+                    <div class="section-heading"><div><span class="eyebrow">BRAND COLLECTION</span><h3>Brands discovered</h3></div></div>
+                    <div class="brand-collection" id="brandCollection"></div>
+                </section>
+            </section>
+
+            <section class="page" id="page-settings">
+                <div class="settings-layout">
+                    <section class="settings-card">
+                        <span class="module-tag">SYSTEM READINESS</span>
+                        <h2>Photoshop connection</h2>
+                        <p>Slider and Amazon PSD/PSB workflows require Adobe Photoshop automation on Windows.</p>
+                        <div class="settings-action-row">
+                            <button id="testPhotoshopBtn" class="settings-primary">Test Photoshop</button>
+                            <div id="photoshopStatus" class="settings-status">Not tested yet.</div>
+                        </div>
+                    </section>
+
+                    <section class="settings-card">
+                        <span class="module-tag">PROFILE</span>
+                        <h2>Local account</h2>
+                        <p id="settingsProfileText">Your EXP, levels, achievements, brands, and history are stored with this local profile.</p>
+                        <div class="settings-action-row">
+                            <button id="settingsLogoutBtn">Sign Out</button>
+                        </div>
+                    </section>
+
+                    <section class="settings-card">
+                        <span class="module-tag">SHARED PRODUCTION RULES</span>
+                        <h2>Locked workflow defaults</h2>
+                        <div class="settings-rule-grid">
+                            <div><strong>Slider Shadow</strong><span id="settingsShadowRule">Lower 50% · 18% · Blur 5 · Y +4</span></div>
+                            <div><strong>Slider Cut Detail</strong><span id="settingsSliderCutRule">600 × 550 + 50px white</span></div>
+                            <div><strong>Amazon First</strong><span id="settingsAmazonFirst">801 × 801</span></div>
+                            <div><strong>Amazon Rest</strong><span id="settingsAmazonRest">921 × 921</span></div>
+                        </div>
+                    </section>
+
+                    <section class="settings-card settings-wide">
+                        <span class="module-tag">LOCAL DATA</span>
+                        <h2>App data</h2>
+                        <p>Production profiles, history, EXP, achievements, and remembered folders are saved locally in this app data folder.</p>
+                        <div class="settings-action-row">
+                            <button id="openUserDataBtn">Open App Data Folder</button>
+                            <button id="resetFoldersBtn">Reset Remembered Folders</button>
+                        </div>
+                        <div id="userDataPath" class="settings-path">Loading...</div>
+                    </section>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

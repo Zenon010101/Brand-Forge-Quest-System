@@ -1,0 +1,70 @@
+{
+  "name": "image-workflow-studio",
+  "version": "1.7.7",
+  "private": true,
+  "type": "commonjs",
+  "description": "Electron BrandForge image production workspace with LP Folder Generator (PSD/PSB + JPEG, renamable), Amazon Share Images, Slider, Remove BG, and isolated Windows Chromium cache.",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check src/main/main.js && node --check src/main/preload.js && node --check src/renderer/app.js && node --check src/modules/profile/main/register.js && node --check src/modules/profile/main/service.js && node --check src/modules/profile/main/progression.js && node --check src/modules/slider/main/register.js && node --check src/modules/slider/main/jobBuilder.js && node --check src/modules/slider/main/photoshopBridge.js && node --check src/modules/slider/renderer/app.js && node --check src/modules/amazon/main/register.js && node --check src/modules/amazon/main/folderScanner.js && node --check src/modules/amazon/main/amazonRules.js && node --check src/modules/amazon/main/imageProcessor.js && node --check src/modules/amazon/main/photoshopBridge.js && node --check src/modules/amazon/main/psdBuilder.js && node --check src/modules/amazon/main/colorboxExporter.js && node --check src/modules/amazon/renderer/app.js && node --check src/modules/settings/main/register.js && node --check src/modules/remove-bg/main/files.js && node --check src/modules/remove-bg/main/processor.js && node --check src/modules/remove-bg/main/photoshopBridge.js && node --check src/modules/remove-bg/main/register.js && node --check src/modules/remove-bg/renderer/app.js && node --check src/modules/remove-bg/main/ipc.js && node --check src/modules/amazon/main/sharedExporter.js && node --check src/modules/amazon/main/sharedJob.js && node --check src/modules/amazon/shared/sharingPlan.js && node --check src/modules/landing-page/main/planner.js && node --check src/modules/landing-page/main/ocr.js && node --check src/modules/landing-page/main/analyzer.js && node --check src/modules/landing-page/main/service.js && node --check src/modules/landing-page/main/photoshopBridge.js && node --check src/modules/landing-page/main/register.js && node --check src/modules/landing-page/renderer/app.js && node --check src/modules/lp-folder/main/planner.js && node --check src/modules/lp-folder/main/generatedIndex.js && node --check src/modules/lp-folder/main/photoshop.js && node --check src/modules/lp-folder/main/output.js && node --check src/modules/lp-folder/main/service.js && node --check src/modules/lp-folder/main/register.js && node --check src/modules/lp-folder/renderer/app.js && node --check src/main/sessionCache.js",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:portable": "electron-builder --win portable --x64",
+    "test:smoke": "node test/smoke.js",
+    "validate": "npm run check && npm run test:smoke && npm run test:remove-bg && npm run test:remove-bg-jsx && npm run test:remove-bg-ui && npm run test:amazon-sharing && npm run test:landing-page && npm run test:landing-page-jsx && npm run test:lp-folder && npm run test:cache",
+    "test:remove-bg": "node test/removeBg.js",
+    "test:remove-bg-jsx": "node test/removeBgJsx.js",
+    "test:remove-bg-ui": "node test/removeBgUi.js",
+    "test:amazon-sharing": "node test/amazonSharing.js",
+    "test:landing-page": "node test/landingPage.js",
+    "test:landing-page-jsx": "node test/landingPageJsx.js",
+    "test:lp-folder": "node test/lpFolder.js",
+    "test:cache": "node test/sessionCache.js"
+  },
+  "dependencies": {
+    "sharp": "^0.34.3"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.imageworkflow.studio",
+    "productName": "Image Workflow Studio",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/sharp/**/*",
+      "node_modules/@img/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Image Workflow Studio"
+    }
+  }
+}

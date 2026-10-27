@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta
+        http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: file:; style-src 'self'; script-src 'self';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Amazon Image Generator</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <div>
+                <div class="eyebrow">IMAGE WORKFLOW STUDIO</div>
+                <h1>Amazon Image Generator</h1>
+                <p class="subtitle">Parent folders → Variant IDs → JPG export + one editable master PSD</p>
+            </div>
+            <div class="topbar-right">
+                <div class="quality-badge">1001 × 1001 AMAZON</div>
+                <div class="version" id="versionLabel">v1.0.0</div>
+            </div>
+        </header>
+
+        <section class="project-bar card">
+            <div class="project-block">
+                <label>Parent folders</label>
+                <div class="path-row">
+                    <div class="path-display" id="parentPath">No parent folders selected</div>
+                    <button class="secondary" id="selectParentBtn" type="button">Select Parent Folder(s)</button>
+                </div>
+                <div class="helper" id="scanSummary">Select one or more parent folders to begin.</div>
+                <div class="source-filter-row">
+                    <label for="sourceTypeFilter">Source type</label>
+                    <select id="sourceTypeFilter" class="source-type-select">
+                        <option value="all">All / Anything</option>
+                        <option value="psd">PSD / PSB</option>
+                        <option value="png">PNG</option>
+                        <option value="jpg">JPG / JPEG</option>
+                        <option value="webp">WEBP</option>
+                        <option value="other">Other supported</option>
+                    </select>
+                    <span class="source-filter-summary" id="sourceFilterSummary">All supported source types</span>
+                </div>
+            </div>
+
+            <div class="project-block">
+                <label>Output folder</label>
+                <div class="path-row">
+                    <div class="path-display" id="outputPath">No output folder selected</div>
+                    <button class="secondary" id="selectOutputBtn" type="button">Choose Folder</button>
+                </div>
+                <div class="psd-name-row">
+                    <label for="psdFileNameInput">PSD file name</label>
+                    <input
+                        id="psdFileNameInput"
+                        class="psd-name-input"
+                        type="text"
+                        placeholder="Enter PSD file name, e.g. RMC-81"
+                        autocomplete="off"
+                        spellcheck="false"
+                    />
+                    <span class="psd-extension">.psd</span>
+                </div>
+                <div class="helper">All JPG files + the named PSD are saved directly in this folder. You may type the name with or without .psd.</div>
+            </div>
+
+            <div class="summary-counters">
+                <div class="counter-card">
+                    <span>Parents</span>
+                    <strong id="parentCounter">0</strong>
+                </div>
+                <div class="counter-card">
+                    <span>Variants</span>
+                    <strong id="variantCounter">0</strong>
+                </div>
+                <div class="counter-card">
+                    <span>Selected</span>
+                    <strong id="selectedCounter">0</strong>
+                </div>
+            </div>
+        </section>
+
+        <main class="workspace">
+            <section class="panel variant-panel">
+                <div class="panel-head">
+                    <div>
+                        <div class="eyebrow">PARENTS / VARIANTS</div>
+                        <h2>Variant IDs</h2>
+                        <p id="variantCount">0 variants</p>
+                    </div>
+                    <div class="button-pair">
+                        <button class="mini-btn" id="checkAllVariantsBtn" type="button" disabled>Check All</button>
+                        <button class="mini-btn ghost" id="uncheckAllVariantsBtn" type="button" disabled>Uncheck All</button>
+                    </div>
+                </div>
+                <div class="share-panel-help">Share one selected image set with multiple Amazon IDs. Shared IDs do not need source folders.</div>
+                <div class="variant-list" id="variantList">
+                    <div class="empty-state">Select parent folders to begin.</div>
+                </div>
+            </section>
+
+            <section class="panel files-panel">
+                <div class="panel-head files-head">
+                    <div>
+                        <div class="eyebrow">ACTIVE VARIANT</div>
+                        <h2 id="filesTitle">Files</h2>
+                        <p id="selectedCount">0 / 8 selected</p>
+                    </div>
+                    <div class="button-pair">
+                        <button class="mini-btn" id="checkAllFilesBtn" type="button" disabled>Check All</button>
+                        <button class="mini-btn ghost" id="uncheckAllFilesBtn" type="button" disabled>Uncheck All</button>
+                    </div>
+                </div>
+
+                <div class="files-help">
+                    Only exact source filenames 1–8 are scanned. The Source Type filter applies globally to every Parent / Variant folder. Selected files are listed first; drag selected rows to change final Amazon numbering.
+                </div>
+
+                <div class="file-list" id="fileList">
+                    <div class="empty-state">Select a Variant ID to view its files.</div>
+                </div>
+            </section>
+
+            <section class="panel right-panel">
+                <div class="preview-section">
+                    <div class="panel-head compact">
+                        <div>
+                            <div class="eyebrow">SOURCE PREVIEW</div>
+                            <h2>Preview</h2>
+                            <p id="previewType">No file selected</p>
+                        </div>
+                    </div>
+
+                    <div class="preview-stage" id="previewStage">
+                        <div class="preview-placeholder">Click a file to preview it.</div>
+                        <img id="previewImage" class="preview-image hidden" alt="Selected file preview" />
+                    </div>
+
+                    <div class="preview-meta">
+                        <strong id="previewName">—</strong>
+                        <span id="previewInfo">—</span>
+                        <span class="preview-error" id="previewError"></span>
+                    </div>
+                </div>
+
+                <div class="order-section">
+                    <div class="order-head">
+                        <div>
+                            <div class="eyebrow">FINAL OUTPUT</div>
+                            <h2>Selected Order</h2>
+                        </div>
+                        <span class="order-count" id="orderCount">0 / 8</span>
+                    </div>
+                    <div class="order-list" id="orderList">
+                        <div class="empty-order">No selected images.</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <section class="rules-card card">
+            <div class="rule-item">
+                <strong>Image 1</strong>
+                <span>Visible product content is maximized proportionally inside the 801 × 801 main area.</span>
+            </div>
+            <div class="rule-item">
+                <strong>Images 2–8</strong>
+                <span>1001 × 1001 Amazon canvas with existing cut-side alignment rules.</span>
+            </div>
+            <div class="rule-item">
+                <strong>PSD / PSB</strong>
+                <span>Only the layer named Main is extracted. Shadow is ignored.</span>
+            </div>
+            <div class="rule-item">
+                <strong>Master PSD</strong>
+                <span>All selected parents are grouped into one PSD using the file name entered above.</span>
+            </div>
+        </section>
+
+        <footer class="footer card">
+            <div class="status-wrap">
+                <span class="status-dot" id="statusDot"></span>
+                <div class="status-copy">
+                    <div class="status-title" id="appStatus">Ready</div>
+                    <div class="status-sub" id="statusSub">Select parent folders, choose images, then process.</div>
+                </div>
+            </div>
+
+            <button class="primary process-btn" id="startProcessingBtn" type="button" disabled>
+                PROCESS AMAZON
+            </button>
+        </footer>
+    </div>
+
+    <div class="share-modal-backdrop hidden" id="shareModalBackdrop">
+        <section class="share-modal" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
+            <div class="share-modal-head">
+                <div>
+                    <div class="eyebrow">AMAZON IMAGE SHARING</div>
+                    <h2 id="shareModalTitle">Share Images</h2>
+                </div>
+                <button class="share-modal-close" id="shareModalCloseBtn" type="button" aria-label="Close Share Images">×</button>
+            </div>
+            <div class="share-source-summary" id="shareSourceSummary">Choose a source Variant ID.</div>
+            <label class="share-label" for="shareIdsInput">Shared Variant IDs</label>
+            <textarea id="shareIdsInput" class="share-textarea" rows="7" spellcheck="false" placeholder="DPK101&#10;DPK102&#10;DPK103"></textarea>
+            <p class="share-helper">Paste from Excel or type one ID per line. Newlines, commas, tabs and semicolons are accepted. Duplicate and conflicting IDs are blocked.</p>
+            <div class="share-count-row" id="shareCountSummary">0 shared IDs</div>
+            <div class="share-validation" id="shareValidation" aria-live="polite">Enter IDs to validate.</div>
+            <div class="share-preview">
+                <div class="share-preview-title">EXPECTED OUTPUT PREVIEW</div>
+                <div class="share-output-list" id="shareOutputPreview"></div>
+            </div>
+            <div class="share-modal-actions">
+                <button class="mini-btn ghost" id="shareCancelBtn" type="button">Cancel</button>
+                <button class="primary share-apply" id="shareApplyBtn" type="button">Apply Sharing</button>
+            </div>
+        </section>
+    </div>
+    <script src="../shared/sharingPlan.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

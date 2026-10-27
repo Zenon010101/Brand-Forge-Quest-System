@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LP Folder Generator · BrandForge</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="workspace">
+  <header class="intro">
+    <div><p class="eyebrow">BRANDFORGE · IMAGE TOOLS</p><h1>LP Folder Generator</h1><p>Build a long, editable Photoshop landing page from an ordered folder of images.</p></div>
+    <div class="format"><strong>1000 px</strong><span>Fixed width · Dynamic height</span></div>
+  </header>
+  <div class="main-grid">
+    <aside class="left-pane">
+      <section class="panel source-panel">
+        <div class="small-title"><h2>Source folder</h2><span class="tag">STEP 1</span></div>
+        <button id="chooseFolder" class="button primary full" type="button">Select LP Folder</button>
+        <div class="folder-path" id="folderPath">No folder selected.</div>
+        <div class="button-pair"><button id="refreshFolder" class="button ghost" type="button" disabled>Refresh Folder</button><button id="resetOrder" class="button ghost" type="button" disabled>Reset Auto Order</button></div>
+      </section>
+      <section class="panel list-panel">
+        <div class="small-title"><h2>Detected images</h2><span id="fileCount" class="tag">0 files</span></div>
+        <div class="help">"Single" or filename matching the folder/ID is detected first. Drag items or use Move Up / Down.</div>
+        <div id="imageQueue" class="image-list" aria-label="LP images in export order"><p class="empty">Select a folder to scan images.</p></div>
+        <div class="button-grid">
+          <button id="setSingle" class="button subtle" type="button" disabled>Set as Single</button>
+          <button id="moveUp" class="button subtle" type="button" disabled>Move Up</button>
+          <button id="moveDown" class="button subtle" type="button" disabled>Move Down</button>
+          <button id="removeImage" class="button subtle" type="button" disabled>Remove</button>
+          <button id="clearList" class="button ghost" type="button" disabled>Clear List</button>
+        </div>
+      </section>
+      <section class="panel output-panel">
+        <div class="small-title"><h2>LP Output · PSD + JPEG</h2><span class="tag">STEP 2</span></div>
+        <div class="save-rule"><span>Save destination</span><strong>Same as source folder</strong></div>
+        <label class="field-label filename-label" for="outputBaseName">Output filename (editable)</label>
+        <input id="outputBaseName" class="filename-input" type="text" maxlength="140" placeholder="Select a source folder" autocomplete="off" spellcheck="false" disabled>
+        <p id="outputNameError" class="filename-error" role="status" aria-live="polite"></p>
+        <div class="output-files"><div><span>Editable Photoshop</span><strong id="outputName">—</strong></div><div><span>JPEG preview / upload</span><strong id="outputJpegName">—</strong></div></div>
+        <label class="field-label" for="existingAction">If the output already exists</label>
+        <select id="existingAction"><option value="version">Save new version (_v2, _v3…)</option><option value="replace">Back up existing + replace</option><option value="cancel">Cancel to protect existing output</option></select>
+        <p class="help">Original images are never overwritten or renamed.</p>
+      </section>
+    </aside>
+    <main class="right-pane">
+      <section class="panel preview-panel">
+        <div class="preview-header">
+          <div><h2>Image & LP Preview</h2><p id="previewDesc">Choose a source folder to begin.</p></div>
+          <div class="button-pair"><button id="showImage" type="button" class="button subtle selected">Selected Image</button><button id="showFull" type="button" class="button subtle">Full LP Order</button></div>
+        </div>
+        <div class="preview-stage" id="previewStage">
+          <div id="previewEmpty" class="preview-empty"><div class="preview-icon">▣</div><strong>No image selected</strong><span>Select an image to inspect it at a larger size.</span></div>
+          <img id="selectedPreview" alt="Selected LP image" hidden>
+          <div id="fullPreview" class="full-preview" hidden></div>
+        </div>
+        <div class="preview-footer"><span id="selectedLabel">Image details appear here.</span><span id="previewBadge">Original source preview</span></div>
+      </section>
+      <section class="panel summary-panel">
+        <div class="summary-top"><h2>Composition summary</h2><span id="singleStatus">Single not assigned</span></div>
+        <div class="summary-grid">
+          <div><span>Width</span><strong>1000 px</strong></div>
+          <div><span>Height</span><strong id="heightCount">—</strong></div>
+          <div><span>Sections</span><strong id="sectionCount">0</strong></div>
+          <div><span>Output format</span><strong id="formatCount">PSD</strong></div>
+        </div>
+        <div class="warnings" id="warnings"><p>Select a folder to see scan results and warnings.</p></div>
+      </section>
+    </main>
+  </div>
+  <footer class="action-footer">
+    <div class="actions"><button id="generate" class="button accent" type="button" disabled>Generate LP</button><button id="openOutput" class="button subtle" type="button" disabled>Open Output Folder</button></div>
+    <div class="status"><span id="statusDot" class="status-dot"></span><span id="statusText">Ready to select an LP folder.</span><span id="statusDetail">No source folder</span></div>
+  </footer>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

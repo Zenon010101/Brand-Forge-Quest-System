@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Landing Page Generator</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="lp-shell" id="dropTarget">
+  <header class="lp-header">
+    <div><span class="eyebrow">BRANDFORGE / DESIGN TOOLS</span><h1>Landing Page Generator <span class="version">BETA</span></h1><p>Upload Single + screenshots → analyze layout → generate an organized Photoshop document.</p></div>
+    <div class="header-metric"><strong>1000 px</strong><span>Fixed width · dynamic height</span></div>
+  </header>
+  <div class="lp-body">
+    <aside class="left-panel">
+      <section class="pane">
+        <div class="section-title"><h2>01 · Single</h2><span>Optional</span></div>
+        <div class="single-info" id="singleInfo"><strong>1000 × 1000 area reserved</strong><small>Add a 600 × 600 Single or leave the reserved space for manual editing.</small></div>
+        <div class="button-line"><button class="button light" type="button" id="addSingle">+ Add Single</button><button class="button subtle" type="button" id="clearSingle" disabled>Remove</button></div>
+      </section>
+      <section class="pane queue-pane">
+        <div class="section-title"><h2>02 · LP Screenshots</h2><span id="queueCount">0 files</span></div>
+        <div class="drop-zone" id="queueDropZone" tabindex="0"><span class="drop-icon">↥</span><strong>Drop screenshots here</strong><small>One long screenshot or multiple parts · original order retained</small><button class="button light" id="addScreenshots" type="button">+ Add Screenshots</button></div>
+        <p class="help">Drag rows to reorder. Or use ↑ / ↓. Files are never changed.</p>
+        <div class="queue-list" id="queueList" role="listbox" aria-label="Screenshots in export order"></div>
+        <div class="queue-actions"><button class="button subtle" id="clearList" type="button" disabled>Clear Screenshots</button></div>
+      </section>
+      <section class="pane settings-pane">
+        <div class="section-title"><h2>03 · PSD Settings</h2></div>
+        <label for="productCode">Product code / PSD filename</label><input id="productCode" maxlength="90" placeholder="DPK100_LP" spellcheck="false" autocomplete="off">
+        <label for="outputFolder">Output folder</label><div class="output-row"><input id="outputFolder" readonly placeholder="Choose output folder"><button class="button light" id="chooseOutput" type="button">Browse</button></div>
+        <details class="advanced"><summary>OCR and font options</summary>
+          <label for="tesseractPath">Tesseract executable (optional)</label><input id="tesseractPath" placeholder="Auto-detect or Windows OCR" spellcheck="false"><p class="help">Uses locally installed Tesseract (English / Japanese) or built-in Windows OCR. No Python or cloud connection required.</p>
+          <label for="fontLatin">Latin Photoshop font</label><input id="fontLatin" value="ArialMT" spellcheck="false">
+          <label for="fontJapanese">Japanese Photoshop font</label><input id="fontJapanese" value="YuGothic-Regular" spellcheck="false">
+        </details>
+        <label class="check"><input id="overwrite" type="checkbox"> Back up + replace existing exports</label>
+      </section>
+    </aside>
+    <main class="right-panel">
+      <section class="preview-pane">
+        <div class="preview-bar"><div><h2>Screenshot / Visual QC</h2><p id="previewDesc">Select a screenshot in the queue to inspect it.</p></div><div class="preview-actions"><button id="viewFull" class="button light" type="button">Full</button><button id="viewDetail" class="button subtle" type="button">Detail QC</button><button id="detailPrev" class="button subtle" type="button" disabled>↑</button><button id="detailNext" class="button subtle" type="button" disabled>↓</button><label class="check mini"><input type="checkbox" id="showText" checked> Text boxes</label><label class="check mini"><input type="checkbox" id="showImages" checked> Image blocks</label></div></div>
+        <div class="preview-stage" id="previewStage"><div class="preview-empty" id="previewEmpty"><span>▤</span><strong>No screenshot selected</strong><small>Original screenshot and analysis overlays will appear here.</small></div><div class="preview-content" id="previewContent" hidden><div class="preview-image-wrap" id="previewImageWrap"><img id="previewImage" alt="Selected screenshot preview"><div id="analysisOverlay" class="analysis-overlay"></div></div></div></div>
+        <div class="preview-meta"><span id="previewDimensions">Always 1000 px wide in Photoshop</span><span id="previewMode">Original preview</span></div>
+      </section>
+      <section class="analysis-pane"><div class="section-title"><h2>Analysis & Warnings</h2><span id="analysisStats">Not analyzed</span></div><div class="summary-row" id="summaryRow"><div><strong id="heightValue">—</strong><small>Total LP height</small></div><div><strong id="textValue">—</strong><small>Editable text</small></div><div><strong id="imageValue">—</strong><small>Separated images</small></div><div><strong id="fallbackValue">—</strong><small>Raster sections</small></div></div><div class="warnings" id="warnings"><p>No analysis yet. Screenshots that cannot be safely reconstructed will be preserved as raster fallback.</p></div></section>
+    </main>
+  </div>
+  <footer class="lp-footer">
+    <div class="main-actions"><button id="analyze" class="button primary" type="button" disabled><span class="step">1</span> Analyze Landing Page</button><button id="generate" class="button accent" type="button" disabled><span class="step">2</span> Generate PSD</button></div>
+    <div class="process-status"><span id="statusDot" class="dot"></span><span id="statusText">Add screenshots to begin.</span><span id="statusCount" class="right-count">No project loaded</span></div>
+  </footer>
+  <div class="drag-overlay" id="dragOverlay" hidden><strong>Drop screenshots to add to your Landing Page</strong><span>The first file will not be treated as Single automatically.</span></div>
+</div>
+<script src="app.js"></script>
+</body></html>

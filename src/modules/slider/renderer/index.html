@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Slider Maker</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <div>
+                <div class="eyebrow">IMAGE WORKFLOW STUDIO</div>
+                <h1>Slider Maker</h1>
+                <p class="subtitle">Creative · Lineup · Detail → editable 600×600 Photoshop PSD</p>
+            </div>
+
+            <div class="topbar-right">
+                <div class="quality-badge">SMART OBJECT QUALITY</div>
+                <div class="version" id="versionLabel">v1.0.0</div>
+            </div>
+        </header>
+
+        <section class="project-bar card">
+            <div class="field brand-field">
+                <label for="brandName">Brand <span class="optional">optional</span></label>
+                <input id="brandName" type="text" placeholder="e.g. PENDLETON" autocomplete="off" />
+            </div>
+
+            <div class="field product-field">
+                <label for="productCode">Product Code</label>
+                <input id="productCode" type="text" placeholder="e.g. CTT-93000-JP" autocomplete="off" />
+            </div>
+
+            <div class="field output-field">
+                <label>PSD Output <span class="optional">optional</span></label>
+                <div class="output-row">
+                    <div class="path-display" id="outputPath">Not selected — PSD will stay open in Photoshop</div>
+                    <button class="secondary" id="outputBtn" type="button">Choose Folder</button>
+                    <button class="ghost" id="clearOutputBtn" type="button" title="Clear output folder">Clear</button>
+                </div>
+            </div>
+
+            <div class="counter-wrap">
+                <div class="counter-label">OUTPUT ITEMS</div>
+                <div class="counter" id="totalCounter">1 / 18</div>
+            </div>
+        </section>
+
+        <main class="workspace">
+            <aside class="sidebar card">
+                <button class="nav-tab active" data-tab="creative" type="button">
+                    <span>Creative</span>
+                    <b id="creativeNavCount">0</b>
+                </button>
+                <button class="nav-tab" data-tab="lineup" type="button">
+                    <span>Lineup</span>
+                    <b id="lineupNavCount">1</b>
+                </button>
+                <button class="nav-tab" data-tab="detail" type="button">
+                    <span>Detail</span>
+                    <b id="detailNavCount">0</b>
+                </button>
+                <button class="nav-tab" data-tab="overview" type="button">
+                    <span>Overview</span>
+                    <b>→</b>
+                </button>
+
+                <div class="sidebar-note">
+                    <strong>Quality mode</strong>
+                    <p>Sources remain Smart Objects. Cut Image uses a non-destructive mask.</p>
+                </div>
+            </aside>
+
+            <section class="content card">
+                <div class="tab-panel active" id="tab-creative">
+                    <div class="section-head">
+                        <div>
+                            <div class="eyebrow">CREATIVE</div>
+                            <h2>Creative Images</h2>
+                            <p>Full 600×600 fill placement. Drag cards to change build order.</p>
+                        </div>
+                        <button class="primary" id="addCreativeBtn" type="button">+ Add Images</button>
+                    </div>
+                    <div class="item-list" id="creativeList"></div>
+                </div>
+
+                <div class="tab-panel" id="tab-lineup">
+                    <div class="section-head lineup-head">
+                        <div>
+                            <div class="eyebrow">LINEUP</div>
+                            <h2>Lineup Builder</h2>
+                            <p>Each lineup group consumes one output number.</p>
+                        </div>
+                        <button class="primary" id="addLineupBtn" type="button">+ Add Lineup</button>
+                    </div>
+
+                    <div class="layout-picker">
+                        <label><input type="radio" name="layoutMode" value="horizontal" checked /> Horizontal <small>Side by Side</small></label>
+                        <label><input type="radio" name="layoutMode" value="vertical" /> Vertical <small>Stacked</small></label>
+                        <label><input type="radio" name="layoutMode" value="paVertical" /> PA Vertical <small>Item · Item Detail · Color Name</small></label>
+                        <label><input type="radio" name="layoutMode" value="fourCut" /> Four Cut</label>
+                    </div>
+                    <div class="layout-help" id="layoutHelp">Horizontal: two product/color entries placed side by side.</div>
+
+                    <div id="lineupList" class="lineup-list"></div>
+                </div>
+
+                <div class="tab-panel" id="tab-detail">
+                    <div class="section-head">
+                        <div>
+                            <div class="eyebrow">DETAIL</div>
+                            <h2>Detail Images</h2>
+                            <p>Normal = 570×530 safe area. Cut = visible pixels fit/maximize in 600×550, cut sides flush to their edge, bottom 50px white.</p>
+                        </div>
+                        <div class="head-actions">
+                            <button class="secondary" id="allShadowBtn" type="button">All Shadow: OFF</button>
+                            <button class="secondary" id="addCutDetailBtn" type="button">+ Add Cut Image</button>
+                            <button class="primary" id="addDetailBtn" type="button">+ Add Detail</button>
+                        </div>
+                    </div>
+                    <div class="item-list" id="detailList"></div>
+                </div>
+
+                <div class="tab-panel" id="tab-overview">
+                    <div class="section-head">
+                        <div>
+                            <div class="eyebrow">OVERVIEW</div>
+                            <h2>PSD Build Order</h2>
+                            <p>Drag any row to set the final PSD order. Names renumber automatically.</p>
+                        </div>
+                    </div>
+                    <div class="overview-list" id="overviewList"></div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer card">
+            <div class="status-wrap">
+                <span class="status-dot" id="statusDot"></span>
+                <div>
+                    <div class="status-title" id="statusText">Ready</div>
+                    <div class="status-sub" id="statusSub">Photoshop will be used only when you generate.</div>
+                </div>
+            </div>
+
+            <div class="footer-actions">
+                <button class="primary generate" id="generateBtn" type="button">GENERATE PSD</button>
+            </div>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

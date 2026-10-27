@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Remove Background + Shadow</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="module-shell" id="dropTarget">
+    <header class="module-header">
+        <div class="heading-group">
+            <span class="kicker">GULLIVER IMAGE WORKFLOW / IMAGE TOOLS</span>
+            <h1>Remove Background <span class="muted">+</span> Shadow</h1>
+            <p>Batch cutouts → inspect PNGs → create editable Photoshop shadows. Originals, PNGs and PSDs stay in their own source folders.</p>
+        </div>
+        <div class="process-steps" aria-label="Processing stages">
+            <div class="step-label"><b>01</b><span>Remove BG</span></div>
+            <span class="step-divider"></span>
+            <div class="step-label"><b>02</b><span>Visual QC</span></div>
+            <span class="step-divider"></span>
+            <div class="step-label"><b>03</b><span>Add Shadow</span></div>
+        </div>
+    </header>
+
+    <div class="workspace">
+        <aside class="queue-panel" aria-label="Image file queue">
+            <div class="queue-heading">
+                <div><h2>Image Queue</h2><p id="queueCount">0 images</p></div>
+                <span class="queue-total" id="queueTotal">0</span>
+            </div>
+            <div class="queue-list" id="queueList" role="listbox" aria-label="Uploaded images"></div>
+            <div class="queue-empty" id="queueEmpty">
+                <div class="empty-icon">▧</div>
+                <strong>No images in queue</strong>
+                <p>Drop files anywhere here, or select Add Images below.</p>
+            </div>
+            <div class="queue-summary" id="queueSummary">Ready to upload · JPG, PNG, WEBP, TIFF, PSD and more</div>
+        </aside>
+
+        <section class="preview-panel" aria-label="Large image QC preview">
+            <div class="preview-toolbar">
+                <div class="preview-title-group">
+                    <strong id="previewName">Large QC Preview</strong>
+                    <span id="previewSubtitle">Select an image to inspect it at a larger size.</span>
+                </div>
+                <div class="preview-controls">
+                    <div class="segmented" role="group" aria-label="Preview version">
+                        <button id="originalTab" type="button" class="active" aria-pressed="true">Original</button>
+                        <button id="pngTab" type="button" disabled aria-pressed="false">PNG Result</button>
+                    </div>
+                    <div class="segmented" role="group" aria-label="Image zoom">
+                        <button id="fitZoom" class="active" type="button" aria-pressed="true">Fit</button>
+                        <button id="actualZoom" type="button" aria-pressed="false">100%</button>
+                    </div>
+                </div>
+            </div>
+            <div class="preview-stage" id="previewStage">
+                <div class="preview-placeholder" id="previewPlaceholder">
+                    <div class="placeholder-image">▤</div>
+                    <h2>Review the whole product</h2>
+                    <p>Check all handles, wheels, straps, corners, edges and fine details before adding a shadow.</p>
+                </div>
+                <img id="previewImage" alt="Selected product preview" hidden>
+            </div>
+            <div class="preview-footer">
+                <div class="qc-note" id="qcNote">Original / transparent PNG comparison is available once Remove Background succeeds.</div>
+                <div class="zoom-hint">Checkerboard = transparency · 100% = pixel inspection</div>
+            </div>
+        </section>
+    </div>
+
+    <footer class="action-area">
+        <div class="progress-track" role="progressbar" aria-label="Batch completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="action-main">
+            <div class="queue-actions">
+                <button id="addImages" class="button primary-outline" type="button">+ Add Images</button>
+                <button id="removeSelected" class="button subtle" type="button" disabled>Remove Selected</button>
+                <button id="clearList" class="button subtle" type="button" disabled>Clear List</button>
+            </div>
+            <div class="processing-actions">
+                <label class="overwrite-option" title="For existing exported PNGs/PSDs. Source PNG/PSD files that share the required output filename are always backed up automatically."><input id="overwriteFiles" type="checkbox"><span>Back up + replace existing exports</span></label>
+                <button id="removeBackground" class="button action-remove" type="button" disabled><span class="button-number">1</span> Remove Background</button>
+                <button id="addShadow" class="button action-shadow" type="button" disabled><span class="button-number">2</span> Add Shadow</button>
+            </div>
+        </div>
+        <div class="bottom-status" aria-live="polite">
+            <span class="status-indicator" id="statusIndicator"></span>
+            <span id="statusText">Add files to start. Each file processes independently.</span>
+            <span class="right-status" id="statusCounts">0 PNG ready · 0 PSD ready</span>
+        </div>
+    </footer>
+    <div class="drop-overlay" id="dropOverlay" hidden><div><strong>Drop product images here</strong><span>Multiple files supported · originals stay in place</span></div></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
