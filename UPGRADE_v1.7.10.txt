@@ -1,0 +1,21 @@
+BrandForge v1.7.10 — Delete Product Group in Amazon Batch Workspace
+
+NEW:
+- A visible Delete button beside every Product ID in 03 PRODUCT GROUPS.
+- Selected group editor button renamed to Delete Selected Group.
+- Populated groups require confirmation; empty groups remove in one click.
+- Only the current batch grouping is changed. Imported and original image files stay intact.
+- Counts, previews, active selection, sharing associations and processing readiness refresh.
+
+HOW TO UPDATE:
+1. Close BrandForge completely (including older Electron instances).
+2. Back up the v1.7.9 project.
+3. Extract this complete ZIP to a new project folder, OR apply the patch ZIP over v1.7.9 preserving paths.
+4. Open the updated project and run: npm.cmd start
+5. Verify version with: node -p "require('./package.json').version" (should return 1.7.10)
+6. Open Amazon Generator > Batch Workspace, add a Product ID and look for Delete at its right.
+
+No new npm packages are required for this update.
+Validation: automated browser deletion tests and existing BrandForge regressions.
+Photoshop export requires a separate Windows workstation smoke test.
+The canceled LAN Leaderboard is not included.

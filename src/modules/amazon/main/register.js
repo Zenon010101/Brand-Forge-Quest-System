@@ -10,7 +10,8 @@ const {
     ipcMain
 } = require("electron");
 
-const { scanParentFolder } = require("./folderScanner");
+const { scanParentFolder, SUPPORTED_EXTENSIONS } = require("./folderScanner");
+const { readImageRecords, validateVirtualBatch } = require("./batchWorkspace");
 const {
     processVariant,
     createPreviewDataUrl,
@@ -178,6 +179,46 @@ ipcMain.handle("amazon:select-parent-folder", async () => {
 ipcMain.handle("amazon:select-output-folder", async () => {
     const folderPath = await chooseOutputDirectory();
     return folderPath ? { folderPath } : null;
+});
+
+// File Explorer import is available without creating/renaming any folders.
+ipcMain.handle("amazon:choose-batch-images", async () => {
+    const state = readDialogState();
+    const response = await dialog.showOpenDialog({
+        title: "Import Amazon source images (multiple files)",
+        defaultPath: usableDirectory(state.lastBatchImageFolder) || usableDirectory(state.lastParentLocation),
+        properties: ["openFile", "multiSelections"],
+        filters: [{ name: "Amazon source images", extensions: [...SUPPORTED_EXTENSIONS].map(ext => ext.slice(1)) }]
+    });
+    if (response.canceled || !response.filePaths.length) return { files: [], errors: [] };
+    writeDialogState({ lastBatchImageFolder: path.dirname(response.filePaths[0]) });
+    return readImageRecords(response.filePaths);
+});
+
+ipcMain.handle("amazon:inspect-batch-images", async (_event, payload) => {
+    return readImageRecords(payload?.paths);
+});
+
+ipcMain.handle("amazon:preflight-batch", async (_event, payload) => {
+    try {
+        const psdName = normalizePsdFileName(payload?.psdFileName);
+        const checked = await validateVirtualBatch(payload);
+        if (!checked.ok) return { ok: false, errors: checked.errors };
+        const inspection = await inspectSharingRequest({
+            parents: checked.parents, outputFolder: payload.outputFolder
+        }, psdName);
+        return {
+            ok: inspection.ok,
+            errors: inspection.errors || [],
+            existingFiles: inspection.existingFiles || [],
+            sourceCount: inspection.sourceCount || 0,
+            sharedCount: inspection.sharedCount || 0,
+            totalVariants: inspection.totalVariants || 0,
+            jpgCount: inspection.jpgCount || 0
+        };
+    } catch (error) {
+        return { ok: false, errors: [error?.message || String(error)] };
+    }
 });
 
 ipcMain.handle("amazon:get-file-preview", async (event, payload) => {
@@ -520,11 +561,24 @@ ipcMain.handle("amazon:start-processing", async (event, payload) => {
     amazonIsRunning = true;
     pendingColorboxJob = null;
     try {
+        const isBatchWorkspace = payload?.mode === "batch";
         const hasSharing = (payload?.parents || []).some(parent =>
             (parent.variants || []).some(variant => Array.isArray(variant.sharedIds) && variant.sharedIds.length > 0)
         );
         let result;
-        if (hasSharing) {
+        if (isBatchWorkspace) {
+            // Never trust a renderer-only preflight: validate all real files and
+            // output collisions again immediately before publishing.
+            const psdName = normalizePsdFileName(payload?.psdFileName);
+            const checked = await validateVirtualBatch(payload);
+            if (!checked.ok) return { ok: false, error: checked.errors.join("\n") };
+            const virtualPayload = { ...payload, parents: checked.parents };
+            const inspection = await inspectSharingRequest(virtualPayload, psdName);
+            if (!inspection.ok) {
+                return { ok: false, error: (inspection.errors || []).join("\n") || "Batch Workspace preflight failed." };
+            }
+            result = await processSharedAmazonJob(event, virtualPayload, psdName, inspection);
+        } else if (hasSharing) {
             const psdName = normalizePsdFileName(payload?.psdFileName);
             const inspection = await inspectSharingRequest(payload, psdName);
             if (!inspection.ok) {

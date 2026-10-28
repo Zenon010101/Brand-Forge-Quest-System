@@ -864,3 +864,83 @@ button:disabled {
 .share-modal-actions button { padding: 10px 15px; }
 .share-apply { font-size: 11px; }
 @media (max-width: 1180px) { .variant-share-btn { padding: 5px; font-size: 8px; } }
+
+/* Folderless Amazon Batch Workspace. Existing Folder Mode styles are untouched. */
+.app-shell { grid-template-rows: auto auto minmax(0, 1fr); }
+.amazon-mode-switch { display: flex; align-items: center; gap: 7px; min-height: 34px; }
+.amazon-mode-tab { border: 1px solid #343b45; background: #1b2027; color: #b8c2cd; padding: 9px 17px; font-size: 11px; font-weight: 800; border-radius: 9px; }
+.amazon-mode-tab.current { background: #3b2229; color: #fff1f3; border-color: #b45565; }
+.amazon-mode-hint { color: var(--muted); font-size: 10px; padding-left: 10px; }
+.folder-mode-view { display: grid; min-height: 0; grid-template-rows: auto minmax(0,1fr) auto auto; gap: 12px; }
+.batch-mode-view { display: grid; min-height: 0; grid-template-rows: auto minmax(0, 1fr) auto; gap: 12px; }
+.batch-project { display: grid; grid-template-columns: minmax(270px,1fr) minmax(300px,1.3fr) auto; gap: 16px; padding: 12px; }
+.batch-import, .batch-output { min-width: 0; }
+.batch-drop { margin: 8px 0; min-height: 57px; padding: 10px 14px; border: 1px dashed #855560; border-radius: 10px; background: #211a20; display:flex; flex-direction:column; gap: 5px; justify-content: center; cursor: pointer; }
+.batch-drop strong { font-size: 12px; }
+.batch-drop span { font-size: 10px; color: #aa9fa4; }
+.batch-drop.drag-over { border-color:#f096a6; background: #36232d; }
+.batch-control { min-height: 32px; }
+.batch-output .path-row { margin-top: 8px; }
+.batch-totals { display:flex; align-items:center; max-width:230px; color:#c8d2da; font-size:11px; font-weight:800; line-height:1.6; padding: 12px; border-left:1px solid var(--border); }
+.batch-workspace { display:grid; grid-template-columns: minmax(245px, .87fr) minmax(350px, 1.3fr) minmax(310px,1fr); gap: 12px; min-height:0; }
+.batch-padded { padding: 11px 12px; }
+.batch-padded label { display:block; margin:5px 0 5px; font-size:10px; font-weight:800; color:#cbd2dd; }
+.batch-textarea { width:100%; min-width:0; background:#0f1218; color:var(--text); border:1px solid #3c434b; border-radius:8px; padding:9px; font: 11px/1.5 Consolas, monospace; resize:vertical; }
+.batch-textarea:focus { outline:none; border-color:#bb7886; }
+.batch-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:7px; }
+.batch-row button { flex:1; padding:6px 8px; white-space:nowrap; font-size:10px; }
+.batch-group-list { flex:1 1 auto; min-height:68px; overflow-y:auto; border-top:1px solid var(--border-soft); border-bottom:1px solid var(--border-soft); padding:8px; }
+.batch-group-card { cursor:pointer; display:flex; align-items:center; gap:8px; width:100%; margin-bottom:6px; padding:9px; border:1px solid var(--border-soft); background: #101419; border-radius:8px; color:var(--text); text-align:left; }
+.batch-group-card.active { border-color:#b96573; background:#2d2027; }
+.batch-group-card.drag-over { border-color:var(--ok); background:#203028; }
+.batch-group-card span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.batch-group-card strong { display:block; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.batch-group-card small { color:#a8b4bf; font-size:9px; display:block; margin-top:3px; }
+.batch-group-number { color:#e0a0ac; font-size:11px; font-weight:800; }
+.batch-edit-group { flex:0 0 auto; }
+.batch-edit-group input { margin-bottom:9px; }
+.batch-edit-group button { margin-top:10px; }
+.batch-pool-grid { flex:1 1 auto; min-height:0; overflow:auto; padding:9px; display:grid; grid-template-columns:repeat(auto-fill,minmax(116px,1fr)); grid-auto-rows:max-content; align-content:start; gap:9px; }
+.batch-pool-tile { display:flex; flex-direction:column; gap:6px; padding:7px; border-radius:8px; border:1px solid #323a44; background:#11161c; color:var(--text); min-width:0; cursor:grab; text-align:left; }
+.batch-pool-tile.selected { border-color:#e17c90; background:#302028; }
+.batch-pool-thumb { display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:1/1; background:#242930; border-radius:6px; overflow:hidden; }
+.batch-pool-thumb img { width:100%; height:100%; object-fit:contain; }
+.batch-pool-thumb em { color:#7e8790; font-size:9px; font-style:normal; text-transform:uppercase; }
+.batch-pool-tile strong { font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.batch-pool-tile small { font-size:9px; color:#84919b; }
+.batch-order-list { padding:9px; max-height:49%; min-height:130px; overflow-y:auto; border-bottom:1px solid var(--border-soft); }
+.batch-order-row { cursor:grab; border:1px solid var(--border-soft); border-radius:8px; padding:7px; margin-bottom:6px; display:flex; align-items:center; gap:6px; color:var(--text); background:#101419; }
+.batch-order-row.drag-over { border-color:var(--ok); background:#1c3026; }
+.batch-order-row.first { border-color:#486f54; }
+.batch-order-row .batch-order-position { width:21px; font-size:12px; font-weight:800; color:#dda0a9; }
+.batch-order-row .batch-order-label { min-width:0; flex:1; }
+.batch-order-row strong { display:block; font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.batch-order-row small { display:block; font-size:9px; color:#9ca8b4; margin-top:3px; }
+.batch-order-row button { padding:4px 6px; min-width:21px; font-size:11px; color:#e0e5ea; background:#292f37; border:1px solid #414953; }
+.batch-preview-box { flex:1; min-height:0; display:flex; flex-direction:column; padding:10px; gap:8px; }
+.batch-preview-stage { flex:1; min-height:90px; display:flex; align-items:center; justify-content:center; background:#0b0d11; border-radius:7px; overflow:hidden; color:var(--muted); font-size:10px; }
+.batch-preview-stage img { max-height:100%; max-width:100%; object-fit:contain; }
+.batch-preview-text { font-size:10px; color:#cbd3db; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+@media (max-width:1250px) {
+ .batch-workspace { grid-template-columns:240px minmax(310px,1.2fr) 300px; }
+ .batch-project { grid-template-columns:1fr 1fr; }
+ .batch-totals { display:none; }
+}
+.batch-groups .batch-row button { min-width:0; white-space:normal; }
+.batch-pool-tile:focus-visible, .batch-group-card:focus-visible, .batch-order-row:focus-visible { outline:2px solid #d37d8c; outline-offset:2px; }
+
+/* v1.7.9: Folderless mode is now the obvious default, while classic mode remains available. */
+.amazon-mode-switch { background: #172019; border: 1px solid #365b43; border-radius: 11px; padding: 8px 11px; gap: 10px; flex-wrap: wrap; }
+.amazon-mode-tab { min-height: 38px; font-size: 12px; letter-spacing: .2px; }
+.amazon-mode-tab.current { color: #edfdf1; border-color: #57bb76; background: #205234; box-shadow: inset 0 0 0 1px rgba(130, 212, 152, .15); }
+.amazon-mode-hint { padding-left: 4px; }
+
+/* v1.7.10: Make deleting mistaken Amazon Product IDs visible per group. */
+.batch-group-entry { display:flex; align-items:stretch; gap:6px; margin-bottom:6px; }
+.batch-group-entry .batch-group-card { flex:1 1 auto; min-width:0; margin-bottom:0; }
+.batch-group-entry .batch-group-number { flex:0 0 19px; }
+.batch-group-entry .batch-group-details { flex:1 1 auto; }
+.batch-group-delete { flex:0 0 auto; min-width:52px; padding:0 8px; border:1px solid #804856; border-radius:8px; background:#251b22; color:#f5bbc3; font-size:10px; font-weight:800; cursor:pointer; }
+.batch-group-delete:hover:not(:disabled) { border-color:#e58b9a; background:#44232e; color:#fff; }
+.batch-group-delete:focus-visible { outline:2px solid #eea5b5; outline-offset:2px; }
+.batch-group-delete:disabled { opacity:.45; cursor:not-allowed; }

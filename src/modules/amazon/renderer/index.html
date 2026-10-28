@@ -15,15 +15,21 @@
         <header class="topbar">
             <div>
                 <div class="eyebrow">IMAGE WORKFLOW STUDIO</div>
-                <h1>Amazon Image Generator</h1>
-                <p class="subtitle">Parent folders → Variant IDs → JPG export + one editable master PSD</p>
+                <h1 id="amazonHeaderTitle">Amazon Batch Workspace</h1>
+                <p class="subtitle" id="amazonHeaderSubtitle">No ID folders needed. Import images, assign Product IDs, drag to arrange, and Generate Amazon.</p>
             </div>
             <div class="topbar-right">
                 <div class="quality-badge">1001 × 1001 AMAZON</div>
-                <div class="version" id="versionLabel">v1.0.0</div>
+                <div class="version" id="versionLabel">v1.7.10</div>
             </div>
         </header>
 
+        <nav class="amazon-mode-switch" aria-label="Amazon import mode">
+            <button type="button" id="batchModeTab" class="amazon-mode-tab current" aria-pressed="true">BATCH WORKSPACE · NO FOLDERS</button>
+            <button type="button" id="folderModeTab" class="amazon-mode-tab" aria-pressed="false">Original Folder Mode</button>
+            <span class="amazon-mode-hint">v1.7.10 · Delete mistaken Product IDs directly from the list. All Amazon rules preserved.</span>
+        </nav>
+        <div class="folder-mode-view hidden" id="folderModeContent">
         <section class="project-bar card">
             <div class="project-block">
                 <label>Parent folders</label>
@@ -193,6 +199,89 @@
                 PROCESS AMAZON
             </button>
         </footer>
+        </div><!-- folder-mode-view -->
+
+        <div class="batch-mode-view" id="batchModeContent">
+            <section class="batch-project card">
+                <div class="batch-import">
+                    <div class="eyebrow">01 · SOURCE IMAGES</div>
+                    <div id="batchDropZone" class="batch-drop" tabindex="0" role="button" aria-label="Drop images here or click to browse">
+                        <strong>Drop image files here</strong>
+                        <span>Import from multiple folders · no renaming required</span>
+                    </div>
+                    <button type="button" id="batchImportBtn" class="secondary batch-control">+ Import Images</button>
+                </div>
+                <div class="batch-output">
+                    <div class="eyebrow">02 · AMAZON EXPORT</div>
+                    <div class="path-row">
+                        <div id="batchOutputPath" class="path-display" title="Choose an output folder">No output folder selected</div>
+                        <button type="button" id="batchOutputBtn" class="secondary batch-control">Choose Folder</button>
+                    </div>
+                    <div class="psd-name-row">
+                        <label for="batchPsdName">Master PSD filename</label>
+                        <input type="text" id="batchPsdName" class="psd-name-input" value="AMAZON_BATCH" placeholder="e.g. AMAZON_BATCH_01" spellcheck="false" autocomplete="off">
+                        <span class="psd-extension">.psd</span>
+                    </div>
+                    <div class="helper">JPGs + master PSD are exported directly to the selected folder; originals are untouched.</div>
+                </div>
+                <div class="batch-totals" id="batchTotals">0 groups · 0 assigned · 0 shared IDs</div>
+            </section>
+
+            <main class="batch-workspace">
+                <section class="panel batch-groups">
+                    <div class="panel-head compact"><div><div class="eyebrow">03 · PRODUCT GROUPS</div><h2>Product IDs</h2><p>Paste multiple IDs or add one at a time</p></div></div>
+                    <div class="batch-padded">
+                        <textarea id="batchBulkIds" rows="3" class="batch-textarea" placeholder="APM-100&#10;APM-200&#10;APM-300"></textarea>
+                        <div class="batch-row">
+                            <button type="button" id="batchAddIdsBtn" class="secondary batch-control">Add Pasted IDs</button>
+                            <button type="button" id="batchAddGroupBtn" class="secondary batch-control">+ Blank Group</button>
+                        </div>
+                    </div>
+                    <div class="batch-group-list" id="batchGroupList"><div class="empty-state">Add Product IDs to begin.</div></div>
+                    <div class="batch-padded batch-edit-group">
+                        <label for="batchActiveId">Selected Product ID</label>
+                        <input id="batchActiveId" class="psd-name-input" placeholder="Enter ID" autocomplete="off" spellcheck="false">
+                        <label for="batchSharedIds">Sharing IDs (same images and order)</label>
+                        <textarea id="batchSharedIds" rows="3" class="batch-textarea" placeholder="APM-101&#10;APM-102"></textarea>
+                        <div class="helper">One per line, comma or tab. Shared IDs require no images or folders.</div>
+                        <button id="batchRemoveGroupBtn" type="button" class="mini-btn ghost">Delete Selected Group</button>
+                        <div class="helper">Delete only removes a group from this batch. Your original image files are never deleted.</div>
+                    </div>
+                </section>
+
+                <section class="panel batch-pool">
+                    <div class="panel-head compact"><div><div class="eyebrow">04 · IMAGE LIBRARY</div><h2>Imported Images</h2><p id="batchPoolCount">0 files · select or drag onto a group</p></div></div>
+                    <div class="batch-padded batch-row">
+                        <button type="button" id="batchAssignBtn" class="secondary batch-control">Add Selected to Product</button>
+                        <button type="button" id="batchClearPoolBtn" class="mini-btn ghost">Clear Unassigned</button>
+                    </div>
+                    <div class="batch-pool-grid" id="batchImagePool" aria-label="Imported images">
+                        <div class="empty-state">Import images to build your library.</div>
+                    </div>
+                </section>
+
+                <section class="panel batch-arrange">
+                    <div class="panel-head compact"><div><div class="eyebrow">05 · IMAGE ORDER</div><h2 id="batchArrangeTitle">Selected Product</h2><p id="batchOrderCount">0 / 8 · Image 1 is Colorbox source</p></div></div>
+                    <div id="batchOrderList" class="batch-order-list" aria-label="Drag to reorder selected Amazon images"><div class="empty-state">Select a product and assign images.</div></div>
+                    <div class="batch-preview-box">
+                        <div class="eyebrow">LARGE SOURCE PREVIEW</div>
+                        <div class="batch-preview-stage"><img id="batchPreviewImage" class="hidden" alt="Selected source image"><span id="batchPreviewPlaceholder">Click a source image to inspect it.</span></div>
+                        <div id="batchPreviewText" class="batch-preview-text">—</div>
+                    </div>
+                </section>
+            </main>
+
+            <footer class="footer card">
+                <div class="status-wrap">
+                    <span id="batchStatusDot" class="status-dot"></span>
+                    <div class="status-copy">
+                        <div id="batchStatus" class="status-title">Ready for folderless Amazon</div>
+                        <div id="batchStatusDetail" class="status-sub">Import images, assign 1–8 per Product ID, then generate. Sharing and optional Colorbox are supported.</div>
+                    </div>
+                </div>
+                <button type="button" id="batchGenerateBtn" class="primary process-btn" disabled>GENERATE AMAZON</button>
+            </footer>
+        </div><!-- batch-mode-view -->
     </div>
 
     <div class="share-modal-backdrop hidden" id="shareModalBackdrop">
@@ -222,5 +311,6 @@
     </div>
     <script src="../shared/sharingPlan.js"></script>
     <script src="app.js"></script>
+    <script src="batchWorkspace.js"></script>
 </body>
 </html>

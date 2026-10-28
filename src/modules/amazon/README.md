@@ -1,10 +1,12 @@
+**v1.7.9 navigation note:** Amazon opens the new folderless Batch Workspace by default; the original folder-based workflow is one tab away and unchanged.
+
 # Amazon module
 
 Production Amazon Generator module used by the unified app.
 
 Preserved rules:
 - 1001x1001 final canvas
-- strict exact source filenames 1-8 only
+- strict exact source filenames 1-8 only in **Folder Mode**; **Batch Workspace** supports arbitrary input filenames and direct assignment
 - first image uses actual visible pixels in 801x801 at x=100/y=100
 - images 2-8 use actual visible pixels in 921x921 at x=40/y=40
 - cut-side rules preserve aspect ratio and push content to detected cut edges
@@ -38,3 +40,7 @@ Preserved rules:
 - Stage all rendered JPG and master PSD assets in the user's local temporary directory. Publish using exclusive stream-create for new files and backed-up streaming replacement for approved existing files, with per-ID rollback of partial files.
 - Shared IDs read the same local rendered JPGs. Final JPG bytes are identical; the original source images and other Amazon image/PSD rules are unchanged.
 - Run `npm.cmd run test:amazon-sharing` and check with a small Amazon batch on `G:` before production.
+
+## v1.7.8 Folderless Batch Workspace
+
+See `BATCH_WORKSPACE.md`. This new UI mode uses virtual Product ID groups, drag/drop source files, up to eight images per group, and optional shared IDs. It uses the same existing Amazon processing/publishing/PSD/Colorbox code as Folder Mode. No per-ID source directories or source-file renaming.

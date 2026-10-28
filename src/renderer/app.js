@@ -1,7 +1,7 @@
 const pageMeta = {
     dashboard: ["Dashboard", "Production progress and workflow shortcuts."],
     slider: ["Slider Maker", "Creative, Lineup, Detail, Cut Image, and Slider shadow."],
-    amazon: ["Amazon Generator", "Amazon JPG, custom master PSD, Colorbox, and variant processing."],
+    amazon: ["Amazon Batch Workspace", "Folderless images + multiple IDs; Original Folder Mode remains available in the Amazon module."],
     "remove-bg": ["Remove Background + Shadow", "Batch cutout PNG QC and editable Slider contact shadow PSDs."],
     "landing-page": ["Landing Page Generator", "Reconstruct 1000px-wide landing pages from Single images and ordered screenshots."],
     "lp-folder": ["LP Folder Generator", "Auto-compose editable long LP PSD/PSB + high-quality JPEG from a folder of images."],

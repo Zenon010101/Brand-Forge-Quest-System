@@ -1,6 +1,28 @@
-# BrandForge Image Workflow Studio v1.7.7
+# BrandForge v1.7.10 — Amazon Product Group Delete
+
+**New:** In **Amazon Generator → Batch Workspace**, every Product ID now has a visible **Delete** button directly beside its row. You can also select a group and click **Delete Selected Group**. Empty groups delete immediately; groups containing assigned images or sharing IDs require confirmation. Deletion removes only that virtual group and its linked IDs from the in-memory batch—**original source files are never renamed, moved, or deleted**, and imported images remain in the Image Library for other groups. The group list, active selection, preview, output count, and Generate Amazon eligibility refresh immediately. You can create the deleted ID again.
+
+**All existing Amazon rules remain:** 1–8 images per source group, image drag/reorder, sharing, Image 1 as the optional Colorbox source, master PSD, output naming, and the original Folder Mode. Slider Maker, Remove BG, both LP modules, local profiles/EXP/history, and settings are unchanged. The cancelled LAN Leaderboard remains excluded.
+
+Run `npm.cmd run test:amazon-group-delete` for the new regression check, or `npm.cmd run validate` for the full suite. Actual Photoshop export still requires testing on the designer's Windows workstation.
+
+## Previous update: v1.7.9 — Amazon Batch Workspace visibility fix
+
+Amazon Generator now opens **Batch Workspace (No folders)** by default, instead of the unchanged-looking Folder Mode. The original Folder Mode is still available with the **Original Folder Mode** tab. The Dashboard shortcut also advertises the new workspace. No production backend, source-image rules, 8-image limit, sharing, master PSD, Colorbox, EXP, or local profile logic were changed from v1.7.8.
+
+**If your app still opens the old Amazon screen without the two mode tabs, close all previous BrandForge/Electron instances.** Then open a terminal in this exact extracted project folder and run `node -p "require('./package.json').version"` (expected `1.7.9`) and `npm.cmd start`. The v1.7.7 single-instance lock can focus an already-running, older BrandForge window.
+
+# BrandForge Image Workflow Studio v1.7.9
 
 A local Electron production workspace for **Slider Maker**, **Amazon Generator**, **Remove Background + Shadow**, **Landing Page Generator**, and **LP Folder Generator**.
+
+## New in v1.7.8 — Amazon Batch Workspace (no source folders)
+
+- Amazon Generator now has **Folder Mode** (unchanged) and **Batch Workspace · No folders**. Batch Workspace directly imports images from File Explorer (multiple files / OS drag-and-drop) without creating or renaming per-ID folders or numbered 1–8 source filenames.
+- Enter or paste multiple product IDs; assign separate image sets of **1–8 images per ID** from a shared image library. Drag files to product groups and drag within each group to change Amazon output order. The first image becomes the exact **Colorbox source**.
+- Full-image **Share Images** still accepts multiple secondary IDs per source group, reuses finished JPGs byte-for-byte, and adds individually named layers to the existing master PSD. Existing 1001px, 801/921 and cut-side rules, output names, EXP/history and the post-generation **Generate Colorbox / Skip** dialog are reused unchanged.
+- All outputs go to a designer-selected output folder, directly (no ID subfolders), with an editable master PSD filename. Original images are untouched. File/source existence, ID/filename conflicts, prior output overwrite approval, Drive-safe staging, and batch isolation are enforced by Electron main.
+- Run `npm.cmd run test:amazon-batch` for new integration tests or `npm.cmd run validate` for all suites. See `src/modules/amazon/BATCH_WORKSPACE.md` for usage and limits. **Windows Explorer drag/drop and Photoshop PSD creation still require a Windows workstation smoke test.** No Python required and the canceled LAN Leaderboard is not included.
 
 ## Fix in v1.7.7 — Windows Chromium disk cache permission error (0x5)
 

@@ -111,6 +111,7 @@ function scanParentFolder(parentFolder) {
 }
 
 module.exports = {
+    SUPPORTED_EXTENSIONS,
     naturalSort,
     exactSlotFromName,
     sourceTypeFromExtension,
