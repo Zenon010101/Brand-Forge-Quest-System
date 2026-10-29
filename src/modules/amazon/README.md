@@ -44,3 +44,25 @@ Preserved rules:
 ## v1.7.8 Folderless Batch Workspace
 
 See `BATCH_WORKSPACE.md`. This new UI mode uses virtual Product ID groups, drag/drop source files, up to eight images per group, and optional shared IDs. It uses the same existing Amazon processing/publishing/PSD/Colorbox code as Folder Mode. No per-ID source directories or source-file renaming.
+
+## v1.7.13 — Cut side / corner alignment correction
+
+The Amazon renderer still uses a 1001x1001 JPG canvas. Uncut image 1 fits its
+visible content within the 801x801 area; uncut images 2-8 fit within 921x921.
+When a genuine cut side is detected, its visible product pixels align flush to
+the corresponding *full canvas* edge. The background estimate for opaque JPGs
+now comes from the perimeter rather than an average of four corners; the
+cut-corner anchor uses solid product pixels instead of opaque background or
+faint antialiasing. Image 1 remains the optional Colorbox source and all shared
+IDs reuse its completed output. No change to PSD shadow hiding, PSD layer
+structure, order, source files, ID mapping or the Generate Colorbox / Skip
+dialog. Run `npm.cmd run test:amazon-cut` for edge-specific regression tests.
+
+## v1.7.14 — Sharing button restored in Batch Workspace
+
+Batch Workspace now displays a dedicated Share Images button per Product Group
+and in the selected-group editor. A multi-ID modal applies the original
+`sharingPlan.js` filename and duplicate-ID rules, and shows the expected shared
+JPGs. Existing shared IDs remain linked and editable. The old inline IDs textarea and Folder Mode sharing modal remain.
+The renderer, cut alignment, master PSD, shared publisher and optional Colorbox
+logic are unchanged. See `test/amazonBatchSharingUi.js`.

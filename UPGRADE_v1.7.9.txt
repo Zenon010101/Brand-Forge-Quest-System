@@ -1,0 +1,33 @@
+BrandForge v1.7.9 — Amazon Batch Workspace default mode
+
+WHAT CHANGED
+- Amazon Generator now launches into Batch Workspace · No folders by default.
+- The original folder-based mode remains available in the top toggle.
+- Dashboard opens the Amazon Generator with the folderless workflow visible.
+- Version label is v1.7.9, so old running builds are easy to identify.
+- No Amazon rendering, Photoshop, sharing, Colorbox, Slider, LP, Profile, EXP or History logic was modified.
+
+INSTALLATION
+1. Close BrandForge and any old Electron/Image Workflow Studio window.
+   The single-instance lock from v1.7.7 can focus an already open, older window.
+2. Back up the existing BrandForge directory.
+3. For COMPLETE project: extract the complete ZIP to a NEW folder and open THAT folder in VS Code.
+   For PATCH only: apply to your existing v1.7.8 project root (the folder containing package.json), preserving the subfolders.
+4. Open a terminal in that folder and verify the exact version:
+      node -p "require('./package.json').version"
+   It MUST show 1.7.9.
+5. Run:
+      npm.cmd install
+      npm.cmd start
+6. Open Amazon Generator. Look for the green BATCH WORKSPACE · NO FOLDERS button.
+   To use the old source-folder workflow, click Original Folder Mode.
+
+If there are no mode buttons, the app is not loading this updated renderer.
+Check that this file contains the batchModeTab text:
+   src\modules\amazon\renderer\index.html
+Also close the old running instance before launching a new source directory.
+
+TESTING
+- npm run validate: PASS (including batch, sharing, Slider, Remove BG, LP, and cache tests).
+- Headless browser layout: PASS default Batch Workspace and mode toggling.
+- Windows + Photoshop runtime: not tested here.

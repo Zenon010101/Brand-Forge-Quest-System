@@ -1,0 +1,52 @@
+BRANDFORGE v1.7.12 - AMAZON PATH SCAN + FILE TYPE FILTERS + PICK-ORDER ASSIGNMENT
+
+Apply this PATCH over the original v1.7.11 Smart Folder Import project,
+or use the COMPLETE PROJECT ZIP in a new folder. Close every BrandForge
+window first (the single-instance lock can focus an older app).
+
+NEW - AMAZON GENERATOR > BATCH WORKSPACE
+
+1. Paste an absolute source-image folder path (for example G:\\Shared drives\\...
+   or C:\\Products\\Images) into Image folder location, or click Browse.
+   Browse automatically scans the selected directory.
+2. Select Scan type: All supported, PNG, PSD, PSB, JPG/JPEG, WEBP,
+   TIF/TIFF, BMP, GIF, HEIC/HEIF or AVIF.
+3. Include subfolders is optional and OFF by default. Click Scan Images.
+   New matching files are added to the Image Library without any source
+   rename/move. Scanning the same folder again does not duplicate files.
+4. Use Show file type in Image Library to display only PNG, PSD, etc.
+   Switching filters does not delete images or change existing selections.
+5. Click images IN THE DESIRED AMAZON OUTPUT ORDER. The thumbnail badges
+   show PICK 1, PICK 2, ... PICK 8. Click again to deselect; click another
+   to append. Click Add Selected in Pick Order to assign exactly that order
+   to the active Product ID. First picked = Main Amazon image / Colorbox.
+6. If the Windows multi-file picker returns images in an OS-defined order,
+   click them in order in the Image Library before adding them. OS file
+   dialogs cannot reliably report the actual order of Ctrl-clicks.
+7. Product groups still accept MAXIMUM 8 unique images. Drag-to-reorder,
+   Share Images and the Generate Colorbox / Skip choice stay unchanged.
+
+The direct Image Library path scanner handles existing image folders and folder-
+name-to-ID mappings. Its manual image-choice list now also preserves
+pick order (automatic source sets keep their natural filename order).
+
+RELIABILITY / SAFETY
+- Import is read-only. Original images and source folders are not changed.
+- Scans have limits: 2,500 files, 350 directories, 12 nested levels.
+- Hidden/system/temp and non-image files are skipped.
+- File types apply to initial scan and visible-library filtering separately.
+- All existing Amazon sizing/cut-side, master PSD, sharing, Colorbox, EXP,
+  Slider, Remove BG, LP, settings, and local Profiles/History are unchanged.
+- No LAN leaderboard; it remains cancelled.
+
+RUN
+  npm.cmd install  (only when using a freshly extracted complete project)
+  npm.cmd run validate
+  npm.cmd start
+
+TESTING
+- New: npm.cmd run test:amazon-path-import
+- Full prior regression suite passed, and a Chromium UI interaction test
+  confirmed path scanning, filters and click-order assignments.
+- Actual Windows Photoshop/JPG/PSD and mapped G: drive still need to be
+  tested on your workstation.

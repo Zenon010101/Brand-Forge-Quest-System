@@ -20,14 +20,14 @@
             </div>
             <div class="topbar-right">
                 <div class="quality-badge">1001 × 1001 AMAZON</div>
-                <div class="version" id="versionLabel">v1.7.10</div>
+                <div class="version" id="versionLabel">v1.7.14</div>
             </div>
         </header>
 
         <nav class="amazon-mode-switch" aria-label="Amazon import mode">
             <button type="button" id="batchModeTab" class="amazon-mode-tab current" aria-pressed="true">BATCH WORKSPACE · NO FOLDERS</button>
             <button type="button" id="folderModeTab" class="amazon-mode-tab" aria-pressed="false">Original Folder Mode</button>
-            <span class="amazon-mode-hint">v1.7.10 · Delete mistaken Product IDs directly from the list. All Amazon rules preserved.</span>
+            <span class="amazon-mode-hint">v1.7.14 · Share Images restored as a visible Batch action · Cut-edge alignment preserved.</span>
         </nav>
         <div class="folder-mode-view hidden" id="folderModeContent">
         <section class="project-bar card">
@@ -209,7 +209,23 @@
                         <strong>Drop image files here</strong>
                         <span>Import from multiple folders · no renaming required</span>
                     </div>
-                    <button type="button" id="batchImportBtn" class="secondary batch-control">+ Import Images</button>
+                    <div class="batch-path-import">
+                        <label for="batchSourcePath">Image folder location (paste a Windows / G: path)</label>
+                        <div class="batch-path-row">
+                            <input id="batchSourcePath" type="text" spellcheck="false" autocomplete="off" placeholder="G:\Products\Amazon\Images" aria-label="Path to image folder">
+                            <button type="button" id="batchBrowseSourceBtn" class="secondary batch-control">Browse</button>
+                            <button type="button" id="batchScanFolderBtn" class="primary batch-control">Scan Images</button>
+                        </div>
+                        <div class="batch-scan-options">
+                            <label for="batchScanFormat">Scan type</label>
+                            <select id="batchScanFormat" aria-label="Types of source images to scan"></select>
+                            <label class="batch-check" for="batchIncludeSubfolders">
+                                <input id="batchIncludeSubfolders" type="checkbox"> Include subfolders
+                            </label>
+                        </div>
+                        <div id="batchScanSummary" class="batch-scan-summary" aria-live="polite">Scan a folder to add images automatically. No files will be moved or renamed.</div>
+                    </div>
+                    <button type="button" id="batchImportBtn" class="secondary batch-control">+ Import Images (manual)</button>
                 </div>
                 <div class="batch-output">
                     <div class="eyebrow">02 · AMAZON EXPORT</div>
@@ -241,9 +257,13 @@
                     <div class="batch-padded batch-edit-group">
                         <label for="batchActiveId">Selected Product ID</label>
                         <input id="batchActiveId" class="psd-name-input" placeholder="Enter ID" autocomplete="off" spellcheck="false">
-                        <label for="batchSharedIds">Sharing IDs (same images and order)</label>
+                        <div class="batch-share-toolbar">
+                            <button id="batchShareImagesBtn" type="button" class="primary batch-share-action" disabled>Share Images</button>
+                            <span id="batchSharedCount" aria-live="polite">0 shared IDs</span>
+                        </div>
+                        <label for="batchSharedIds">Shared IDs (quick edit)</label>
                         <textarea id="batchSharedIds" rows="3" class="batch-textarea" placeholder="APM-101&#10;APM-102"></textarea>
-                        <div class="helper">One per line, comma or tab. Shared IDs require no images or folders.</div>
+                        <div class="helper">Click Share Images to paste, validate, add or remove multiple IDs. Shared IDs inherit the same images and order. No new source folders.</div>
                         <button id="batchRemoveGroupBtn" type="button" class="mini-btn ghost">Delete Selected Group</button>
                         <div class="helper">Delete only removes a group from this batch. Your original image files are never deleted.</div>
                     </div>
@@ -251,9 +271,17 @@
 
                 <section class="panel batch-pool">
                     <div class="panel-head compact"><div><div class="eyebrow">04 · IMAGE LIBRARY</div><h2>Imported Images</h2><p id="batchPoolCount">0 files · select or drag onto a group</p></div></div>
-                    <div class="batch-padded batch-row">
-                        <button type="button" id="batchAssignBtn" class="secondary batch-control">Add Selected to Product</button>
-                        <button type="button" id="batchClearPoolBtn" class="mini-btn ghost">Clear Unassigned</button>
+                    <div class="batch-padded batch-library-controls">
+                        <div class="batch-library-filter">
+                            <label for="batchLibraryFilter">Show file type</label>
+                            <select id="batchLibraryFilter" aria-label="Filter images visible in library"></select>
+                        </div>
+                        <div class="batch-row">
+                            <button type="button" id="batchAssignBtn" class="secondary batch-control">Add Selected in Pick Order</button>
+                            <button type="button" id="batchClearSelectionBtn" class="mini-btn ghost">Clear Picks</button>
+                            <button type="button" id="batchClearPoolBtn" class="mini-btn ghost">Clear Unassigned</button>
+                        </div>
+                        <div id="batchSelectionPreview" class="batch-selection-preview" aria-live="polite">Click images in the order you want: 1 = Main + Colorbox, then 2–8.</div>
                     </div>
                     <div class="batch-pool-grid" id="batchImagePool" aria-label="Imported images">
                         <div class="empty-state">Import images to build your library.</div>
@@ -309,7 +337,38 @@
             </div>
         </section>
     </div>
+    <!-- Dedicated Share Images control for the folderless Batch Workspace.
+         Independent of the original Folder Mode Share Images dialog. -->
+    <div class="share-modal-backdrop hidden" id="batchShareModalBackdrop">
+        <section class="share-modal batch-share-modal" role="dialog" aria-modal="true" aria-labelledby="batchShareModalTitle">
+            <div class="share-modal-head">
+                <div>
+                    <div class="eyebrow">AMAZON · BATCH WORKSPACE</div>
+                    <h2 id="batchShareModalTitle">Share Images</h2>
+                </div>
+                <button class="share-modal-close" id="batchShareCloseBtn" type="button" aria-label="Close Batch Share Images">×</button>
+            </div>
+            <div class="share-source-summary" id="batchShareSourceSummary">Choose a Product ID to share its images.</div>
+            <label class="share-label" for="batchShareIdsInput">Additional Amazon Product IDs</label>
+            <textarea id="batchShareIdsInput" class="share-textarea" rows="7" spellcheck="false" placeholder="APM-101&#10;APM-102&#10;APM-103"></textarea>
+            <p class="share-helper">Paste one ID per line, or separate with commas, tabs or semicolons. Each shared ID uses all images in the source group's exact order. Empty the list and Apply to remove sharing.</p>
+            <div class="share-count-row" id="batchShareCountSummary">0 shared IDs</div>
+            <div class="share-validation" id="batchShareValidation" aria-live="polite">Enter IDs to validate.</div>
+            <div class="share-preview">
+                <div class="share-preview-title">SHARED AMAZON JPG OUTPUTS</div>
+                <div class="share-output-list" id="batchShareOutputPreview">—</div>
+            </div>
+            <div class="share-modal-actions">
+                <button class="mini-btn ghost" id="batchShareCancelBtn" type="button">Cancel</button>
+                <button class="primary share-apply" id="batchShareApplyBtn" type="button">Apply Sharing</button>
+            </div>
+        </section>
+    </div>
+
     <script src="../shared/sharingPlan.js"></script>
+    <script src="../shared/batchSharingEditor.js"></script>
+    <script src="../shared/imageFilters.js"></script>
+    <script src="../shared/selectionOrder.js"></script>
     <script src="app.js"></script>
     <script src="batchWorkspace.js"></script>
 </body>

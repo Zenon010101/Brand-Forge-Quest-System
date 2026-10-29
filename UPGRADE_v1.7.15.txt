@@ -1,0 +1,33 @@
+BrandForge v1.7.15 — Smart Folder Import Removed
+==================================================
+
+Smart Folder Import (per-product folder auto-grouping, Excel folder-to-ID
+mapping and the Import Ready Groups dialog) is removed entirely.
+
+PRESERVED:
+- Original Folder Mode and folderless Amazon Batch Workspace
+- Paste a folder path / Browse / Scan Images / Include subfolders
+- Scan type and Show file type filters (PNG, PSD, JPG, etc.)
+- Manual image import, drag/drop, ordered picks, drag-to-reorder, up to 8 images
+- Product Group deletion and Share Images for multiple IDs
+- Amazon 1001x1001 canvas, 801/921 sizing, cut-edge flush detection
+- Original master PSD generation and image naming
+- Optional Generate Colorbox / Skip (Image 1 always the source)
+- Slider Maker, Remove BG, both LP modules, local Profiles/EXP/History
+- No LAN Team Leaderboard
+
+INSTALL FULL ZIP:
+1. Close BrandForge and back up your existing project.
+2. Extract this updated full project into its own folder.
+3. Run npm.cmd install (if needed), npm.cmd run validate, npm.cmd start.
+
+INSTALL PATCH over v1.7.14:
+1. Close BrandForge and back up your v1.7.14 project.
+2. Extract ALL files from the patch ZIP into the project root, preserving paths.
+3. Run CLEANUP_REMOVED_SMART_FOLDER.cmd from the project root to delete leftover
+   Smart Folder Import-only source and test files. It does not delete images,
+   user accounts, settings, history or any other Amazon feature.
+4. Run npm.cmd run validate, npm.cmd start.
+
+This change does not modify input source images or previously exported JPG/PSD
+files. Actual Photoshop export still requires a Windows workstation test.

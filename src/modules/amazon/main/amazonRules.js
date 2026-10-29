@@ -22,61 +22,116 @@ async function getRawInfo(buffer) {
         .toBuffer({ resolveWithObject: true });
 }
 
-async function getContentBounds(buffer) {
-    const { data, info } = await getRawInfo(buffer);
+// The opaque-image classifier is deliberately shared by trimming, cut-side
+// detection and cut-corner anchoring. In older builds each step used a
+// different definition of visible pixels: trimming/detection averaged all
+// four corners, while anchoring treated every JPEG pixel (including its white
+// background) as product. On cropped white-background product photographs
+// that creates false cut sides and leaves visibly white cut corners.
+function createContentClassifier(data, info) {
     const { width, height, channels } = info;
-
-    function pixelAt(x, y) {
-        const i = (y * width + x) * channels;
-        return {
-            r: data[i],
-            g: data[i + 1],
-            b: data[i + 2],
-            a: data[i + 3]
-        };
+    const alphaIndex = channels - 1;
+    // A single antialiased/partly transparent pixel does not make an opaque
+    // product photograph a transparent cutout. Count meaningful alpha area.
+    let lowAlphaPixels = 0;
+    let semiAlphaPixels = 0;
+    for (let i = alphaIndex; i < data.length; i += channels) {
+        if (data[i] <= 64) lowAlphaPixels++;
+        if (data[i] < 225) semiAlphaPixels++;
     }
+    const totalPixels = width * height;
+    const hasTransparency = lowAlphaPixels >= Math.max(4, Math.ceil(totalPixels * 0.0005)) ||
+        semiAlphaPixels >= Math.max(8, Math.ceil(totalPixels * 0.01));
 
-    let hasTransparency = false;
-    for (let i = 3; i < data.length; i += channels) {
-        if (data[i] < 250) {
-            hasTransparency = true;
-            break;
-        }
-    }
-
-    let background = { r: 255, g: 255, b: 255 };
-
+    let background = null;
     if (!hasTransparency) {
-        const corners = [
-            pixelAt(0, 0),
-            pixelAt(width - 1, 0),
-            pixelAt(0, height - 1),
-            pixelAt(width - 1, height - 1)
-        ];
+        // Sample the whole perimeter rather than averaging four corners.
+        // Product pixels often cover one or more corners of a *cut* image.
+        // Using them as the background turns the real white background into
+        // "content", so the image wrongly becomes an all-sides cut.
+        const bins = new Map();
+        let brightCount = 0;
+        let brightR = 0;
+        let brightG = 0;
+        let brightB = 0;
+        let brightCorner = false;
+        let count = 0;
+        const sample = (x, y) => {
+            const i = (y * width + x) * channels;
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+            let bin = bins.get(key);
+            if (!bin) {
+                bin = { count: 0, r: 0, g: 0, b: 0 };
+                bins.set(key, bin);
+            }
+            bin.count++;
+            bin.r += r;
+            bin.g += g;
+            bin.b += b;
+            count++;
+            if (r >= 235 && g >= 235 && b >= 235) {
+                brightCount++;
+                brightR += r;
+                brightG += g;
+                brightB += b;
+                if ((x === 0 || x === width - 1) &&
+                    (y === 0 || y === height - 1)) brightCorner = true;
+            }
+        };
+        for (let x = 0; x < width; x++) {
+            sample(x, 0);
+            if (height > 1) sample(x, height - 1);
+        }
+        for (let y = 1; y < height - 1; y++) {
+            sample(0, y);
+            if (width > 1) sample(width - 1, y);
+        }
 
-        background = corners.reduce(
-            (acc, p) => ({
-                r: acc.r + p.r / corners.length,
-                g: acc.g + p.g / corners.length,
-                b: acc.b + p.b / corners.length
-            }),
-            { r: 0, g: 0, b: 0 }
-        );
+        let dominant = null;
+        for (const bin of bins.values()) {
+            if (!dominant || bin.count > dominant.count) dominant = bin;
+        }
+
+        // E-commerce sources are often on white / near-white backgrounds.
+        // A dark product can dominate the perimeter when cut on 2–3 sides;
+        // don't mistake the product for the background in that case.
+        if (brightCount >= Math.max(4, Math.ceil(count * 0.16)) ||
+            (brightCorner && brightCount >= Math.max(4, Math.ceil(count * 0.025)))) {
+            background = {
+                r: brightR / brightCount,
+                g: brightG / brightCount,
+                b: brightB / brightCount
+            };
+        } else if (dominant && dominant.count >= Math.max(4, Math.ceil(count * 0.20))) {
+            background = {
+                r: dominant.r / dominant.count,
+                g: dominant.g / dominant.count,
+                b: dominant.b / dominant.count
+            };
+        }
+        // No stable perimeter background generally means a full-bleed photo.
+        // Those must cover the whole Amazon canvas, not sit in the safe area.
     }
 
     function isContent(x, y) {
-        const p = pixelAt(x, y);
-
-        if (hasTransparency) {
-            return p.a > 20;
-        }
-
-        const dr = p.r - background.r;
-        const dg = p.g - background.g;
-        const db = p.b - background.b;
-        return Math.sqrt(dr * dr + dg * dg + db * db) > 30;
+        const i = (y * width + x) * channels;
+        if (hasTransparency) return data[i + alphaIndex] > 20;
+        if (!background) return true;
+        const dr = data[i] - background.r;
+        const dg = data[i + 1] - background.g;
+        const db = data[i + 2] - background.b;
+        return dr * dr + dg * dg + db * db > 30 * 30;
     }
+    return { isContent, hasTransparency, background };
+}
 
+async function getContentBounds(buffer) {
+    const { data, info } = await getRawInfo(buffer);
+    const { width, height } = info;
+    const { isContent } = createContentClassifier(data, info);
     let minX = width;
     let minY = height;
     let maxX = -1;
@@ -85,7 +140,6 @@ async function getContentBounds(buffer) {
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             if (!isContent(x, y)) continue;
-
             if (x < minX) minX = x;
             if (y < minY) minY = y;
             if (x > maxX) maxX = x;
@@ -93,16 +147,9 @@ async function getContentBounds(buffer) {
         }
     }
 
-    if (maxX === -1 || maxY === -1) {
-        return {
-            left: 0,
-            top: 0,
-            width,
-            height,
-            empty: true
-        };
+    if (maxX === -1) {
+        return { left: 0, top: 0, width, height, empty: true };
     }
-
     return {
         left: minX,
         top: minY,
@@ -145,81 +192,44 @@ async function trimToContent(buffer) {
 
 async function detectCutSides(buffer) {
     const { data, info } = await getRawInfo(buffer);
-    const { width, height, channels } = info;
+    const { width, height } = info;
+    const { isContent } = createContentClassifier(data, info);
 
-    function pixelAt(x, y) {
-        const i = (y * width + x) * channels;
-        return {
-            r: data[i],
-            g: data[i + 1],
-            b: data[i + 2],
-            a: data[i + 3]
-        };
-    }
+    const strip = Math.max(2, Math.min(8, Math.round(Math.min(width, height) * 0.005)));
+    // Account for a small transparent fringe from PSD extraction / antialiasing.
+    // Never use a broad tolerance: a normally centered product must continue
+    // to use the 801 / 921 px safe-area placement.
+    const nearby = Math.max(strip, Math.min(12, Math.round(Math.min(width, height) * 0.012)));
 
-    let hasTransparency = false;
-    for (let i = 3; i < data.length; i += channels) {
-        if (data[i] < 250) {
-            hasTransparency = true;
-            break;
-        }
-    }
-
-    const corners = [
-        pixelAt(0, 0),
-        pixelAt(width - 1, 0),
-        pixelAt(0, height - 1),
-        pixelAt(width - 1, height - 1)
-    ];
-
-    const background = corners.reduce(
-        (acc, p) => ({
-            r: acc.r + p.r / corners.length,
-            g: acc.g + p.g / corners.length,
-            b: acc.b + p.b / corners.length
-        }),
-        { r: 0, g: 0, b: 0 }
-    );
-
-    function isContent(x, y) {
-        const p = pixelAt(x, y);
-        if (hasTransparency) return p.a > 20;
-
-        const dr = p.r - background.r;
-        const dg = p.g - background.g;
-        const db = p.b - background.b;
-        return Math.sqrt(dr * dr + dg * dg + db * db) > 30;
-    }
-
-    const strip = Math.max(
-        2,
-        Math.min(8, Math.round(Math.min(width, height) * 0.005))
-    );
-
-    function edgeHasContent(side) {
-        let contentPixels = 0;
-        let checkedPixels = 0;
-
+    function countEdge(side, thickness) {
+        let count = 0;
         if (side === "left" || side === "right") {
             for (let y = 0; y < height; y++) {
-                for (let s = 0; s < strip; s++) {
+                for (let s = 0; s < Math.min(thickness, width); s++) {
                     const x = side === "left" ? s : width - 1 - s;
-                    checkedPixels++;
-                    if (isContent(x, y)) contentPixels++;
+                    if (isContent(x, y)) count++;
                 }
             }
         } else {
             for (let x = 0; x < width; x++) {
-                for (let s = 0; s < strip; s++) {
+                for (let s = 0; s < Math.min(thickness, height); s++) {
                     const y = side === "top" ? s : height - 1 - s;
-                    checkedPixels++;
-                    if (isContent(x, y)) contentPixels++;
+                    if (isContent(x, y)) count++;
                 }
             }
         }
+        return count;
+    }
 
-        const minimum = Math.max(4, Math.round(checkedPixels * 0.0015));
-        return contentPixels >= minimum;
+    function edgeHasContent(side) {
+        const length = side === "left" || side === "right" ? height : width;
+        const strict = countEdge(side, strip);
+        if (strict >= Math.max(4, Math.ceil(length * strip * 0.0015))) return true;
+        if (nearby <= strip) return false;
+        // Near-edge pixels count only when there is meaningful continuous
+        // product coverage. This avoids treating a tiny corner speck as a cut.
+        const nearCount = countEdge(side, nearby);
+        return nearCount >= Math.max(12, Math.ceil(length * nearby * 0.05));
     }
 
     return {
@@ -233,54 +243,63 @@ async function detectCutSides(buffer) {
 
 async function getOpaqueCornerAnchor(buffer, cut) {
     const { data, info } = await getRawInfo(buffer);
-    const { width, height, channels } = info;
+    const { width, height } = info;
+    const { isContent } = createContentClassifier(data, info);
 
     const corners = [];
     if (cut.left && cut.top) corners.push({ name: "top-left", x: 0, y: 0 });
     if (cut.right && cut.top) corners.push({ name: "top-right", x: width - 1, y: 0 });
     if (cut.left && cut.bottom) corners.push({ name: "bottom-left", x: 0, y: height - 1 });
     if (cut.right && cut.bottom) corners.push({ name: "bottom-right", x: width - 1, y: height - 1 });
-
     if (!corners.length) return null;
 
-    function alphaAt(x, y) {
-        return data[(y * width + x) * channels + 3];
+    // Real item pixels only. Previously this tested alpha only, so *opaque*
+    // JPG/PNG backgrounds were treated as solid product at every corner.
+    // Prefer a *solid interior* pixel (3x3 neighborhood) rather than the
+    // nearest faint antialiased edge pixel. Otherwise the cut corner can
+    // render nearly white even though the nominal anchor reaches (0,0).
+    function isInteriorPixel(x, y) {
+        let inspected = 0;
+        let occupied = 0;
+        for (let ny = Math.max(0, y - 1); ny <= Math.min(height - 1, y + 1); ny++) {
+            for (let nx = Math.max(0, x - 1); nx <= Math.min(width - 1, x + 1); nx++) {
+                inspected++;
+                if (isContent(nx, ny)) occupied++;
+            }
+        }
+        return occupied >= Math.ceil(inspected * 0.90);
     }
 
     let best = null;
-
     for (const corner of corners) {
         let nearest = null;
-        let nearestDistance = Infinity;
-
+        let distanceSq = Infinity;
+        let interior = null;
+        let interiorDistanceSq = Infinity;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                if (alphaAt(x, y) <= 20) continue;
+                if (!isContent(x, y)) continue;
                 const dx = x - corner.x;
                 const dy = y - corner.y;
-                const distance = dx * dx + dy * dy;
-                if (distance < nearestDistance) {
-                    nearestDistance = distance;
+                const candidate = dx * dx + dy * dy;
+                if (candidate < distanceSq) {
+                    distanceSq = candidate;
                     nearest = { x, y };
-                    if (distance === 0) break;
+                }
+                if (candidate < interiorDistanceSq && isInteriorPixel(x, y)) {
+                    interiorDistanceSq = candidate;
+                    interior = { x, y };
                 }
             }
-            if (nearestDistance === 0) break;
         }
-
-        if (!nearest) continue;
-
-        const normalizedDistance = Math.sqrt(nearestDistance) / Math.max(1, Math.min(width, height));
+        const chosen = interior || nearest;
+        if (!chosen) continue;
+        const normalizedDistance = Math.sqrt(interior ? interiorDistanceSq : distanceSq) /
+            Math.max(1, Math.min(width, height));
         if (!best || normalizedDistance > best.normalizedDistance) {
-            best = {
-                corner: corner.name,
-                x: nearest.x,
-                y: nearest.y,
-                normalizedDistance
-            };
+            best = { corner: corner.name, ...chosen, normalizedDistance };
         }
     }
-
     return best;
 }
 

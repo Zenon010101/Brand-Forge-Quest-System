@@ -1,0 +1,52 @@
+BrandForge v1.7.11 - Amazon Smart Folder Import
+================================================
+
+WHAT CHANGED
+- NEW: Amazon Generator > Batch Workspace > Smart Folder Import.
+- Select an existing parent folder (no new per-ID folders needed).
+- One existing product folder becomes one potential image group.
+- Detect sources from the product directory or nested source folders, including
+  AMAZON and SLIDER/SLIDER-IMAGES/psd paths, and ordinary supported formats.
+- Automatically load 1-8 uniquely named source images in natural filename order.
+- Paste Excel mappings: Folder<TAB>Amazon ID<TAB>Sharing IDs (optional).
+- Or paste one Amazon ID per line, with explicit folder-order confirmation.
+- Ambiguous sources, duplicate image versions, >8 images, or inaccessible files
+  are held for review. Never silently keep the first eight.
+- Validated groups enter the EXISTING folderless Batch Workspace; image order
+  can still be changed by dragging and Image 1 remains Colorbox source.
+- Original Folder Mode, Share Images, Photoshop processing, optional Colorbox,
+  Slider Maker, Remove BG, LP tools, profiles and EXP are unchanged.
+- The canceled LAN leaderboard is NOT included.
+
+INSTALL
+- Close BrandForge and back up your current project.
+- Full ZIP: extract to a new directory. Patch ZIP: apply only over v1.7.10,
+  preserving the src/ folder structure and replacing files when requested.
+- Run: npm.cmd install (full ZIP only, if dependencies are not installed)
+- Run: npm.cmd run validate
+- Run: npm.cmd start
+- The Amazon Generator should show the v1.7.11 badge and Smart Folder Import.
+
+WORKFLOW
+1. Amazon Generator > Batch Workspace > Smart Folder Import.
+2. Select Parent Folder containing existing product subfolders.
+3. Paste mappings, e.g.:
+      BAG BLACK    APM-100    APM-101, APM-102
+      BAG NAVY     APM-200
+      BAG BEIGE    APM-300
+   (Use TAB between columns when pasting from Excel.)
+4. Click Apply ID Mapping. Review source choices and image order.
+5. Fix Needs Review items, or explicitly uncheck the folders to omit.
+6. Click Import Ready Groups. The groups appear in Product IDs.
+7. Choose the Amazon output folder and PSD name, then Generate Amazon.
+8. As before, choose Generate Colorbox or Skip. Colorbox uses Image 1.
+
+NOTES
+- Imported source files stay where they are; no renaming or folder creation.
+- A source folder with multiple possible image subfolders requires a choice.
+- Each independent Product ID must have 1-8 images, maximum 8.
+- Sharing IDs reuse their primary ID's entire ordered image set.
+- Repeat import of an already imported product folder is blocked until that
+  Product Group is deleted. Imported source files remain in the Image Library.
+- Actual Adobe Photoshop, mapped G: drive and Windows drag/drop require an
+  on-workstation acceptance test; automated tests cannot substitute for that.

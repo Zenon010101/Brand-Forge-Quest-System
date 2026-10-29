@@ -12,6 +12,7 @@ const {
 
 const { scanParentFolder, SUPPORTED_EXTENSIONS } = require("./folderScanner");
 const { readImageRecords, validateVirtualBatch } = require("./batchWorkspace");
+const { scanBatchImageFolder } = require("./batchImageScanner");
 const {
     processVariant,
     createPreviewDataUrl,
@@ -181,7 +182,32 @@ ipcMain.handle("amazon:select-output-folder", async () => {
     return folderPath ? { folderPath } : null;
 });
 
-// File Explorer import is available without creating/renaming any folders.
+// Paste a folder path or browse for one. This scans supported images into
+// the Image Library without creating product groups or renaming source files.
+ipcMain.handle("amazon:choose-image-folder", async () => {
+    if (amazonIsRunning || colorboxIsRunning) return { error: "Wait for Amazon processing to finish." };
+    const state = readDialogState();
+    const response = await dialog.showOpenDialog({
+        title: "Choose folder containing Amazon source images",
+        defaultPath: usableDirectory(state.lastBatchImageFolder) || usableDirectory(state.lastParentLocation),
+        properties: ["openDirectory"]
+    });
+    if (response.canceled || !response.filePaths.length) return null;
+    const folderPath = response.filePaths[0];
+    writeDialogState({ lastBatchImageFolder: folderPath });
+    return { folderPath };
+});
+ipcMain.handle("amazon:scan-image-folder", async (_event, payload) => {
+    if (amazonIsRunning || colorboxIsRunning) return { error: "Wait for Amazon processing to finish." };
+    try {
+        const result = await scanBatchImageFolder(payload?.folderPath, {
+            recursive: payload?.recursive === true, format: payload?.format || "all"
+        });
+        writeDialogState({ lastBatchImageFolder: result.folderPath });
+        return result;
+    } catch (error) { return { error: error?.message || String(error) }; }
+});
+
 ipcMain.handle("amazon:choose-batch-images", async () => {
     const state = readDialogState();
     const response = await dialog.showOpenDialog({

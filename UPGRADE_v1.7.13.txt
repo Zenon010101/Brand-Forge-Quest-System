@@ -1,0 +1,24 @@
+BRANDFORGE v1.7.13 — AMAZON CUT-EDGE FIX
+
+WHAT CHANGED
+- Corrects background/cut detection on opaque white-background JPG/PNG images.
+- Detected cut sides now follow the actual full 1001x1001 canvas edge.
+- Corner lock uses solid product pixels instead of white background or faint fringes.
+- Maintains the existing safe areas: 801 (Image 1), 921 (Images 2–8), except when a cut overrides the inset.
+- Folder Mode, folderless Batch Workspace, path scan/filters,
+  exact pick order, Share Images, Colorbox optional prompt and all other modules are retained.
+
+PATCH INSTALL (if current version is v1.7.12)
+1. Exit BrandForge, and back up your project folder.
+2. Extract the v1.7.13 patch over the v1.7.12 project, keeping folder structure.
+3. Restart using npm.cmd start (no added npm dependencies).
+4. Check version 1.7.13. Run npm.cmd run test:amazon-cut and npm.cmd run validate.
+5. Reprocess a cut source and inspect its actual JPG edge pixels in Photoshop.
+   Existing JPG outputs will not change until you regenerate them.
+
+COMPLETE INSTALL
+Extract full v1.7.13 source ZIP to a separate folder, npm.cmd install, then npm.cmd start.
+
+TESTING
+Automated Node/sharp cut-edge fixtures and complete BrandForge regression suite.
+Actual Photoshop and Windows Shared Drive require a local workstation check.

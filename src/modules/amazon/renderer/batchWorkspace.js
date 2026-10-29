@@ -8,8 +8,11 @@
         catch (error) { return null; }
     })();
     const sharing = window.AmazonSharing;
+    const formatFilters = window.BrandForgeImageFilters;
+    const selectionOrder = window.BrandForgeSelectionOrder;
+    const sharingEditor = window.BrandForgeBatchSharingEditor;
     const $ = id => document.getElementById(id);
-    if (!api || !sharing) return;
+    if (!api || !sharing || !formatFilters || !selectionOrder || !sharingEditor) return;
 
     const folderTab = $("folderModeTab");
     const batchTab = $("batchModeTab");
@@ -26,12 +29,15 @@
     let thumbnailsActive = 0;
     let groups = [];
     let activeUid = null;
-    let selectedPool = new Set();
+    const selectedPool = selectionOrder.createOrderedSelection(8);
+    let scanningFolder = false;
     let outputFolder = "";
     let isBusy = false;
     let previewToken = 0;
     let nextUid = 1;
     let mode = "batch";
+    let editingShareUid = null;
+    let shareModalReturnFocus = null;
 
     const acceptedFilePath = file => {
         try { return api.getPathForFile(file) || ""; }
@@ -50,6 +56,7 @@
 
     function setMode(value) {
         if (isBusy) return;
+        closeBatchShareModal();
         mode = value;
         folderPanel.classList.toggle("hidden", mode !== "folder");
         batchPanel.classList.toggle("hidden", mode !== "batch");
@@ -59,7 +66,7 @@
         batchTab.setAttribute("aria-pressed", String(mode === "batch"));
         $("amazonHeaderTitle").textContent = mode === "batch" ? "Amazon Batch Workspace" : "Amazon Generator — Folder Mode";
         $("amazonHeaderSubtitle").textContent = mode === "batch"
-            ? "No ID folders needed. Import images, assign Product IDs, drag to arrange, and Generate Amazon."
+            ? "Scan a source path, filter image types, pick in the correct order, and Generate Amazon."
             : "Original folder-based Amazon workflow. Existing processing, sharing and Colorbox rules are unchanged.";
     }
     folderTab.addEventListener("click", () => setMode("folder"));
@@ -73,10 +80,10 @@
     }
     function busy(value) {
         isBusy = Boolean(value);
-        for (const btn of batchPanel.querySelectorAll("button, input, textarea")) btn.disabled = isBusy;
+        for (const btn of batchPanel.querySelectorAll("button, input, textarea, select")) btn.disabled = isBusy;
         folderTab.disabled = isBusy;
         generate.disabled = isBusy;
-        if (!isBusy) renderSummary();
+        if (!isBusy) { renderSummary(); updatePoolSelection(); }
     }
 
     function newGroup(id = "") {
@@ -99,6 +106,7 @@
             `${item.files.length} assigned image(s) and ${item.sharedIds.length} shared ID(s) will be removed from this group.\n` +
             "Original images will remain in the library and on your computer."
         )) return;
+        if (editingShareUid === uid) closeBatchShareModal();
         groups.splice(index, 1);
         if (activeUid === uid) {
             activeUid = groups[Math.min(index, groups.length - 1)]?.uid ?? null;
@@ -114,6 +122,58 @@
         renderAll();
         status(`Deleted product group: ${name}`,
             `${item.sharedIds.length} linked ID(s) removed. Imported images and source files were not deleted.`);
+    }
+    // Batch Workspace has its own Share Images dialog. The original Folder
+    // Mode dialog and Photoshop/Colorbox processing pipeline remain untouched.
+    function openBatchShareModal(uid, trigger = null) {
+        if (isBusy) return;
+        const item = groups.find(g => g.uid === uid);
+        if (!item) return;
+        activeUid = uid;
+        editingShareUid = uid;
+        shareModalReturnFocus = trigger;
+        renderAll();
+        $("batchShareSourceSummary").textContent = `${item.id || "(enter Product ID)"} · ${item.files.length}/8 images selected. Linked IDs reuse Image 1 (Colorbox source) and the exact selected order.`;
+        $("batchShareIdsInput").value = item.sharedIds.join("\n");
+        $("batchShareModalBackdrop").classList.remove("hidden");
+        refreshBatchShareValidation();
+        $("batchShareIdsInput").focus();
+    }
+    function closeBatchShareModal() {
+        if (editingShareUid === null) return;
+        const uid = editingShareUid;
+        editingShareUid = null;
+        $("batchShareModalBackdrop").classList.add("hidden");
+        const fallback = groupList.querySelector(`[data-share-uid="${uid}"]`);
+        if (shareModalReturnFocus?.isConnected) shareModalReturnFocus.focus();
+        else if (fallback) fallback.focus();
+        shareModalReturnFocus = null;
+    }
+    function refreshBatchShareValidation() {
+        const item = groups.find(g => g.uid === editingShareUid);
+        if (!item) return;
+        const result = sharingEditor.preview(groups, item.uid, $("batchShareIdsInput").value);
+        $("batchShareApplyBtn").disabled = isBusy || !result.ok;
+        $("batchShareCountSummary").textContent = `${result.sharedCount} shared IDs · ${result.sharedJpgCount} shared JPGs`;
+        $("batchShareValidation").classList.toggle("invalid", !result.ok);
+        $("batchShareValidation").textContent = result.ok
+            ? `${result.ids.length ? "IDs validated. Existing outputs will be checked before processing." : "No shared IDs. Apply to clear sharing."}${result.warning ? "\n" + result.warning : ""}`
+            : result.errors.slice(0, 10).join("\n");
+        $("batchShareOutputPreview").textContent = result.outputPreview;
+    }
+    function applyBatchShareModal() {
+        if (isBusy || editingShareUid === null) return;
+        const item = groups.find(g => g.uid === editingShareUid);
+        if (!item) return;
+        const result = sharingEditor.preview(groups, item.uid, $("batchShareIdsInput").value);
+        if (!result.ok) { refreshBatchShareValidation(); return; }
+        item.sharedIds = [...result.ids];
+        closeBatchShareModal();
+        renderAll();
+        status(`${result.ids.length} shared ID(s) linked to ${item.id || "Product Group"}`,
+            result.sourceCount
+                ? `Image 1 is Colorbox source. ${result.sharedJpgCount} shared JPG(s) planned; Generate Colorbox / Skip remains optional.`
+                : `Sharing saved. Assign the source images before Generate Amazon.`);
     }
     function renderGroupList() {
         groupList.replaceChildren();
@@ -131,6 +191,7 @@
             const body = el("span", "batch-group-details");
             body.append(el("strong", "", item.id || "(enter Product ID)"));
             body.append(el("small", "", `${item.files.length}/8 images · ${item.sharedIds.length} shared ID(s)`));
+            if (item.sharedIds.length) body.append(el("small", "batch-share-names", `Linked: ${item.sharedIds.slice(0, 2).join(", ")}${item.sharedIds.length > 2 ? " …" : ""}`));
             button.append(body);
             button.addEventListener("click", () => {
                 activeUid = item.uid;
@@ -154,6 +215,14 @@
                 renderAll();
             });
             row.append(button);
+            const shareButton = el("button", `batch-group-share${item.sharedIds.length ? " has-shares" : ""}`, item.sharedIds.length ? `Share (${item.sharedIds.length})` : "Share");
+            shareButton.type = "button";
+            shareButton.disabled = isBusy;
+            shareButton.dataset.shareUid = String(item.uid);
+            shareButton.title = `Share Images from ${item.id || "unnamed group"} to additional Amazon IDs`;
+            shareButton.setAttribute("aria-label", `Share Images for ${item.id || "unnamed group"}`);
+            shareButton.addEventListener("click", () => openBatchShareModal(item.uid, shareButton));
+            row.append(shareButton);
             // Separate button (not nested inside the select button) for clear,
             // accessible one-click removal from the list of Product IDs.
             const remove = el("button", "batch-group-delete", "Delete");
@@ -172,6 +241,9 @@
         $("batchSharedIds").value = (item?.sharedIds || []).join("\n");
         $("batchActiveId").disabled = isBusy || !item;
         $("batchSharedIds").disabled = isBusy || !item;
+        $("batchShareImagesBtn").disabled = isBusy || !item;
+        $("batchSharedCount").textContent = item
+            ? `${item.sharedIds.length} shared ID${item.sharedIds.length === 1 ? "" : "s"}` : "0 shared IDs";
         $("batchRemoveGroupBtn").disabled = isBusy || !item;
     }
     function runThumbQueue() {
@@ -224,40 +296,80 @@
         runThumbQueue();
     }, { root: imagePool, rootMargin: "100px" });
 
+    function updatePoolSelection() {
+        const picked = selectedPool.values();
+        const pickedNames = picked.map((key, index) => {
+            const file = pool.get(key);
+            return `${index + 1}. ${file?.name || key.split(/[\\/]/).pop()}`;
+        });
+        $("batchSelectionPreview").textContent = picked.length
+            ? `PICK ORDER → ${pickedNames.join("  →  ")} · Add Selected preserves this exact order (1 = Main + Colorbox).`
+            : "Click images in the order you want: 1 = Main + Colorbox, then 2–8. Filters don't change your picks.";
+        const shown = [...pool.values()].filter(file => formatFilters.matchesFile(file, $("batchLibraryFilter").value)).length;
+        $("batchPoolCount").textContent = `${shown} of ${pool.size} image(s) visible · ${picked.length}/8 selected in click order`;
+        $("batchAssignBtn").disabled = isBusy || !picked.length;
+        $("batchClearSelectionBtn").disabled = isBusy || !picked.length;
+        for (const tile of imagePool.querySelectorAll(".batch-pool-tile")) {
+            const key = tile.dataset.poolKey;
+            const position = selectedPool.position(key);
+            tile.classList.toggle("selected", position !== 0);
+            tile.setAttribute("aria-pressed", String(position !== 0));
+            const badge = tile.querySelector(".batch-pool-pick-position");
+            if (badge) {
+                badge.textContent = String(position || "");
+                badge.classList.toggle("hidden", !position);
+            }
+        }
+    }
     function renderPool() {
+        // The filter affects only the visible Library, never stored assignments
+        // or the user's selection sequence across multiple filter changes.
+        const previousScroll = imagePool.scrollTop;
         imagePool.replaceChildren();
-        $("batchPoolCount").textContent = `${pool.size} imported image(s) · select images, then click Add`;
-        if (!pool.size) {
-            imagePool.append(el("div", "empty-state", "Drag images in from File Explorer or click Import Images."));
+        const visible = [...pool.values()].filter(file => formatFilters.matchesFile(file, $("batchLibraryFilter").value));
+        if (!visible.length) {
+            imagePool.append(el("div", "empty-state", pool.size
+                ? "No images match this file type. Switch Show file type to view other imported formats."
+                : "Paste an image-folder path and click Scan Images, or drag images in from File Explorer."));
+            updatePoolSelection();
             return;
         }
         const alreadyAssigned = assigned();
-        for (const file of pool.values()) {
-            const selected = selectedPool.has(norm(file.path));
-            const tile = el("button", `batch-pool-tile${selected ? " selected" : ""}`);
+        for (const file of visible) {
+            const key = norm(file.path);
+            const tile = el("button", `batch-pool-tile${selectedPool.has(key) ? " selected" : ""}`);
             tile.type = "button";
             tile.draggable = true;
-            tile.setAttribute("aria-pressed", String(selected));
+            tile.dataset.poolKey = key;
+            tile.setAttribute("aria-pressed", String(selectedPool.has(key)));
             tile.title = file.path;
             const image = el("div", "batch-pool-thumb");
             thumb(image, file);
             tile.append(image);
-            tile.append(el("strong", "", file.name));
-            tile.append(el("small", "", alreadyAssigned.has(norm(file.path)) ? "Assigned · click or drag" : "Available · click or drag"));
+            const badge = el("span", `batch-pool-pick-position${selectedPool.has(key) ? "" : " hidden"}`, String(selectedPool.position(key) || ""));
+            tile.append(badge);
+            tile.append(el("strong", "", file.relativePath || file.name));
+            tile.append(el("small", "", alreadyAssigned.has(key) ? "Assigned · click or drag" : "Available · click or drag"));
             tile.addEventListener("click", () => {
-                const key = norm(file.path);
-                if (selectedPool.has(key)) selectedPool.delete(key);
-                else selectedPool.add(key);
-                renderPool();
+                if (isBusy || scanningFolder) return;
+                const result = selectedPool.toggle(key);
+                if (!result.ok) { status("Selection limit reached", result.error, true); return; }
+                // Update the badges in place, preserving current scroll and the
+                // exact order of clicks. Never sort by filename when adding.
+                updatePoolSelection();
                 showPreview(file.path);
             });
-            tile.addEventListener("dblclick", () => addPathsToActive([file.path]));
+            tile.addEventListener("dblclick", () => {
+                if (!isBusy && !scanningFolder) addPathsToActive([file.path]);
+            });
             tile.addEventListener("dragstart", event => {
                 event.dataTransfer.effectAllowed = "copy";
                 event.dataTransfer.setData("text/x-brandforge-pool", file.path);
             });
             imagePool.append(tile);
         }
+        imagePool.scrollTop = previousScroll;
+        updatePoolSelection();
     }
     function renderOrder() {
         const item = group();
@@ -334,7 +446,7 @@
         const plan = sharing.buildSharingPlan(virtual);
         const missing = groups.filter(g => !g.files.length || !g.id.trim()).length;
         $("batchTotals").textContent = `${groups.length} source sets · ${groups.reduce((s,g)=>s+g.files.length,0)} assigned images · ${totalIds()} total IDs · ${plan.jpgCount} JPGs`;
-        generate.disabled = isBusy || !groups.length || missing > 0 || !outputFolder || !$("batchPsdName").value.trim() || !plan.ok;
+        generate.disabled = isBusy || scanningFolder || !groups.length || missing > 0 || !outputFolder || !$("batchPsdName").value.trim() || !plan.ok;
         if (!isBusy && !plan.ok) {
             $("batchStatus").textContent = "Check product IDs / image assignments";
             $("batchStatusDetail").textContent = plan.errors.slice(0, 2).join(" · ");
@@ -365,7 +477,7 @@
         renderAll();
     }
     async function importFiles(fileList, assign = false) {
-        if (isBusy) return;
+        if (isBusy || scanningFolder) return;
         const paths = Array.from(fileList || [], acceptedFilePath).filter(Boolean);
         if (!paths.length) {
             status("No valid file paths received", "Use Import Images to select files through Windows File Explorer.", true);
@@ -411,7 +523,7 @@
         }
     }
     async function generateAmazon() {
-        if (isBusy) return;
+        if (isBusy || scanningFolder) return;
         const payload = {
             mode: "batch",
             groups: groups.map(item => ({ id: item.id.trim(), files: item.files.map(filePath => ({ path: filePath })), sharedIds: [...item.sharedIds] })),
@@ -461,6 +573,80 @@
         } finally { busy(false); }
     }
 
+    for (const filter of formatFilters.filters) {
+        for (const select of [$("batchScanFormat"), $("batchLibraryFilter")]) {
+            const option = document.createElement("option");
+            option.value = filter.value;
+            option.textContent = filter.label;
+            select.append(option);
+        }
+    }
+    $("batchScanFormat").value = "all";
+    $("batchLibraryFilter").value = "all";
+    $("batchLibraryFilter").addEventListener("change", renderPool);
+
+    async function scanImageLocation() {
+        if (isBusy || scanningFolder) return;
+        const folderPath = $("batchSourcePath").value.trim();
+        if (!folderPath) { status("Choose an image folder", "Paste the folder path or click Browse.", true); return; }
+        scanningFolder = true;
+        const scanBtn = $("batchScanFolderBtn");
+        const browseBtn = $("batchBrowseSourceBtn");
+        scanBtn.disabled = true;
+        browseBtn.disabled = true;
+        $("batchScanSummary").textContent = "Scanning image files...";
+        try {
+            const format = $("batchScanFormat").value;
+            const answer = await api.scanImageFolder({
+                folderPath, recursive: $("batchIncludeSubfolders").checked, format
+            });
+            if (!answer || answer.error) throw new Error(answer?.error || "No scan result received.");
+            const newFiles = (answer.files || []).filter(file => !pool.has(norm(file.path)));
+            if (pool.size + newFiles.length > 2500) {
+                throw new Error("The Image Library supports 2,500 files. Clear unused images or scan a smaller folder / one image type.");
+            }
+            for (const file of newFiles) pool.set(norm(file.path), file);
+            $("batchSourcePath").value = answer.folderPath;
+            // The requested scan filter is also shown in the Library. Images
+            // from earlier scans remain available when switching to All.
+            $("batchLibraryFilter").value = format;
+            renderAll();
+            const trouble = [...(answer.errors || []), ...(answer.warnings || [])];
+            const detail = `${answer.files.length} matching image(s) · ${newFiles.length} newly imported` +
+                ` · ${answer.scannedFolders} folder(s) searched` +
+                (trouble.length ? ` · ${trouble.length} warning(s)` : "");
+            $("batchScanSummary").textContent = detail;
+            status("Folder scan complete", trouble.length ? `${detail}. ${trouble.slice(0, 2).join(" | ")}` : detail, Boolean(trouble.length));
+        } catch (error) {
+            $("batchScanSummary").textContent = `Scan failed: ${error.message || String(error)}`;
+            status("Unable to scan image path", error.message || String(error), true);
+        } finally {
+            scanningFolder = false;
+            scanBtn.disabled = false;
+            browseBtn.disabled = false;
+            renderSummary();
+        }
+    }
+    $("batchScanFolderBtn").addEventListener("click", scanImageLocation);
+    $("batchBrowseSourceBtn").addEventListener("click", async () => {
+        if (isBusy || scanningFolder) return;
+        try {
+            const chosen = await api.chooseImageFolder();
+            if (chosen?.error) throw new Error(chosen.error);
+            if (chosen?.folderPath) {
+                $("batchSourcePath").value = chosen.folderPath;
+                await scanImageLocation();
+            }
+        } catch (error) { status("Choose folder failed", error.message || String(error), true); }
+    });
+    $("batchSourcePath").addEventListener("keydown", event => {
+        if (event.key === "Enter") { event.preventDefault(); scanImageLocation(); }
+    });
+    $("batchClearSelectionBtn").addEventListener("click", () => {
+        selectedPool.clear();
+        updatePoolSelection();
+    });
+
     $("batchAddGroupBtn").addEventListener("click", () => newGroup());
     $("batchAddIdsBtn").addEventListener("click", () => {
         const ids = sharing.parseSharedIds($("batchBulkIds").value);
@@ -494,9 +680,27 @@
         renderGroupList();
         renderSummary();
     });
+    $("batchShareImagesBtn").addEventListener("click", event => {
+        if (group()) openBatchShareModal(activeUid, event.currentTarget);
+    });
+    $("batchShareIdsInput").addEventListener("input", refreshBatchShareValidation);
+    $("batchShareApplyBtn").addEventListener("click", applyBatchShareModal);
+    for (const id of ["batchShareCloseBtn", "batchShareCancelBtn"]) {
+        $(id).addEventListener("click", closeBatchShareModal);
+    }
+    $("batchShareModalBackdrop").addEventListener("click", event => {
+        if (event.target === $("batchShareModalBackdrop")) closeBatchShareModal();
+    });
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && editingShareUid !== null) {
+            event.preventDefault();
+            closeBatchShareModal();
+        }
+    });
     $("batchRemoveGroupBtn").addEventListener("click", () => deleteGroup(activeUid));
     $("batchPsdName").addEventListener("input", renderSummary);
     $("batchImportBtn").addEventListener("click", async () => {
+        if (isBusy || scanningFolder) return;
         try {
             const answer = await api.chooseBatchImages();
             if (!answer?.files?.length && !answer?.errors?.length) return;
@@ -510,7 +714,9 @@
         } catch (error) { status("Import failed", error.message || String(error), true); }
     });
     $("batchAssignBtn").addEventListener("click", () => {
-        const paths = Array.from(pool.values()).filter(file => selectedPool.has(norm(file.path))).map(file => file.path);
+        // Pick order, not pool/filename order: third clicked can become Image 1.
+        const paths = selectedPool.values().map(key => pool.get(key)?.path).filter(Boolean);
+        if (!paths.length) return;
         addPathsToActive(paths);
         selectedPool.clear();
         renderPool();
@@ -518,7 +724,7 @@
     $("batchClearPoolBtn").addEventListener("click", () => {
         const inUse = assigned();
         for (const key of pool.keys()) if (!inUse.has(key)) pool.delete(key);
-        selectedPool.clear();
+        selectedPool.prune(new Set(pool.keys()));
         renderPool();
         renderSummary();
     });

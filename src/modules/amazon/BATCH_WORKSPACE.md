@@ -1,4 +1,4 @@
-# Amazon Batch Workspace — BrandForge v1.7.10
+# Amazon Batch Workspace — BrandForge v1.7.11
 
 **New mode in the existing Amazon Generator, NOT a replacement for Folder Mode.** No source image renaming, numbered 1–8 files or per-ID directories are needed in Batch Workspace. All original files remain where they are. The chosen Amazon **output folder** is still required.
 
@@ -45,3 +45,53 @@ The canceled LAN Leaderboard remains excluded.
 - This removes the virtual ID group and its sharing links **from the current batch only**. Image files remain untouched on disk; imported files remain available in the Image Library to assign to another group.
 - After deleting, active selection, selected order, preview, counts and Generate Amazon readiness update. You may paste the corrected ID or re-add the removed ID.
 - The Delete action is disabled while a batch is processing. It does not delete previously generated JPGs or PSDs.
+
+
+## v1.7.12 — Image Path Scanning / File Type Filters / Pick Order
+
+The Batch Workspace adds a separate **Image folder location** field. Paste a
+full Windows folder path or choose one with Browse, then click **Scan Images**.
+This scanner adds files to the Image Library;
+it does not create Amazon product groups or guess IDs from directory names.
+Choose a **Scan type** to restrict imported files (PNG, PSD, PSB, JPG/JPEG,
+WEBP, TIFF, BMP, GIF, HEIC/HEIF or AVIF) and optionally enable **Include
+subfolders**. Only supported, nonempty files are listed, with diagnostics
+for unreadable files. Already imported paths are not duplicated.
+
+**Show file type** is a separate non-destructive Library view filter: choose
+PNG only or PSD only to see just those images. Previously picked images are
+retained when changing the view filter. Click images *in output order*;
+the green numbered badges indicate exact selection order, even if they are
+shown in a different library sort or format filter. **Add Selected in Pick
+Order** appends the picked images to the active product in that order, up to
+the existing eight-image cap. Image 1 is always the main JPG and optional
+Colorbox source. Drag-to-reorder after adding still works.
+
+Windows file dialogs do not promise click order for multi-file selection;
+use the numbered Library to guarantee the final image sequence.
+
+No change to processing, output names, Share Images, Colorbox prompt, master
+PSD, originals, or existing module workflows.
+
+## v1.7.13 — Cut side / corner alignment correction
+
+The Amazon renderer still uses a 1001x1001 JPG canvas. Uncut image 1 fits its
+visible content within the 801x801 area; uncut images 2-8 fit within 921x921.
+When a genuine cut side is detected, its visible product pixels align flush to
+the corresponding *full canvas* edge. The background estimate for opaque JPGs
+now comes from the perimeter rather than an average of four corners; the
+cut-corner anchor uses solid product pixels instead of opaque background or
+faint antialiasing. Image 1 remains the optional Colorbox source and all shared
+IDs reuse its completed output. No change to PSD shadow hiding, PSD layer
+structure, order, source files, ID mapping or the Generate Colorbox / Skip
+dialog. Run `npm.cmd run test:amazon-cut` for edge-specific regression tests.
+
+## v1.7.14 — Share Images directly from Product Groups
+
+Use **Share** beside any source Product ID, or select the group and click the
+large **Share Images** button. Paste additional IDs (one per line, CSV-style,
+tabs, commas or semicolons). Review duplicate/filename errors and expected JPGs,
+then click **Apply Sharing**. You may reopen the dialog to change or clear the
+list. Changing the source image order automatically changes every shared ID's
+output order and optional Colorbox source. No separate images/folders are needed
+for shared IDs. This UI restores visibility; existing sharing engine stays intact.

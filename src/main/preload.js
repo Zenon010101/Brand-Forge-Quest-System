@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld("amazonApp", {
     selectParentFolders: () => ipcRenderer.invoke("amazon:select-parent-folder"),
     selectOutputFolder: () => ipcRenderer.invoke("amazon:select-output-folder"),
     chooseBatchImages: () => ipcRenderer.invoke("amazon:choose-batch-images"),
+    chooseImageFolder: () => ipcRenderer.invoke("amazon:choose-image-folder"),
+    scanImageFolder: options => ipcRenderer.invoke("amazon:scan-image-folder", options || {}),
     inspectBatchImages: paths => ipcRenderer.invoke("amazon:inspect-batch-images", { paths }),
     getPathForFile: file => webUtils.getPathForFile(file),
     preflightBatch: payload => ipcRenderer.invoke("amazon:preflight-batch", payload),

@@ -1,0 +1,31 @@
+BRANDFORGE v1.7.14 — AMAZON SHARE IMAGES BUTTON RESTORED
+
+ISSUE
+The original Folder Mode had a Share Images button, but the default Batch
+Workspace only showed an editable Sharing IDs field beneath Product Groups.
+Sharing was still supported, but no visible per-group sharing action appeared.
+
+WHAT CHANGED
+- Each Batch Product Group now has its own Share button with a shared-ID count.
+- A prominent Share Images button is visible for the selected group.
+- Multi-ID modal validates duplicates, ID format and output-name collisions.
+- Source and shared IDs are visible; cancel/remove/clear sharing supported.
+- No change to image renders, 8-image limit, 1001 canvas, 801/921 rules,
+  cut-edge alignment, PSD, Colorbox Generate/Skip, source file safety or EXP.
+- Original Folder Mode and Batch Workspace still work; Smart Folder Import was removed in v1.7.15.
+
+PATCH INSTALL from 1.7.13
+1. Exit BrandForge and back up the existing project.
+2. Extract v1.7.14 patch into your v1.7.13 project root (preserve folders).
+3. Run npm.cmd run validate, then npm.cmd start.
+4. Confirm version 1.7.14 in the Amazon screen.
+5. In Amazon Batch Workspace, select a Product ID and click Share Images.
+   Paste more IDs, Apply, then verify linked IDs and Generate Amazon.
+
+FULL PROJECT
+Extract in a separate directory, run npm.cmd install and npm.cmd start.
+
+VALIDATION
+Complete Node regression suite including v1.7.13 cut-edge tests passed.
+Mock Chromium UI test passed. Real Windows Photoshop/shared drive execution
+still needs workstation verification.
