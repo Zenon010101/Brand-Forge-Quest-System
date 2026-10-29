@@ -866,7 +866,18 @@ button:disabled {
 @media (max-width: 1180px) { .variant-share-btn { padding: 5px; font-size: 8px; } }
 
 /* Folderless Amazon Batch Workspace. Existing Folder Mode styles are untouched. */
-.app-shell { grid-template-rows: auto auto minmax(0, 1fr); }
+/* Brand project locator is a full row between tabs and workspace.
+   The old three-row grid collapsed it to zero height, causing its buttons
+   to overlap AMAZON EXPORT and become unclickable. */
+html, body { min-height: 100%; }
+body { overflow-y: auto; }
+.app-shell {
+    min-height: 100vh;
+    height: auto;
+    grid-template-rows: auto auto auto minmax(680px, 1fr);
+}
+.app-shell > .projectlink-panel { align-self: start; min-height: 0; }
+.folder-mode-view, .batch-mode-view { min-height: 680px; }
 .amazon-mode-switch { display: flex; align-items: center; gap: 7px; min-height: 34px; }
 .amazon-mode-tab { border: 1px solid #343b45; background: #1b2027; color: #b8c2cd; padding: 9px 17px; font-size: 11px; font-weight: 800; border-radius: 9px; }
 .amazon-mode-tab.current { background: #3b2229; color: #fff1f3; border-color: #b45565; }

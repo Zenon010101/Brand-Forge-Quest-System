@@ -66,3 +66,7 @@ and in the selected-group editor. A multi-ID modal applies the original
 JPGs. Existing shared IDs remain linked and editable. The old inline IDs textarea and Folder Mode sharing modal remain.
 The renderer, cut alignment, master PSD, shared publisher and optional Colorbox
 logic are unchanged. See `test/amazonBatchSharingUi.js`.
+
+## v1.7.16 Read-only brand project location linking
+Use the shared Google Drive Brand Project panel to select a brand/project root on G:.
+The existing PSD/PSB files in AMAZON, SLIDER and COLORBOX are *location markers only* and are never opened or modified. For a linked project, the Amazon output folder is the verified AMAZON marker's containing folder. Colorbox automatically uses the COLORBOX marker's folder **only after** the user selects Generate Colorbox. Missing marker = manual selection. Each batch has one final master PSD/output destination; use separate runs for independent brand destinations.

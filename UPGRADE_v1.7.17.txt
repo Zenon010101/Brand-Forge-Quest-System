@@ -1,0 +1,25 @@
+BrandForge v1.7.17 - Correct Nested G: Auto-Save Paths
+
+FIXED PATH RULES
+  Amazon:   <brand>\SLIDER\AMAZON [single and slider]\
+  Slider:   <brand>\SLIDER\SLIDER-IMAGES\psd\
+  Colorbox: <brand>\COLORBOX\
+
+PSD/PSB files in those directories are read-only location markers only, NOT inputs for Photoshop processing.
+The AMAZON destination gets generated JPG files plus the Amazon master PSD.
+The Slider destination is the folder containing its PSD marker, not SLIDER\ root or SLIDER-IMAGES\code.
+After Amazon generation, users still choose Generate Colorbox or Skip. Colorbox saves to COLORBOX when chosen.
+
+HOW TO APPLY
+  Close BrandForge, back up the current project, extract the full project into a new folder or apply the patch over v1.7.16, then:
+  npm.cmd run validate
+  npm.cmd start
+
+  In Amazon or Slider, browse the G: brand root and select Detect Folders -> Use Detected Paths.
+  IMPORTANT: If already linked under v1.7.16, re-scan/relink to adopt the correct nested folders.
+
+UNCHANGED
+  Existing source files, Photoshop PSD markers, Amazon and Slider processing, product image sizing,
+  Share Images, cut-edge behavior, Colorbox choice, profiles/EXP and LP modules.
+
+The automated tests use simulated folder trees. Actual G: and Photoshop need workstation verification.

@@ -21,6 +21,20 @@ const {
 const { buildAmazonPsd } = require("./psdBuilder");
 const { inspectSharingRequest, processSharedAmazonJob } = require("./sharedJob");
 const { recordProductionEvent } = require("../../profile/main/service");
+const { getStoredLink } = require("../../project-location/main/register");
+const { pathKey, assertMarkerSafe } = require("../../project-location/main/projectPaths");
+
+function verifiedAmazonProject(payload, psdName) {
+    if (!payload?.projectRoot) return null;
+    const link = getStoredLink(payload.projectRoot);
+    const folder = link.roles.amazon?.folderPath;
+    if (!folder) throw new Error("The linked project has no verified AMAZON PSD marker. Select an output folder manually.");
+    if (pathKey(payload.outputFolder) !== pathKey(folder)) {
+        throw new Error("Amazon output folder no longer matches the linked Google Drive project. Reapply the project link or choose a folder manually.");
+    }
+    assertMarkerSafe(link, "amazon", path.join(folder, psdName.fileName));
+    return link;
+}
 
 const previewCache = new Map();
 
@@ -228,6 +242,7 @@ ipcMain.handle("amazon:inspect-batch-images", async (_event, payload) => {
 ipcMain.handle("amazon:preflight-batch", async (_event, payload) => {
     try {
         const psdName = normalizePsdFileName(payload?.psdFileName);
+        verifiedAmazonProject(payload, psdName);
         const checked = await validateVirtualBatch(payload);
         if (!checked.ok) return { ok: false, errors: checked.errors };
         const inspection = await inspectSharingRequest({
@@ -564,6 +579,7 @@ async function processAmazonJob(event, payload) {
 ipcMain.handle("amazon:preflight-sharing", async (_event, payload) => {
     try {
         const psdName = normalizePsdFileName(payload?.psdFileName);
+        verifiedAmazonProject(payload, psdName);
         const inspected = await inspectSharingRequest(payload || {}, psdName);
         return {
             ok: inspected.ok,
@@ -587,6 +603,8 @@ ipcMain.handle("amazon:start-processing", async (event, payload) => {
     amazonIsRunning = true;
     pendingColorboxJob = null;
     try {
+        const psdNameForProject = normalizePsdFileName(payload?.psdFileName);
+        const linkedProject = verifiedAmazonProject(payload, psdNameForProject);
         const isBatchWorkspace = payload?.mode === "batch";
         const hasSharing = (payload?.parents || []).some(parent =>
             (parent.variants || []).some(variant => Array.isArray(variant.sharedIds) && variant.sharedIds.length > 0)
@@ -604,7 +622,7 @@ ipcMain.handle("amazon:start-processing", async (event, payload) => {
                 return { ok: false, error: (inspection.errors || []).join("\n") || "Batch Workspace preflight failed." };
             }
             result = await processSharedAmazonJob(event, virtualPayload, psdName, inspection);
-        } else if (hasSharing) {
+        } else if (hasSharing || linkedProject) {
             const psdName = normalizePsdFileName(payload?.psdFileName);
             const inspection = await inspectSharingRequest(payload, psdName);
             if (!inspection.ok) {
@@ -679,7 +697,9 @@ ipcMain.handle("amazon:start-processing", async (event, payload) => {
             masterPsdPath: result.masterPsdPath || null,
             jpgRootFolder: result.jpgRootFolder,
             successful: result.successful,
-            failed: result.failed
+            failed: result.failed,
+            projectRoot: linkedProject?.root || null,
+            autoColorboxFolder: linkedProject?.roles?.colorbox?.folderPath || null
         };
         return { ...result, colorboxJobId: id, colorboxEligibleCount: items.length };
     } catch (error) {
@@ -738,7 +758,9 @@ ipcMain.handle("amazon:offer-colorbox", async (event, payload) => {
             "It is copied from Amazon image #1 exactly as generated — same canvas size, product size, placement and crop result.",
             "No original PSD/JPG source is used for Colorbox anymore.",
             "Output: lowercase-variant-idclr.jpg. The Amazon JPG is copied without resizing or re-rendering.",
-            "You will choose a separate save folder next."
+            job.autoColorboxFolder
+                ? `Linked G: Colorbox destination: ${job.autoColorboxFolder}. No folder selection needed.`
+                : "No verified linked Colorbox folder; you will choose one manually."
         ].join("\n");
         const answer = await showColorboxMessage(event, {
             type: "question",
@@ -752,7 +774,18 @@ ipcMain.handle("amazon:offer-colorbox", async (event, payload) => {
         });
         if (answer.response !== 0) return { ok: true, skipped: true, reason: "user-skipped" };
 
-        const folder = await chooseColorboxDirectory(event);
+        let folder = null;
+        if (job.projectRoot && job.autoColorboxFolder) {
+            // Recheck the saved G: marker before exporting. Never silently
+            // redirect to a stale or different brand's COLORBOX directory.
+            const current = getStoredLink(job.projectRoot);
+            if (pathKey(current.roles.colorbox?.folderPath) !== pathKey(job.autoColorboxFolder)) {
+                throw new Error("Linked Colorbox destination changed. Scan and link this brand again.");
+            }
+            folder = current.roles.colorbox.folderPath;
+        } else {
+            folder = await chooseColorboxDirectory(event);
+        }
         if (!folder) return { ok: true, skipped: true, reason: "folder-canceled" };
 
         // No Colorbox module, image decode or copy is needed before this point.

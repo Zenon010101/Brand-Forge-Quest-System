@@ -64,6 +64,8 @@ let scanData = null;
 let activeVariantIndex = -1;
 let activePreviewPath = null;
 let outputFolder = null;
+let linkedProjectRoot = null;
+let autoLinkedOutput = null;
 let psdFileName = "";
 let isProcessing = false;
 let previewRequestId = 0;
@@ -917,6 +919,9 @@ async function chooseOutput() {
     if (!result) return;
 
     outputFolder = result.folderPath;
+    linkedProjectRoot = null;
+    autoLinkedOutput = null;
+    document.dispatchEvent(new Event("brandforge:project-manual"));
     outputPath.textContent = outputFolder;
     outputPath.title = outputFolder;
     renderCounters();
@@ -929,6 +934,7 @@ function setProcessingState(processing) {
     sourceTypeFilter.disabled = processing;
     psdFileNameInput.disabled = processing;
     renderAll();
+    document.dispatchEvent(new CustomEvent("brandforge:project-busy", { detail: { busy: processing } }));
 }
 
 function buildProcessingParents() {
@@ -988,11 +994,11 @@ async function startProcessing() {
 
     try {
         const reservedVariantIds = scanData.variants.map(variant => variant.id);
-        const hasSharing = parents.some(parent => parent.variants.some(variant => variant.sharedIds.length));
+        const hasSharing = parents.some(parent => parent.variants.some(variant => variant.sharedIds.length)) || Boolean(linkedProjectRoot);
         let confirmedExistingFiles = [];
         if (hasSharing) {
             const inspection = await amazonApi.preflightSharing({
-                parents, outputFolder, psdFileName, reservedVariantIds
+                parents, outputFolder, psdFileName, reservedVariantIds, projectRoot: linkedProjectRoot
             });
             if (!inspection?.ok) {
                 throw new Error((inspection?.errors || ["Could not validate shared IDs."]).join("\n"));
@@ -1016,7 +1022,8 @@ async function startProcessing() {
             outputFolder,
             psdFileName,
             reservedVariantIds,
-            confirmedExistingFiles
+            confirmedExistingFiles,
+            projectRoot: linkedProjectRoot
         });
 
         if (!result || !result.ok) {
@@ -1276,3 +1283,26 @@ startProcessingBtn.addEventListener("click", startProcessing);
 initVersion();
 clearPreview();
 renderAll();
+
+// Shared project locator applies to original Folder Mode as well as Batch Workspace.
+document.addEventListener("brandforge:project-linked", event => {
+    const project = event.detail?.project;
+    linkedProjectRoot = project?.roles?.amazon?.folderPath ? project.root : null;
+    autoLinkedOutput = project?.roles?.amazon?.folderPath || null;
+    if (autoLinkedOutput) {
+        outputFolder = autoLinkedOutput;
+        outputPath.textContent = outputFolder;
+        outputPath.title = outputFolder;
+        renderCounters();
+    }
+});
+document.addEventListener("brandforge:project-unlinked", () => {
+    if (autoLinkedOutput && outputFolder === autoLinkedOutput) {
+        outputFolder = null;
+        outputPath.textContent = "No output folder selected";
+        outputPath.title = "";
+    }
+    linkedProjectRoot = null;
+    autoLinkedOutput = null;
+    renderCounters();
+});

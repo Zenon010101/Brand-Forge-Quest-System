@@ -104,3 +104,11 @@ contextBridge.exposeInMainWorld("lpFolderApp", {
         return () => ipcRenderer.removeListener("lp-folder:progress", listener);
     }
 });
+
+
+contextBridge.exposeInMainWorld("brandProjectApp", {
+    last: () => ipcRenderer.invoke("brand-project:last"),
+    chooseRoot: () => ipcRenderer.invoke("brand-project:choose-root"),
+    scan: root => ipcRenderer.invoke("brand-project:scan", { root }),
+    link: (root, selectedMarkers) => ipcRenderer.invoke("brand-project:link", { root, selectedMarkers })
+});

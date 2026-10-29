@@ -1,0 +1,31 @@
+BrandForge v1.7.16 - Google Drive Brand Project Auto-Save
+
+WHAT CHANGED
+- Select or paste a Google Drive brand project folder (not the D: raw image folder).
+- Detect existing Photoshop PSD/PSB files inside COLORBOX, SLIDER, and AMAZON folders.
+- Their file paths are location markers ONLY. They are NEVER opened in Photoshop, edited, or used as document templates.
+- Review marker choices and click 'Use Detected Paths' to remember the project and auto-fill Amazon and Slider output destinations.
+- For linked Amazon jobs: optional Colorbox automatically saves to the linked COLORBOX folder after you choose Generate Colorbox; Skip still does not generate any Colorbox.
+- Original Folder Mode, Batch Workspace, Share Images, image ordering, max 8, cut alignment, master PSD, EXP, and Colorbox file naming are unchanged.
+- Slider PSD exporting to linked folders uses local staging, verified copying and backup/rollback; existing files require explicit overwrite confirmation.
+- No Auto Smart Folder Import or LAN Leaderboard.
+
+HOW TO USE
+1. Launch BrandForge and open Amazon Generator or Slider Maker.
+2. In Google Drive Brand Project, browse to your brand's G: project root (e.g., G:\Shared drives\...\Propper #DOT365).
+3. Click Detect Folders, review the listed PSD marker choices, and click Use Detected Paths.
+4. The module's output folder fills automatically. Raw images can remain on D:.
+5. Run normal generation. For Amazon, choose Generate Colorbox or Skip. If generated and linked, it saves to the detected COLORBOX folder.
+6. On the next job, select Use Last Linked to restore the validated project locations, or Browse to a different brand.
+7. If a PSD marker is missing/ambiguous, use the existing manual Choose Folder controls.
+
+SAFETY
+- Never name the generated master PSD exactly like the selected existing Amazon PSD marker.
+- Never name the slider output the same as its linked Slider PSD marker.
+- PSD markers remain untouched; raw image originals are untouched.
+- The system never creates missing project folders on G: and never guesses between multiple candidate output directories.
+- Each link is for ONE brand per job. Separate jobs are required for multiple project destinations because the current Amazon engine makes one master PSD and one output directory per batch.
+- On temporary Google Drive outages, source images and marker PSDs are not changed.
+
+Run: npm.cmd install ; npm.cmd run validate ; npm.cmd start
+Actual Google Drive and Windows Photoshop execution must still be verified on your workstation.

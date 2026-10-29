@@ -1,0 +1,30 @@
+BrandForge v1.7.18 — Google Drive project path link UI fix
+
+Issue: In Amazon v1.7.17 the Google Drive Brand Project panel was the third
+child of a three-row grid. It occupied almost zero height; its controls were
+painted over the Amazon output area, making Use Detected Paths appear
+unavailable/unresponsive even when marker PSDs had been detected.
+The same row-count issue existed in Slider.
+
+Fix:
+- Amazon/Slider have dedicated intrinsic-height brand-project rows.
+- The page can scroll vertically on smaller screens instead of layering panels.
+- Use Detected Paths only enables when the module's required PSD marker
+  (AMAZON for Amazon; SLIDER for Slider) has been selected.
+- Linking works before adding product IDs or images; 0 source sets is valid.
+- The linked output folder appears immediately in the Amazon/Slider output display.
+- The optional Colorbox folder remains linked independently and still runs
+  only when Generate Colorbox is chosen.
+- All existing Amazon sizing, cut alignment, sharing, master PSD, Slider,
+  LP, EXP, profiles, and PSD template protection rules are unchanged.
+
+Test path:
+1) Amazon -> Batch Workspace -> Google Drive Brand Project.
+2) Browse or paste main brand folder, not the D: raw image folder.
+3) Detect Folders. Verify AMAZON marker is selected.
+4) Use Detected Paths. The AMAZON EXPORT path must be filled immediately,
+   even with zero source groups.
+5) Import images and generate as normal. Colorbox remains optional.
+
+IMPORTANT: Photoshop and real Google Drive publishing must still be tested
+on a Windows workstation. No Photoshop or Google Drive data were modified.

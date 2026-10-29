@@ -32,6 +32,8 @@
     const selectedPool = selectionOrder.createOrderedSelection(8);
     let scanningFolder = false;
     let outputFolder = "";
+    let linkedProjectRoot = null;
+    let autoLinkedOutput = null;
     let isBusy = false;
     let previewToken = 0;
     let nextUid = 1;
@@ -84,6 +86,7 @@
         folderTab.disabled = isBusy;
         generate.disabled = isBusy;
         if (!isBusy) { renderSummary(); updatePoolSelection(); }
+        document.dispatchEvent(new CustomEvent("brandforge:project-busy", { detail: { busy: isBusy } }));
     }
 
     function newGroup(id = "") {
@@ -527,7 +530,7 @@
         const payload = {
             mode: "batch",
             groups: groups.map(item => ({ id: item.id.trim(), files: item.files.map(filePath => ({ path: filePath })), sharedIds: [...item.sharedIds] })),
-            outputFolder, psdFileName: $("batchPsdName").value.trim()
+            outputFolder, psdFileName: $("batchPsdName").value.trim(), projectRoot: linkedProjectRoot
         };
         busy(true);
         status("Checking entire batch", "Validating product IDs, physical images, output names and existing files...");
@@ -733,6 +736,9 @@
             const result = await api.selectOutputFolder();
             if (result?.folderPath) {
                 outputFolder = result.folderPath;
+                linkedProjectRoot = null;
+                autoLinkedOutput = null;
+                document.dispatchEvent(new Event("brandforge:project-manual"));
                 $("batchOutputPath").textContent = outputFolder;
                 $("batchOutputPath").title = outputFolder;
                 renderSummary();
@@ -785,6 +791,29 @@
         };
         if (labels[progress.type]) status(labels[progress.type], progress.error || `${progress.current || 0}/${progress.total || 0}`, Boolean(progress.error));
     });
+    document.addEventListener("brandforge:project-linked", event => {
+        const project = event.detail?.project;
+        linkedProjectRoot = project?.roles?.amazon?.folderPath ? project.root : null;
+        autoLinkedOutput = project?.roles?.amazon?.folderPath || null;
+        if (autoLinkedOutput) {
+            outputFolder = autoLinkedOutput;
+            $("batchOutputPath").textContent = autoLinkedOutput;
+            $("batchOutputPath").title = autoLinkedOutput;
+            renderSummary();
+            status("Google Drive linked", `Amazon saves to ${autoLinkedOutput}. Colorbox will use the linked Colorbox folder.`);
+        }
+    });
+    document.addEventListener("brandforge:project-unlinked", () => {
+        if (autoLinkedOutput && outputFolder === autoLinkedOutput) {
+            outputFolder = "";
+            $("batchOutputPath").textContent = "No output folder selected";
+            $("batchOutputPath").title = "";
+        }
+        linkedProjectRoot = null;
+        autoLinkedOutput = null;
+        renderSummary();
+    });
     setMode("batch");
     renderAll();
+    window.BrandForgeProjectLink?.mount($("amazonBrandProject"));
 })();

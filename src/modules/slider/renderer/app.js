@@ -49,6 +49,8 @@ const state = {
     lineupRows: [makeLineup()],
     layoutMode: "horizontal",
     outputFolder: null,
+    linkedProjectRoot: null,
+    autoLinkedOutput: null,
     busy: false,
     detailAllShadow: false,
     outputOrder: [],
@@ -740,6 +742,7 @@ function buildJob() {
         brandName: brandNameInput.value.trim(),
         productCode: productCodeInput.value.trim(),
         outputFolder: state.outputFolder,
+        projectRoot: state.linkedProjectRoot,
         layoutMode: state.layoutMode,
         outputOrder: serializeOutputOrder(),
         creative: state.creative.map(cleanFileForJob),
@@ -769,6 +772,7 @@ function setBusy(busy) {
         control.disabled = busy;
     });
     renderAll();
+    document.dispatchEvent(new CustomEvent("brandforge:project-busy", { detail: { busy } }));
 }
 
 addCreativeBtn.onclick = async () => {
@@ -833,12 +837,18 @@ outputBtn.onclick = async () => {
     const result = await sliderApi.selectOutputFolder();
     if (!result) return;
     state.outputFolder = result.folderPath;
+    state.linkedProjectRoot = null;
+    state.autoLinkedOutput = null;
+    document.dispatchEvent(new Event("brandforge:project-manual"));
     outputPath.textContent = state.outputFolder;
     outputPath.title = state.outputFolder;
 };
 
 clearOutputBtn.onclick = () => {
     state.outputFolder = null;
+    state.linkedProjectRoot = null;
+    state.autoLinkedOutput = null;
+    document.dispatchEvent(new Event("brandforge:project-manual"));
     outputPath.textContent = "Not selected — PSD will stay open in Photoshop";
     outputPath.title = "";
 };
@@ -915,5 +925,28 @@ sliderApi.onProgress(progress => {
         setStatus("Working", progress.message, "busy");
     }
 });
+
+document.addEventListener("brandforge:project-linked", event => {
+    const project = event.detail?.project;
+    const folder = project?.roles?.slider?.folderPath || null;
+    state.linkedProjectRoot = folder ? project.root : null;
+    state.autoLinkedOutput = folder;
+    if (folder) {
+        state.outputFolder = folder;
+        outputPath.textContent = folder;
+        outputPath.title = folder;
+        setStatus("Google Drive project linked", `Slider PSD will save to ${folder}`, "ready");
+    }
+});
+document.addEventListener("brandforge:project-unlinked", () => {
+    if (state.autoLinkedOutput && state.outputFolder === state.autoLinkedOutput) {
+        state.outputFolder = null;
+        outputPath.textContent = "Not selected — PSD will stay open in Photoshop";
+        outputPath.title = "";
+    }
+    state.linkedProjectRoot = null;
+    state.autoLinkedOutput = null;
+});
+window.BrandForgeProjectLink?.mount(document.getElementById("sliderBrandProject"));
 
 renderAll();

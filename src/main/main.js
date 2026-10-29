@@ -22,6 +22,7 @@ if (!hasSingleInstanceLock) {
     require("../modules/landing-page/main/register");
     require("../modules/lp-folder/main/register");
     require("../modules/settings/main/register");
+    require("../modules/project-location/main/register");
 
     function createMainWindow() {
         const win = new BrowserWindow({

@@ -1,0 +1,21 @@
+.projectlink-panel { display:grid; gap:12px; padding:16px 20px; margin:14px 0; border:1px solid #373737; border-radius:14px; background:#202020; color:#ededed; }
+.projectlink-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+.projectlink-heading strong {font-size:14px; letter-spacing:.2px}
+.projectlink-heading span {font-size:11px; color:#a9a9a9}
+.projectlink-controls {display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.projectlink-controls input {flex:1 1 290px; min-width:160px; padding:10px 11px; border:1px solid #454545; color:#efefef; background:#171717; border-radius:8px}
+.projectlink-controls button, .projectlink-apply {cursor:pointer; padding:10px 13px; border-radius:8px; border:1px solid #525252; font-size:12px}
+.projectlink-controls button.secondary {background:#292929;color:#f0f0f0}
+.projectlink-controls button:disabled, .projectlink-apply:disabled {opacity:.45;cursor:default}
+.projectlink-choices {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.projectlink-role {border:1px solid #383838; background:#181818; border-radius:9px; padding:10px;display:grid;gap:6px;min-width:0}
+.projectlink-role label {font-size:11px;font-weight:700;color:#d5d5d5}
+.projectlink-role select {background:#282828;color:#f2f2f2;padding:8px 6px;border:1px solid #484848;border-radius:6px;min-width:0;max-width:100%;font-size:11px}
+.projectlink-role small {font-size:10px;color:#a8a8a8;overflow-wrap:anywhere}
+.projectlink-notice {font-size:12px;color:#b4c2cc;overflow-wrap:anywhere}
+.projectlink-warning {color:#f5bd85}
+.projectlink-apply {justify-self:end; background:#d6dcdb;color:#151515;font-weight:700;min-width:150px}
+@media (max-width:840px){.projectlink-choices{grid-template-columns:1fr}}
+
+/* Prevent G: locator controls from overlapping the production workspace. */
+.projectlink-panel { min-height: 0; position: relative; isolation: isolate; align-self: start; }

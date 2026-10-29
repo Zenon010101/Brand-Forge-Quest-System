@@ -11,6 +11,11 @@ const {
 const { runPhotoshopScript } = require("./photoshopBridge");
 const { buildJobScript } = require("./jobBuilder");
 const { recordProductionEvent } = require("../../profile/main/service");
+const os = require("os");
+const { randomUUID } = require("crypto");
+const { getStoredLink } = require("../../project-location/main/register");
+const { pathKey, assertMarkerSafe } = require("../../project-location/main/projectPaths");
+const { publishGroup } = require("../../amazon/main/sharedExporter");
 
 function safeFileName(value) {
     return (
@@ -153,18 +158,49 @@ ipcMain.handle("slider:generate", async (event, payload) => {
     };
 
     const outputFolder = payload?.outputFolder || null;
+    let linkedProject = null;
+    let stageRoot = null;
+    let finalPsdPath = null;
+    let overwriteApproved = false;
+    let retainStage = false;
+    if (payload?.projectRoot) {
+        try {
+            linkedProject = getStoredLink(payload.projectRoot);
+            if (!linkedProject.roles.slider?.folderPath ||
+                pathKey(linkedProject.roles.slider.folderPath) !== pathKey(outputFolder)) {
+                return { ok: false, error: "Slider destination differs from the verified G: project. Reapply the project or choose a folder manually." };
+            }
+        } catch (error) {
+            return { ok: false, error: error.message || String(error) };
+        }
+    }
     if (outputFolder) {
-        const outputPsdPath = path.join(
-            outputFolder,
-            `${safeFileName(productCode)}.psd`
-        );
-
-        await fs.promises.mkdir(outputFolder, { recursive: true });
-        await fs.promises.unlink(outputPsdPath).catch(error => {
-            if (error.code !== "ENOENT") throw error;
-        });
-
-        job.outputPsdPath = outputPsdPath;
+        finalPsdPath = path.join(outputFolder, `${safeFileName(productCode)}.psd`);
+        if (linkedProject) {
+            try { assertMarkerSafe(linkedProject, "slider", finalPsdPath); }
+            catch (error) { return { ok: false, error: error.message }; }
+        }
+        // Never let a completed PSD (especially a marker in G:) be removed
+        // just because Photoshop or a shared-drive write subsequently fails.
+        try {
+            const stat = await fs.promises.lstat(finalPsdPath).catch(error => {
+                if (error.code === "ENOENT") return null;
+                throw error;
+            });
+            if (stat) {
+                if (!stat.isFile() || stat.isSymbolicLink()) return { ok: false, error: "Slider output exists but is not a regular file." };
+                const answer = await dialog.showMessageBox({
+                    type: "question", title: "Existing Slider PSD",
+                    message: `Replace existing ${path.basename(finalPsdPath)}?`,
+                    detail: "A verified backup will be made before publishing. PSD location markers are protected.",
+                    buttons: ["Replace Existing", "Cancel"], defaultId: 1, cancelId: 1, noLink: true
+                });
+                if (answer.response !== 0) return { ok: false, error: "Slider export canceled; existing PSD preserved." };
+                overwriteApproved = true;
+            }
+            stageRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "brandforge-slider-stage-"));
+            job.outputPsdPath = path.join(stageRoot, `${randomUUID()}.psd`);
+        } catch (error) { return { ok: false, error: error.message || String(error) }; }
     }
 
     event.sender.send("slider:progress", {
@@ -182,6 +218,19 @@ ipcMain.handle("slider:generate", async (event, payload) => {
         });
 
         await runPhotoshopScript(scriptText, `${productCode} slider build`);
+        if (finalPsdPath) {
+            if (linkedProject) {
+                // A second check prevents a template from being moved/renamed
+                // into the chosen output path while Photoshop is running.
+                const freshLink = getStoredLink(payload.projectRoot);
+                assertMarkerSafe(freshLink, "slider", finalPsdPath);
+            }
+            await publishGroup([{ staged: job.outputPsdPath, name: path.basename(finalPsdPath) }], {
+                outputFolder, backupFolder: path.join(stageRoot, "backups"),
+                confirmedExistingPaths: overwriteApproved ? [path.basename(finalPsdPath)] : []
+            });
+            job.outputPsdPath = finalPsdPath;
+        }
 
         const outputCount = job.creative.length + job.lineupRows.length + job.detail.length;
         const progression = await recordProductionEvent({
@@ -210,6 +259,7 @@ ipcMain.handle("slider:generate", async (event, payload) => {
             progression
         };
     } catch (error) {
+        if (error?.retainStage) retainStage = true;
         const message = error?.message || String(error);
 
         event.sender.send("slider:progress", {
@@ -221,5 +271,7 @@ ipcMain.handle("slider:generate", async (event, payload) => {
             ok: false,
             error: message
         };
+    } finally {
+        if (stageRoot && !retainStage) await fs.promises.rm(stageRoot, { recursive: true, force: true }).catch(() => {});
     }
 });

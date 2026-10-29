@@ -18,3 +18,6 @@ Preserved rules:
 - Vertical = stacked standard lineup.
 - PA Vertical = Item 571×280 → Item Detail 571×250 → Color Name 571×50.
 - Four Cut = 2×2 lineup.
+
+## v1.7.16 Read-only brand project location linking
+Select the G: brand root in the shared panel. The selected SLIDER PSD is a marker for the save directory only; it is never opened, edited, or overwritten. The generated Slider PSD is staged locally, then verified and published to the linked output location with overwrite confirmation/rollback.
