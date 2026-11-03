@@ -21,6 +21,7 @@ if (!hasSingleInstanceLock) {
     require("../modules/remove-bg/main/register");
     require("../modules/landing-page/main/register");
     require("../modules/lp-folder/main/register");
+    require("../modules/combine/main/register");
     require("../modules/settings/main/register");
     require("../modules/project-location/main/register");
 

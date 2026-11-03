@@ -1,0 +1,21 @@
+BRANDFORGE v1.7.24 — AMAZON CUT-EDGE ENLARGEMENT
+
+Base: BrandForge v1.7.23 Rakuten Slider Download Only.
+
+SCOPE:
+- Normal sources: unchanged 801/921 safe-area sizing in 1001 x 1001.
+- Cut edges: proportional 4% enlargement and alignment to detected sides.
+- Four-edge source: centered proportional cover +4%, bounded for very unequal aspect ratios to avoid excessive subject loss.
+- Final JPGs stay 1001 x 1001; overflow clips only their visible viewport.
+- When clipping occurs, the Photoshop master PSD embeds a FULL resized Smart Object positioned outside the canvas. Source product remains accessible for manual repositioning.
+- Original source files and read-only PSD location markers stay unchanged.
+- Folder Mode, Batch Workspace, Sharing, Colorbox choice, Slider, Combine/Rakuten, both LP Generators, Remove BG, Profiles, EXP/History stay unchanged.
+
+INSTALLATION:
+1. Fully close BrandForge and back up v1.7.23.
+2. Extract the v1.7.24 FULL ZIP into a new folder, OR extract the PATCH ZIP over v1.7.23 preserving paths.
+3. Run npm.cmd install if needed; then npm.cmd run validate and npm.cmd start.
+4. Test a square four-cut product, then a three-cut model photo, then one normal product.
+5. Open the master PSD and move one overflowing Smart Object: content outside the canvas should be editable rather than permanently discarded.
+
+Note: Automated JavaScript/image tests run here. Live Windows Photoshop PSD embedding and Google Shared Drive publishing still require workstation testing.

@@ -8,7 +8,13 @@ function toJsxData(parentGroups) {
         variants: (parent.variants || []).map(variant => ({
             name: variant.variantId,
             layers: (variant.layers || []).map(layer => ({
-                file: layer.pngPath,
+                file: layer.smartPngPath || layer.pngPath,
+                position: layer.smartPngPath && layer.placement ? {
+                    left: layer.placement.left,
+                    top: layer.placement.top,
+                    width: layer.placement.width,
+                    height: layer.placement.height
+                } : null,
                 name: layer.layerName
             }))
         }))
@@ -86,6 +92,30 @@ try {
                 var placed = placeSmartObject(layerData.file);
                 placed.name = layerData.name;
                 placed.visible = true;
+
+                if (layerData.position) {
+                    // Photoshop may auto-fit oversized files during Place.
+                    // Restore the exact proportional pixel size BEFORE
+                    // translating into its intentionally off-canvas position.
+                    var wanted = layerData.position;
+                    var bounds = placed.bounds;
+                    var currentWidth = bounds[2].as("px") - bounds[0].as("px");
+                    var currentHeight = bounds[3].as("px") - bounds[1].as("px");
+                    if (currentWidth <= 0 || currentHeight <= 0) {
+                        throw new Error("Placed Amazon Smart Object has invalid bounds.");
+                    }
+                    var uniformScale = wanted.width / currentWidth;
+                    // One scale factor only. Photoshop's default placement
+                    // may downscale a very large image, but must never distort.
+                    if (Math.abs(uniformScale - 1) > 0.0001) {
+                        placed.resize(uniformScale * 100, uniformScale * 100, AnchorPosition.MIDDLECENTER);
+                    }
+                    bounds = placed.bounds;
+                    placed.translate(
+                        UnitValue(wanted.left - bounds[0].as("px"), "px"),
+                        UnitValue(wanted.top - bounds[1].as("px"), "px")
+                    );
+                }
             }
         }
     }
@@ -122,5 +152,6 @@ try {
 }
 
 module.exports = {
-    buildAmazonPsd
+    buildAmazonPsd,
+    toJsxData
 };

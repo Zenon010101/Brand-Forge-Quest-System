@@ -1,0 +1,28 @@
+BrandForge v1.7.20 - NEW COMBINE GENERATOR
+
+Base: BrandForge v1.7.19. The standalone Combine Generator is added to the
+sidebar and Dashboard; existing Amazon, Slider, Remove Background, both LP
+Generators, local profiles/EXP/history, and Google Drive marker auto-save are
+not modified. The cancelled LAN leaderboard and Smart Folder Import stay out.
+
+New Combine workflow:
+  1. Upload Single (600 x 600 maximum, centered, top of composition).
+  2. Upload Line Up images and enter editable 28 px color names.
+  3. Upload Details. All images follow the user-defined left-to-right order.
+  4. Review the full preview (two columns) and choose output folder/name.
+  5. Generate Combine: layered PSD/PSB plus one or more JPEG files.
+
+Template reference: src/modules/combine/template/COMBINE_TEMPLATE_REFERENCE.psd
+is the original uploaded PSD, included for geometry reference only. It is not
+modified or opened as the output base. Detail box guides are not exported.
+
+To upgrade from v1.7.19:
+- Close BrandForge; back up your project.
+- Extract the complete ZIP into a new directory, or apply the version patch
+  over an existing v1.7.19 project, preserving the src/ directory structure.
+- Run: npm.cmd install
+- Run: npm.cmd run validate
+- Run: npm.cmd start
+
+No new npm dependencies. Actual Photoshop execution requires Windows with
+Adobe Photoshop. Automated tests were run in a Linux development environment.

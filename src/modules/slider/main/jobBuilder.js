@@ -137,6 +137,11 @@ function buildJobScript(enginePath, job) {
                 false,
                 Extension.LOWERCASE
             );
+            // This document is a staging file, NOT the user's final PSD.
+            // Closing it prevents Photoshop from leaving a stale cache/temp tab
+            // active after the verified final PSD is published.
+            __builtDoc.close(SaveOptions.DONOTSAVECHANGES);
+            __builtDoc = null;
         }
 
         __success = true;

@@ -128,7 +128,7 @@ async function testAmazonCutPlacement() {
 }
 
 
-async function testAmazonCutCornerLock() {
+async function testAmazonNoForcedCornerFill() {
     const svg = Buffer.from(
         '<svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">' +
         '<polygon points="0,0 299,0 299,299 150,299 0,150" fill="black"/>' +
@@ -149,10 +149,13 @@ async function testAmazonCutCornerLock() {
         .toBuffer({ resolveWithObject: true });
 
     const alphaAt = (x, y) => data[(y * info.width + x) * info.channels + 3];
-    assert(alphaAt(0, 1000) > 20, "cut corner must contain actual visible item pixels");
+    assert(alphaAt(0, 1000) <= 20,
+        "Transparent source corner must stay transparent; no forced corner zoom/crop");
+    assert(alphaAt(1000, 1000) > 20,
+        "Actual product corner must remain visible");
 }
 
-async function testAmazonFirstImageCutFlush() {
+async function testAmazonFirstImageSafeArea() {
     const source = await sharp({
         create: { width: 300, height: 300, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
     }).composite([{
@@ -164,8 +167,8 @@ async function testAmazonFirstImageCutFlush() {
     const cut = await amazonRules.detectCutSides(source);
     const rendered = await amazonRules.renderAmazonImage(source, 1, cut);
     const bounds = await alphaBounds(rendered.pngBuffer);
-    assert.strictEqual(bounds.left, 0, "Amazon image 1 cut-left must flush to canvas edge");
-    assert.strictEqual(bounds.top, 0, "Amazon image 1 cut-top must flush to canvas edge");
+    assert.strictEqual(bounds.left, 100, "Amazon image 1 must remain centered inside the original 801px area");
+    assert.strictEqual(bounds.top, 100, "Amazon image 1 must remain centered inside the original 801px area");
 }
 
 async function testColorboxByteCopy() {
@@ -300,8 +303,8 @@ function testProgressionMath() {
     await testScanner();
     await testAmazonVisiblePixelSizing();
     await testAmazonCutPlacement();
-    await testAmazonCutCornerLock();
-    await testAmazonFirstImageCutFlush();
+    await testAmazonNoForcedCornerFill();
+    await testAmazonFirstImageSafeArea();
     await testColorboxByteCopy();
     console.log("Smoke tests passed.");
 })().catch(error => {

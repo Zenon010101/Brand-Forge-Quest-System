@@ -1,0 +1,42 @@
+BRANDFORGE v1.7.19 — AMAZON NO-PRODUCT-CROP PLACEMENT FIX
+
+WHAT CAUSED THE PRODUCT TO BE CUT
+The v1.7.18 Amazon renderer could scale a cut source beyond its 1001 px
+canvas to force every edge/corner to be filled. It then cropped the
+overflow with cropToCanvas(), discarding actual product pixels.
+
+WHAT CHANGED
+- Preserve 1001 x 1001 output canvas.
+- Normal Image 1 keeps 801 x 801 visible-pixel sizing (100 px margin).
+- Normal Images 2-8 keep 921 x 921 sizing (40 px margin).
+- Use the original normalized source for cut detection.
+- Detect actual visible-product bounds, ignoring external blank pixels.
+- Align ONLY the detected cut side(s) to the canvas edge.
+- Keep the other axis centered, preserve proportions and all content.
+- No forced corner-fill zoom. No cropToCanvas content clipping.
+- Opposite cuts that cannot both be flush without product loss are flagged
+  instead of zooming/cropping or stretching the item.
+- The first selected image remains the optional Colorbox source.
+- Folder Mode, Batch Workspace, order, Share Images, master PSD, optional
+  Colorbox, linked Google Drive output folders, PSD markers, profile/EXP,
+  Slider, Remove BG, and LP modules are unchanged.
+
+HOW TO APPLY THE PATCH TO v1.7.18
+1. Close BrandForge completely and back up the project.
+2. Extract the patch ZIP over the v1.7.18 project, preserving paths.
+3. Run npm.cmd run test:amazon-cut
+4. Run npm.cmd run test:amazon-no-crop
+5. Run npm.cmd run validate
+6. Start with npm.cmd start.
+7. Reprocess a previously problematic image (existing JPGs are not
+   retroactively updated) and inspect the original vs Amazon JPG.
+
+NOTES
+- If an original contains a naturally missing/white corner, the renderer
+  preserves it; it does NOT invent product pixels to fill the corner.
+- A non-square source touching all four sides cannot both fill every
+  1001 px edge and preserve its full aspect ratio. No-crop takes priority.
+- Detection against opaque low-contrast backgrounds is inherently
+  approximate. If a product is visually indistinguishable from its
+  background, manual QC is still necessary.
+- Full Photoshop + G: Drive behavior requires workstation verification.

@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { createHash } = require("crypto");
-const { recordGeneratedPaths } = require("./generatedIndex");
+const { recordGeneratedPaths, backupFolder } = require("./generatedIndex");
 
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function statOrNull(file) {
@@ -63,7 +63,7 @@ async function publish(workPsd, folder, stem, format, behavior = "version") {
     let original = null;
     if (existing) {
         if (behavior !== "replace") throw new Error("Output appeared during publishing. Choose another version.");
-        const backups = path.join(resolvedFolder, ".brandforge-lp-backups");
+        const backups = backupFolder(resolvedFolder);
         await fs.promises.mkdir(backups, { recursive: true });
         backupPath = path.join(backups, `${path.basename(target)}.${new Date().toISOString().replace(/[:.]/g,"-")}.${process.pid}.bak`);
         original = await fingerprint(target);
@@ -190,7 +190,7 @@ async function publishLP(staged, folder, stem, format, behavior = "version") {
     }
     const backups = {};
     if (original.size) {
-        const backupDir = path.join(resolved, ".brandforge-lp-backups");
+        const backupDir = backupFolder(resolved);
         await fs.promises.mkdir(backupDir, { recursive: true });
         const { randomBytes } = require("crypto");
         for (const entry of original.values()) {
@@ -240,7 +240,7 @@ async function publishLP(staged, folder, stem, format, behavior = "version") {
             } catch (rollbackError) { failures.push(`${path.basename(target)}: ${rollbackError.message}`); }
         }
         if (failures.length) {
-            throw new Error(`${error.message} ROLLBACK FAILED: ${failures.join("; ")}. Check .brandforge-lp-backups before retrying.`);
+            throw new Error(`${error.message} ROLLBACK FAILED: ${failures.join("; ")}. Check the BrandForge local LP backup directory before retrying.`);
         }
         throw error;
     }

@@ -21,3 +21,8 @@ Preserved rules:
 
 ## v1.7.16 Read-only brand project location linking
 Select the G: brand root in the shared panel. The selected SLIDER PSD is a marker for the save directory only; it is never opened, edited, or overwritten. The generated Slider PSD is staged locally, then verified and published to the linked output location with overwrite confirmation/rollback.
+
+
+## v1.7.27 — Saved PSD handoff
+
+The output folder is required. If no G: project link or output folder has been set, the Generate action prompts for a folder. Photoshop saves an intermediate PSD locally; BrandForge copies and verifies the final PSD at the selected location, closes the intermediate document, and opens the **published PSD** in Photoshop. An unsaved older tab for the same final PSD is not forcibly closed. If re-opening fails, the saved PSD path and warning are shown. The project templates remain location markers only.

@@ -1,0 +1,41 @@
+BrandForge v1.7.25 - Amazon Creative / Four-edge Framing Fix
+
+Upgrade from: v1.7.24 (full archive or patch).
+
+WHY:
+- Previous Amazon classifier could treat beige/grey photo backgrounds and
+  intentional white/photo compositions as removable blank margins.
+- Trimming those assets before scaling changed their composition or made
+  the model appear unexpectedly cut.
+
+NEW BEHAVIOR:
+1) Image 1: centered at 801x801 within the fixed 1001x1001 image,
+   exactly as the supplied original amazonRules(3).js.
+2) Images 2-8: ordinary isolated items use 921x921 plus existing visible-pixel
+   trimming and cut-edge alignment. Cut items still enlarge 4%.
+3) True four-edge creative photos: retain entire source frame; uniform
+   scaling only. Near-square art covers the canvas. Very tall/wide photos
+   remain mostly visible with small centered overhang instead of an extreme crop.
+4) Do not split, stretch, pre-crop or alter the photo panels. Photoshop
+   Smart Objects retain the full overflowing image when applicable.
+5) JPG outputs remain 1001x1001, with blank outside areas white.
+
+INSTALL:
+- Close BrandForge and back up the existing project.
+- Extract v1.7.25 full ZIP to a fresh folder, OR apply patch over v1.7.24.
+- npm.cmd install (if starting fresh)
+- npm.cmd run validate
+- npm.cmd start
+- Regenerate previously affected Amazon JPGs; old JPG files will not change.
+
+QA:
+- Test a beige-background model TIFF, a white-plus-photo creative JPG,
+  a normal isolated product, and an actual four-side cut image.
+- Inspect Amazon Image 1 safe area, Images 2-8 sizing, shared IDs, optional
+  Colorbox, and master PSD Smart Object placement on Windows Photoshop.
+- Original source images and Google Drive PSD marker files remain unchanged.
+
+NOTE:
+This update has automated JS and actual uploaded-image render checks, but
+Photoshop-specific placement and mapped G: shared-drive publishing have not
+been run on the user's machine in this environment.

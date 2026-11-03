@@ -1,0 +1,26 @@
+BrandForge v1.7.27 — Slider saved PSD handoff + clean LP output naming
+
+FROM: v1.7.26
+
+Slider Maker
+- PSD output folder is now required. If none selected, Generate prompts for one.
+- After generation the verified PSD at the real destination is opened in Photoshop.
+- Temporary/staged document is closed. Unsaved Photoshop work is not forcibly discarded.
+- Original G: PSD marker templates remain untouched.
+
+LP Folder Generator
+- Enter Product ID, e.g. ABM-90, output name becomes abm-90lp.psd and abm-90lp.jpg.
+- Entering ABM-90_LP.psd or abm-90lp also yields abm-90lp (no double suffix).
+- No JSON, JavaScript, JSX, or other support files are produced in LP image folder.
+- Internal generated file index and verified overwrite backups are kept outside the LP folder.
+- Exception: extremely tall LP JPEGs are output in numbered JPEG parts to avoid truncation; the editable PSB remains a single file.
+
+INSTALL
+1. Close BrandForge and back up the current project.
+2. Extract v1.7.27 complete project or patch over v1.7.26.
+3. Run npm.cmd run validate and npm.cmd start.
+
+QA
+- Generate a Slider PSD with both a manually selected folder and auto-linked G: destination; confirm Photoshop active tab path matches the final saved path.
+- Generate ABM-90 LP and confirm its source folder gains only abm-90lp.psd and abm-90lp.jpg.
+- Actual Adobe Photoshop and G: Drive tests must be performed on Windows.

@@ -1,0 +1,19 @@
+BrandForge v1.7.26 - Amazon 4-edge full-canvas cover fix
+
+PATCH FROM v1.7.25:
+  1. Close every BrandForge/Electron instance and back up your project.
+  2. Extract the v1.7.26 patch ZIP into the project root, preserving paths.
+  3. Run: npm.cmd run validate
+  4. Run: npm.cmd start
+  5. Re-generate at least one portrait TIFF as Amazon Image 2 or later.
+
+Four-edge details (Images 2–8) now always fill the entire 1001×1001
+viewport. Portraits extend past the top/bottom of the JPEG, centered and
+proportional. Full image content remains in the Photoshop Smart Object.
+Image 1 remains 801px centered; normal detail images keep 921px sizing.
+The original PSD template markers are unchanged.
+
+Tests added: test/amazonPortraitCover.js
+A full-blown Windows Photoshop / Google Shared Drive export must still be
+validated on your workstation. The source TIFF files are not included in
+these ZIPs.

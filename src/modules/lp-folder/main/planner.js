@@ -21,10 +21,12 @@ const PHOTOSHOP_SOURCES = new Set([".psd", ".psb"]);
 const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
 
 function isGeneratedOutput(name, folderName) {
-    const suffix = name.toLowerCase();
-    const root = path.parse(folderName).name.toLowerCase();
-    return new RegExp(`^${escapeRegex(root)}_lp(?:_v\\d+)?(?:_\\d+)?\\.(?:psd|psb|jpg|jpeg|png)$`, "i").test(suffix);
+    const root = safeDocumentName(path.parse(folderName).name).toLowerCase();
+    // Recognize both historical *_LP exports and the new IDlp convention,
+    // even if a previous per-user tracking index is not available.
+    return new RegExp(`^${escapeRegex(root)}(?:_lp|lp)(?:_v\\d+)?(?:_\\d+)?\\.(?:psd|psb|jpe?g|png)$`, "i").test(name);
 }
+
 function escapeRegex(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
 function naturalSort(entries) {
@@ -105,28 +107,40 @@ async function scanFolder(folder) {
     }
     if (!accepted.length) throw new Error(`No readable image files were found in ${abs}. ${warnings.join(" ")}`);
     const detected = findSingle(accepted, path.basename(abs));
-    return { folder: abs, folderName: path.basename(abs), suggestedOutputName: `${safeDocumentName(path.basename(abs))}_LP`,
+    // The Single is frequently the actual product ID even if the surrounding
+    // source folder is named generically (e.g. "LP Parts").
+    const singleStem = detected.singlePath ? path.parse(detected.singlePath).name : "";
+    const inferredID = /^[a-z]{2,10}[-_]?\d{2,}(?:[-_][a-z0-9]+)*$/i.test(singleStem)
+        ? singleStem : path.basename(abs);
+    return { folder: abs, folderName: path.basename(abs), suggestedOutputName: safeDocumentName(inferredID).toLowerCase(),
         images: accepted, singlePath: detected.singlePath,
         warnings: [...warnings, ...detected.warnings], detection: detected.method };
 }
 
 function safeDocumentName(folder) {
-    let val = String(folder || "LandingPage").replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").replace(/[. ]+$/g, "").trim();
-    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(val)) val += "_product";
-    return (val || "LandingPage").slice(0, 100);
+    // Folder names are only defaults. Real product IDs are validated below.
+    let val = String(folder || "product").trim()
+        .replace(/[<>:"/\\|?*\x00-\x1f]/g, "_")
+        .replace(/\s+/g, "-")
+        .replace(/[. ]+$/g, "");
+    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(val)) val += "-product";
+    return (val || "product").slice(0, 100);
 }
 
-// A designer can rename the output independently of the source folder.
-// Extensions are decided automatically by document size and JPEG output.
+// LP filename convention: product ID (lowercase) + "lp", no gap, caps,
+// hyphen or underscore between them. Users may enter an ID or a full legacy
+// name like "ABM-90_LP.psd"; both generate abm-90lp.psd + abm-90lp.jpg.
 function normalizeOutputBaseName(raw, folderName) {
-    const value = raw == null ? `${safeDocumentName(folderName)}_LP` : String(raw).trim();
-    const stem = value.replace(/\.(?:psd|psb|jpe?g)$/i, "");
-    if (!stem || stem.length > 120 || /^[.]/.test(stem) || /[. ]$/.test(stem) ||
-        /[<>:"\/\\|?*\x00-\x1f]/.test(stem) ||
-        /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(stem)) {
-        throw new Error("Invalid LP output filename. Use a name without paths, reserved characters, or trailing dots; maximum 120 characters.");
+    const value = raw == null ? safeDocumentName(folderName) : String(raw).trim();
+    let id = value.replace(/\.(?:psd|psb|jpe?g)$/i, "").trim();
+    if (/\dlp$/i.test(id)) id = id.slice(0, -2);
+    else id = id.replace(/(?:[ _-]+lp)$/i, "");
+    if (!id || id.length > 118 || /^\./.test(id) || /[. ]$/.test(id) ||
+        /\s/.test(id) || /[<>:"/\\|?*\x00-\x1f]/.test(id) ||
+        /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(id)) {
+        throw new Error("Invalid LP Product ID. Use an ID without spaces, paths, or reserved characters; maximum 118 characters.");
     }
-    return stem;
+    return `${id.toLowerCase()}lp`;
 }
 
 function createLayout(snapshot, orderedPaths, singlePath, outputBaseName) {

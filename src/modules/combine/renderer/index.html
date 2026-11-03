@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Combine Generator | BrandForge</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="workspace">
+  <header class="module-head">
+    <div><p class="kicker">BRANDFORGE / IMAGE WORKFLOW STUDIO</p><h1>COMBINE Generator <span class="version">v1.7.23</span></h1><p>Upload by section, set the color names, drag images into order, and export a layered Photoshop Combine with JPEG.</p></div>
+    <div class="head-stats"><strong>600 PX</strong><span>Fixed width · Dynamic height</span></div>
+  </header>
+  <div class="workgrid">
+    <aside class="editor">
+      <section class="panel section rakuten-panel" id="rakutenPanel">
+        <div class="panel-head"><div><span class="step">WEB</span><h2>Rakuten Slider Downloader</h2></div><span class="tag">Download only</span></div>
+        <p class="tip">Paste a Rakuten product item URL or its slider iframe URL. Download only the slider images in original website order. Files stay unchanged and go into one numbered product folder. No classification or Combine upload is required.</p>
+        <label class="field-label" for="rakutenUrl">Rakuten Product / Slider URL</label>
+        <input class="field" id="rakutenUrl" placeholder="https://item.rakuten.co.jp/glv/lvh-97/" spellcheck="false" />
+        <details class="html-override"><summary>Advanced: Paste slider HTML if the page blocks scanning</summary>
+          <textarea id="rakutenHtml" rows="3" placeholder="Paste HTML from the actual slider iframe, then enter its iframe URL above."></textarea>
+        </details>
+        <label class="field-label" for="rakutenFolder">Save inside this parent folder (optional)</label>
+        <div class="output-location"><span id="rakutenFolder">Windows Downloads (default)</span><button type="button" id="rakutenChooseFolder" class="minor">Choose Folder</button></div>
+        <div class="section-tools"><button type="button" id="rakutenDownload" class="action">Download Slider Images</button><button type="button" id="rakutenOpenFolder" class="minor" disabled>Open Download Folder</button></div>
+        <span id="rakutenScanInfo" class="scan-info">Paste URL and click Download</span>
+        <div id="rakutenSlideList" class="rakuten-list"><p class="empty">Downloaded slide files will appear here in order.</p></div>
+        <p id="rakutenStatus" class="tip">Only slider images are downloaded. Single, Line Up and Details can be assigned later using the normal Combine uploads.</p>
+      </section>
+      <section class="panel section" id="sectionSingle">
+        <div class="panel-head"><div><span class="step">01</span><h2>Single</h2></div><span class="tag">1 image</span></div>
+        <div class="drop-zone" data-section="single" tabindex="0"><span class="drop-icon">▣</span><strong>Drop Single here</strong><small>or click Add / Replace</small></div>
+        <div class="section-tools"><button type="button" id="chooseSingle" class="action">Add / Replace Single</button><button type="button" id="removeSingle" class="minor">Remove</button></div>
+        <div id="singleItems" class="items"><p class="empty">No Single selected.</p></div>
+      </section>
+      <section class="panel section" id="sectionLineup">
+        <div class="panel-head"><div><span class="step">02</span><h2>Line Up</h2></div><span class="tag" id="lineCount">0 variations</span></div>
+        <p class="tip"><strong>Optional — leave this section empty to skip.</strong> If included: two per row, left → right; each image stays paired with its editable 28 px color-name text.</p>
+        <div class="drop-zone compact" data-section="lineup" tabindex="0"><span class="drop-icon">＋</span><strong>Drop Line Up images</strong><small>Multiple files supported</small></div>
+        <div class="section-tools"><button type="button" id="chooseLineup" class="action">Add Line Up Images</button><button type="button" id="clearLineup" class="minor">Clear Line Up</button></div>
+        <div id="lineupItems" class="items"><p class="empty">No Line Up — this section will be skipped.</p></div>
+        <div class="bulk" id="lineupBulk"><label for="bulkColorNames">Bulk color names (one name per line, in current image order)</label><textarea id="bulkColorNames" rows="3" placeholder="Black&#10;Navy&#10;Beige"></textarea><button type="button" class="minor" id="applyColors">Apply Names in Order</button></div>
+      </section>
+      <section class="panel section" id="sectionDetails">
+        <div class="panel-head"><div><span class="step">03</span><h2>Details</h2></div><span class="tag" id="detailCount">0 images</span></div>
+        <p class="tip">293 × 293 px guide, 8 px horizontal and 7 px vertical gap. Visible content fitted without cropping.</p>
+        <div class="drop-zone compact" data-section="details" tabindex="0"><span class="drop-icon">＋</span><strong>Drop Detail images</strong><small>Order: left → right, then next row</small></div>
+        <div class="section-tools"><button type="button" id="chooseDetails" class="action">Add Detail Images</button><button type="button" id="clearDetails" class="minor">Clear Details</button></div>
+        <div id="detailItems" class="items"><p class="empty">No Detail images.</p></div>
+      </section>
+    </aside>
+    <main class="inspection">
+      <section class="panel preview-panel">
+        <div class="preview-top"><div><h2>QC Preview</h2><p id="previewCaption">Upload a Single to start.</p></div><div class="switch"><button id="tabFull" type="button" class="selected">Full Combine</button><button id="tabSelected" type="button">Selected Image</button></div></div>
+        <div class="preview-screen" id="previewScreen"><div class="empty-view" id="previewEmpty">Upload your images to preview the Combine.</div><div id="fullPreview" class="full-preview" hidden></div><img id="selectedPreview" alt="Selected product preview" hidden></div>
+        <div class="preview-bottom"><span id="currentSelection">No image selected</span><span id="previewInfo">600 px canvas</span></div>
+      </section>
+      <section class="panel summary-panel">
+        <div class="panel-head"><div><span class="step">LAYOUT</span><h2>Composition</h2></div><span class="tag">Template dimensions</span></div>
+        <div class="metrics"><div><span>Width</span><strong>600 px</strong></div><div><span>Height</span><strong id="heightStat">—</strong></div><div><span>Line Up</span><strong id="lineStat">0</strong></div><div><span>Details</span><strong id="detailsStat">0</strong></div></div>
+        <div class="structure">Single: 600 × 600 px <b>·</b> 15 px gap <b>·</b> 2 Line Up columns / 28 px labels <b>·</b> 2 Detail columns / 293 px boxes</div>
+        <div id="warnings" class="warnings">Upload a Single to start. Line Up and Details are optional.</div>
+      </section>
+      <section class="panel output-panel">
+        <div class="panel-head"><div><span class="step">04</span><h2>Output</h2></div><span class="tag">PSD/PSB + JPEG</span></div>
+        <label class="field-label" for="outputName">Output filename</label><input id="outputName" class="field" type="text" value="PRODUCT_COMBINE" maxlength="120" spellcheck="false">
+        <label class="field-label">Destination</label><div class="output-location"><span id="outputFolder">No output folder selected</span><button type="button" class="minor" id="chooseOutput">Choose Folder</button></div>
+        <label class="field-label" for="saveAction">When output exists</label><select class="field" id="saveAction"><option value="version">Save new version (_v2, _v3...)</option><option value="replace">Back up + replace existing files</option><option value="cancel">Cancel rather than overwrite</option></select>
+        <p class="tip">The gray template boxes are guides only. The original PSD template and all uploaded images remain unchanged.</p>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><div class="footer-main"><button type="button" id="generate" class="generate" disabled>Generate Combine</button><button type="button" id="openOutput" class="minor" disabled>Open Output Folder</button><button type="button" id="reset" class="minor">Clear All</button></div><div class="status"><span id="statusText">Ready — upload source images.</span><span id="statusMeta">No output yet</span></div></footer>
+</div>
+<script src="app.js"></script>
+</body></html>

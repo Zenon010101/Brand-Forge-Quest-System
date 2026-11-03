@@ -112,3 +112,32 @@ contextBridge.exposeInMainWorld("brandProjectApp", {
     scan: root => ipcRenderer.invoke("brand-project:scan", { root }),
     link: (root, selectedMarkers) => ipcRenderer.invoke("brand-project:link", { root, selectedMarkers })
 });
+
+
+contextBridge.exposeInMainWorld("combineApp", {
+    scanRakuten: data => ipcRenderer.invoke("combine:rakuten-scan", data),
+    chooseRakutenFolder: () => ipcRenderer.invoke("combine:rakuten-choose-folder"),
+    downloadRakuten: folder => ipcRenderer.invoke("combine:rakuten-download", folder),
+    openRakutenFolder: () => ipcRenderer.invoke("combine:rakuten-open-folder"),
+    previewRakuten: index => ipcRenderer.invoke("combine:rakuten-preview", index),
+    onRakutenProgress: callback => {
+        const handler = (_event, data) => callback(data);
+        ipcRenderer.on("combine:rakuten-progress", handler);
+        return () => ipcRenderer.removeListener("combine:rakuten-progress", handler);
+    },
+    chooseFiles: section => ipcRenderer.invoke("combine:choose-files", section),
+    addPaths: paths => ipcRenderer.invoke("combine:add-paths", paths),
+    getPathForFile: file => webUtils.getPathForFile(file),
+    getState: () => ipcRenderer.invoke("combine:get-state"),
+    reset: () => ipcRenderer.invoke("combine:reset"),
+    chooseOutput: () => ipcRenderer.invoke("combine:choose-output"),
+    preview: payload => ipcRenderer.invoke("combine:preview", payload || {}),
+    layout: payload => ipcRenderer.invoke("combine:layout", payload || {}),
+    generate: payload => ipcRenderer.invoke("combine:generate", payload || {}),
+    openOutput: () => ipcRenderer.invoke("combine:open-output"),
+    onProgress: callback => {
+        const handler = (_event, data) => callback(data);
+        ipcRenderer.on("combine:progress", handler);
+        return () => ipcRenderer.removeListener("combine:progress", handler);
+    }
+});

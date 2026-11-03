@@ -10,6 +10,7 @@ const {
 
 const { runPhotoshopScript } = require("./photoshopBridge");
 const { buildJobScript } = require("./jobBuilder");
+const { buildOpenSavedPsdScript } = require("./openSavedPsd");
 const { recordProductionEvent } = require("../../profile/main/service");
 const os = require("os");
 const { randomUUID } = require("crypto");
@@ -157,7 +158,11 @@ ipcMain.handle("slider:generate", async (event, payload) => {
         outputPsdPath: null
     };
 
+    // Always publish a real PSD before bringing it forward in Photoshop.
+    // Leaving an unsaved/staged document active caused designers to Save As
+    // over the production PSD manually and mistake temp documents for output.
     const outputFolder = payload?.outputFolder || null;
+    if (!outputFolder) return { ok: false, error: "Select a Slider PSD output folder or link your Google Drive brand project before generating." };
     let linkedProject = null;
     let stageRoot = null;
     let finalPsdPath = null;
@@ -232,6 +237,24 @@ ipcMain.handle("slider:generate", async (event, payload) => {
             job.outputPsdPath = finalPsdPath;
         }
 
+        // Reopen the verified published PSD. Staging files must never remain
+        // as the active Photoshop document after a successful export.
+        let openWarning = null;
+        if (finalPsdPath) {
+            event.sender.send("slider:progress", {
+                status: "opening",
+                message: "Opening the saved PSD in Photoshop..."
+            });
+            try {
+                await runPhotoshopScript(buildOpenSavedPsdScript(finalPsdPath),
+                    `${productCode} open published Slider PSD`);
+            } catch (openError) {
+                // The verified PSD was already saved. A UI/Photoshop failure to
+                // open it must never misreport the completed export as failed.
+                openWarning = `PSD saved at ${finalPsdPath}, but Photoshop could not open it automatically: ${openError.message || openError}`;
+            }
+        }
+
         const outputCount = job.creative.length + job.lineupRows.length + job.detail.length;
         const progression = await recordProductionEvent({
             kind: "slider",
@@ -248,13 +271,15 @@ ipcMain.handle("slider:generate", async (event, payload) => {
         event.sender.send("slider:progress", {
             status: "complete",
             message: job.outputPsdPath
-                ? "PSD generated and saved."
+                ? (openWarning ? "PSD saved, but could not be opened automatically." : "Final saved PSD opened in Photoshop.")
                 : "PSD generated in Photoshop."
         });
 
         return {
             ok: true,
             outputPsdPath: job.outputPsdPath,
+            openedInPhotoshop: finalPsdPath ? !openWarning : true,
+            openWarning,
             productCode,
             progression
         };

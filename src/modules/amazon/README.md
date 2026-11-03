@@ -10,7 +10,7 @@ Preserved rules:
 - first image uses actual visible pixels in 801x801 at x=100/y=100
 - images 2-8 use actual visible pixels in 921x921 at x=40/y=40
 - cut-side rules preserve aspect ratio and push content to detected cut edges
-- all-side cut uses full-canvas coverage
+- all-side cut details use full proportional cover of the 1001px canvas plus 4%, even for tall/wide creative photos; preserve the source frame in the PSD Smart Object
 - selected/dragged order controls output numbering
 - flat JPG output directly in the selected folder
 - Colorbox copies actual first exported Amazon JPG
@@ -70,3 +70,65 @@ logic are unchanged. See `test/amazonBatchSharingUi.js`.
 ## v1.7.16 Read-only brand project location linking
 Use the shared Google Drive Brand Project panel to select a brand/project root on G:.
 The existing PSD/PSB files in AMAZON, SLIDER and COLORBOX are *location markers only* and are never opened or modified. For a linked project, the Amazon output folder is the verified AMAZON marker's containing folder. Colorbox automatically uses the COLORBOX marker's folder **only after** the user selects Generate Colorbox. Missing marker = manual selection. Each batch has one final master PSD/output destination; use separate runs for independent brand destinations.
+
+## v1.7.19 — Detect cut sides, reposition only; never crop the product
+
+The 1001 x 1001 output canvas is unchanged. Normal images still fit
+inside the 801 (Image 1) and 921 (Images 2–8) visible-product areas.
+Cut detection is calculated on the original normalized source, before the
+external blank margins are measured. The renderer then places the complete
+content in the canvas: a left/right/top/bottom cut moves just that axis to
+the corresponding canvas edge; the untouched axis stays centered.
+
+**Removed:** forced corner enlargement, corner filling, max-cover scale on
+non-square full-bleed content, and the `cropToCanvas` step. The renderer
+rejects any computed placement that would extend product pixels outside
+the canvas. Opposite cut sides that cannot both be made flush without
+cropping or distortion are flagged rather than forcing a crop.
+
+These rendering rules apply identically to Folder Mode, Batch Workspace,
+Shared IDs, and the optional Colorbox source (Image 1). All Google Drive
+marker PSD files remain read-only location guides.
+
+Run `npm.cmd run test:amazon-cut` and
+`npm.cmd run test:amazon-no-crop` to verify the edge logic.
+
+
+## v1.7.24 — Controlled cut-edge overscan
+
+Uncut images retain the original 801/921 safe-area behavior. Cut images enlarge
+uniformly by 4%; four-edge cuts request proportional cover of the 1001px
+canvas. Extremely panoramic/tall four-edge content uses a bounded enlargement
+instead of destructive massive cropping. The final JPG is a clipped view, not
+an alteration of the original source file. The master PSD references a separate
+full-sized embedded Smart Object whenever the placement extends beyond the
+canvas: the full product can be repositioned inside Photoshop. Shared IDs reuse
+these same assets with unique layer names, while Colorbox continues to use the
+first finished Amazon JPG only when requested. None of these changes affect
+Google Drive PSD location markers. Run `npm run test:amazon-bleed` and
+`npm run test:amazon-no-crop`.
+
+## v1.7.25 creative-frame safeguards
+
+- For opaque photos on non-white studio backgrounds, preserve the full photo rather than trimming it to inferred product pixels.
+- Protect white-plus-photo split compositions: keep intentional whitespace as part of the creative asset.
+- Image 1 always remains centered within its original 801px safe area.
+- Images 2–8 with four cut edges use uniform scaling, central placement, and limited natural viewport overflow. No pixel stretching or internal cropping before placement.
+- For genuine isolated products on white or transparent backgrounds, preserve visible-pixel trimming and established per-side alignment.
+- Keep full off-canvas layer imagery in the editable master PSD Smart Objects; JPGs are 1001px final views.
+
+## v1.7.26 — Restore unlimited four-edge cover (Images 2–8)
+
+- For four-edge cut creative images, restore the original proportional `cover`
+  rule from the uploaded `amazonRules(3).js`: `scale = max(1001/sourceWidth,
+  1001/sourceHeight) * 1.04`. No portrait contain-fit exception or 1.12x cap.
+- Center the complete original frame. A portrait TIFF 2100×3150 now becomes
+  approximately 1041×1562, positioned at x=-20, y=-280. The JPG is exactly
+  1001×1001 and covers the entire canvas; vertical overflow is intentional.
+- Do not infer/trim a photographed backdrop; preserve the original composition
+  inside the full-size embedded Photoshop Smart Object, even off-canvas.
+- Image 1 retains its established centered 801px safe area. Uncut images 2–8
+  retain their 921px safe area. One-to-three-edge alignment, file order,
+  Share Images, Colorbox Generate/Skip, and output-location detection unchanged.
+- Run `npm run test:amazon-portrait-cover` with the full suite. Actual Photoshop
+  placement still needs Windows Photoshop QC.

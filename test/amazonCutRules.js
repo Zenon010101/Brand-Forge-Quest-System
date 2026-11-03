@@ -65,7 +65,7 @@ async function assertCut(source, expected, label) {
         assert.strictEqual(meta.height, 1001, `${label}: JPEG height`);
         const edges = await visibleDarkEdges(rendered.jpgBuffer);
         for (const side of ["left", "right", "top", "bottom"]) {
-            if (expected[side]) {
+            if (expected[side] && position > 1) {
                 assert(edges[side], `${label}: Amazon image ${position} ${side} must have dark item pixels at canvas edge`);
             }
         }
@@ -127,21 +127,21 @@ async function run() {
         }
     }
 
-    // A clipped product can leave a white triangle at an opaque photo corner.
-    // Corner anchoring must find the PRODUCT, not the JPG's opaque background.
+    // A naturally white triangle at a cut corner belongs to the input.
+    // Do not forcibly enlarge/crop the product to paint that corner black.
     const triangleSvg = Buffer.from('<svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">' +
         '<polygon points="0,180 180,0 299,0 299,299 0,299" fill="#111111"/></svg>');
     const corner = await sharp({create:{width:300,height:300,channels:3,background:'#ffffff'}})
         .composite([{input:triangleSvg,left:0,top:0}]).png().toBuffer();
     const sides = await rules.detectCutSides(corner);
     assert.deepStrictEqual(sides, { left:true,right:true,top:true,bottom:true });
-    const anchor = await rules.getOpaqueCornerAnchor(corner, sides);
-    assert(anchor && anchor.normalizedDistance > 0.1,
-        "Opaque-image corner anchor must find real product pixels, not white background");
     const result = await rules.renderAmazonImage(corner, 2, sides);
     const edges = await visibleDarkEdges(result.jpgBuffer);
     assert.deepStrictEqual(edges, { left:true,right:true,top:true,bottom:true },
-        "Corner-cropped image must reach all requested canvas edges");
+        "All true cut edges should remain flush without clipping the item");
+    const cornerRgb = await sharp(result.jpgBuffer).raw().toBuffer({ resolveWithObject: true });
+    assert(rgbAt(cornerRgb.data, cornerRgb.info, 0, 0).every(channel => channel > 230),
+        "Preserve the source white corner; never use corner locking to invent product pixels");
 
     const smallTriangleSvg = Buffer.from('<svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">' +
         '<polygon points="0,35 35,0 299,0 299,299 0,299" fill="#111111"/></svg>');
@@ -150,8 +150,8 @@ async function run() {
     const tinyCut = await rules.detectCutSides(tinyGap);
     const tinyRendered = await rules.renderAmazonImage(tinyGap, 2, tinyCut);
     const tinyRgb = await sharp(tinyRendered.jpgBuffer).raw().toBuffer({ resolveWithObject: true });
-    assert(rgbAt(tinyRgb.data, tinyRgb.info, 0, 0).every(channel => channel < 125),
-        "Cut corner must contain solid product, not a nearly white antialiased pixel");
+    assert(rgbAt(tinyRgb.data, tinyRgb.info, 0, 0).every(channel => channel > 230),
+        "Small white triangle must remain white; do not scale the product past the canvas edge");
 
     console.log("Amazon cut-edge regression tests passed.");
 }

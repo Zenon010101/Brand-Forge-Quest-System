@@ -14,18 +14,22 @@ function basename(p) { return String(p || "").split(/[\\/]/).pop(); }
 function entry(p) { return state.images.find(img => img.path === p); }
 function escapedRegex(value) { return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 function outputFileName() {
-    const raw = el("outputBaseName").value.trim();
-    const name = raw.replace(/\.(?:psd|psb|jpe?g)$/i, "");
-    if (!name || name.length > 120 || name.startsWith(".") || /[. ]$/.test(name) ||
-        /[<>:"/\\|?*\x00-\x1f]/.test(name) ||
-        /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(name)) {
-        return { name: null, error: "Enter a valid output filename (maximum 120 characters, no path or reserved characters)." };
+    let id = el("outputBaseName").value.trim().replace(/\.(?:psd|psb|jpe?g)$/i, "");
+    if (/\dlp$/i.test(id)) id = id.slice(0, -2);
+    else id = id.replace(/(?:[ _-]+lp)$/i, "");
+    if (!id || id.length > 118 || id.startsWith(".") || /[. ]$/.test(id) ||
+        /\s/.test(id) || /[<>:"/\\|?*\x00-\x1f]/.test(id) ||
+        /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(id)) {
+        return { name: null, id: null, error: "Enter a valid Product ID (no spaces or path characters, maximum 118 characters)." };
     }
-    const family = new RegExp(`^${escapedRegex(name)}(?:_\\d+)?\\.(?:psd|psb|jpe?g)$`, "i");
+    id = id.toLowerCase();
+    const name = `${id}lp`;
+    const family = new RegExp(`^${escapedRegex(name)}(?:_\d+)?\.(?:psd|psb|jpe?g)$`, "i");
     const conflict = state.images.find(image => family.test(image.name));
-    if (conflict) return { name: null, error: `This name conflicts with original source image ${conflict.name}. Choose a different filename.` };
-    return { name, error: null };
+    if (conflict) return { name: null, id: null, error: `This name conflicts with original source image ${conflict.name}. Choose a different Product ID.` };
+    return { name, id, error: null };
 }
+
 function note(message, kind = "idle", detail = "") {
     el("statusText").textContent = message;
     el("statusDetail").textContent = detail;
@@ -247,7 +251,7 @@ async function load(scan) {
     if (!scan) return;
     const previousFolder = state.folder;
     if (previousFolder !== scan.folder || !el("outputBaseName").value.trim()) {
-        el("outputBaseName").value = scan.suggestedOutputName || `${basename(scan.folder)}_LP`;
+        el("outputBaseName").value = scan.suggestedOutputName || basename(scan.folder).toLowerCase();
     }
     state.folder = scan.folder;
     state.images = scan.images;
@@ -300,8 +304,8 @@ el("clearList").addEventListener("click", () => {
 el("outputBaseName").addEventListener("input", () => { renderSummary(); refreshControls(); });
 el("outputBaseName").addEventListener("blur", () => {
     const result = outputFileName();
-    if (!result.error && result.name !== el("outputBaseName").value) {
-        el("outputBaseName").value = result.name;
+    if (!result.error && result.id !== el("outputBaseName").value) {
+        el("outputBaseName").value = result.id;
         renderSummary(); refreshControls();
     }
 });

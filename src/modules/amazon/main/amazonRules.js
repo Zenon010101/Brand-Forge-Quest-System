@@ -43,8 +43,16 @@ function createContentClassifier(data, info) {
     const hasTransparency = lowAlphaPixels >= Math.max(4, Math.ceil(totalPixels * 0.0005)) ||
         semiAlphaPixels >= Math.max(8, Math.ceil(totalPixels * 0.01));
 
+    // Creative/photo assets often use beige, grey or split-tone backgrounds.
+    // Such areas are NOT disposable white padding. The old corner-average
+    // heuristic could falsely label those backgrounds as content, trim away
+    // half a composition, and then zoom what remained to the canvas edge.
+    // Only transparent or confidently white-background product photography
+    // may be measured by a tight product rectangle.
+    const preserveFullFrame = !hasTransparency && isDesignedPhotoFrame(data, info);
+
     let background = null;
-    if (!hasTransparency) {
+    if (!hasTransparency && !preserveFullFrame) {
         // Sample the whole perimeter rather than averaging four corners.
         // Product pixels often cover one or more corners of a *cut* image.
         // Using them as the background turns the real white background into
@@ -119,13 +127,76 @@ function createContentClassifier(data, info) {
     function isContent(x, y) {
         const i = (y * width + x) * channels;
         if (hasTransparency) return data[i + alphaIndex] > 20;
-        if (!background) return true;
+        if (preserveFullFrame || !background) return true;
         const dr = data[i] - background.r;
         const dg = data[i + 1] - background.g;
         const db = data[i + 2] - background.b;
         return dr * dr + dg * dg + db * db > 30 * 30;
     }
-    return { isContent, hasTransparency, background };
+    return { isContent, hasTransparency, background, preserveFullFrame };
+}
+
+// Conservative full-photo detection. Sample small patches at the corners,
+// not a single potentially antialiased pixel. Two matching non-white, light
+// background corners (e.g. a beige photo panel beside white copy space)
+// indicate an intentional composition that must never be background-trimmed.
+// White cutout photos with a dark item against white remain on the existing
+// product-bounds path. This is only an image-frame safeguard; it never changes
+// color, scale or resolution of the source.
+function isDesignedPhotoFrame(data, info) {
+    const { width, height, channels } = info;
+    const points = [
+        [0.025, 0.025], [0.975, 0.025],
+        [0.025, 0.975], [0.975, 0.975]
+    ];
+    function cornerColor(cx, cy) {
+        const xs = [-0.012, 0, 0.012];
+        const ys = [-0.012, 0, 0.012];
+        const rgb = [0, 0, 0];
+        let count = 0;
+        for (const dy of ys) for (const dx of xs) {
+            const x = Math.max(0, Math.min(width - 1, Math.round((cx + dx) * (width - 1))));
+            const y = Math.max(0, Math.min(height - 1, Math.round((cy + dy) * (height - 1))));
+            const i = (y * width + x) * channels;
+            for (let c = 0; c < 3; c++) rgb[c] += data[i + c];
+            count++;
+        }
+        return rgb.map(value => value / count);
+    }
+    const corners = points.map(([x, y]) => cornerColor(x, y));
+    const neutralWhite = color => Math.min(...color) >= 243 &&
+        Math.max(...color) - Math.min(...color) <= 14;
+    const whiteCorners = corners.filter(neutralWhite).length;
+    const tone = color => (color[0] + color[1] + color[2]) / 3;
+
+    // Every corner belongs to non-white image content: preserve the frame.
+    if (whiteCorners === 0) return true;
+
+    // A continuous light, non-white backdrop on two corners is generally a
+    // photo or split-layout panel, not an isolated dark product on pure white.
+    const coloredLight = corners.filter(color => !neutralWhite(color) &&
+        tone(color) >= 158 && tone(color) <= 243);
+    for (let a = 0; a < coloredLight.length; a++) {
+        for (let b = a + 1; b < coloredLight.length; b++) {
+            const diff = Math.max(...coloredLight[a].map((v, c) => Math.abs(v - coloredLight[b][c])));
+            if (diff <= 38) return true;
+        }
+    }
+    return false;
+}
+
+async function isCreativeFrame(buffer) {
+    // Cheap diagnostic thumbnail, never used for export or resizing.
+    const { data, info } = await sharp(buffer)
+        .resize({ width: 112, height: 112, fit: "fill" })
+        .ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const { channels, width, height } = info;
+    let translucent = 0;
+    for (let i = channels - 1; i < data.length; i += channels) {
+        if (data[i] < 225) translucent++;
+    }
+    if (translucent >= Math.max(4, Math.ceil(width * height * 0.0005))) return false;
+    return isDesignedPhotoFrame(data, info);
 }
 
 async function getContentBounds(buffer) {
@@ -241,268 +312,161 @@ async function detectCutSides(buffer) {
 }
 
 
-async function getOpaqueCornerAnchor(buffer, cut) {
-    const { data, info } = await getRawInfo(buffer);
-    const { width, height } = info;
-    const { isContent } = createContentClassifier(data, info);
-
-    const corners = [];
-    if (cut.left && cut.top) corners.push({ name: "top-left", x: 0, y: 0 });
-    if (cut.right && cut.top) corners.push({ name: "top-right", x: width - 1, y: 0 });
-    if (cut.left && cut.bottom) corners.push({ name: "bottom-left", x: 0, y: height - 1 });
-    if (cut.right && cut.bottom) corners.push({ name: "bottom-right", x: width - 1, y: height - 1 });
-    if (!corners.length) return null;
-
-    // Real item pixels only. Previously this tested alpha only, so *opaque*
-    // JPG/PNG backgrounds were treated as solid product at every corner.
-    // Prefer a *solid interior* pixel (3x3 neighborhood) rather than the
-    // nearest faint antialiased edge pixel. Otherwise the cut corner can
-    // render nearly white even though the nominal anchor reaches (0,0).
-    function isInteriorPixel(x, y) {
-        let inspected = 0;
-        let occupied = 0;
-        for (let ny = Math.max(0, y - 1); ny <= Math.min(height - 1, y + 1); ny++) {
-            for (let nx = Math.max(0, x - 1); nx <= Math.min(width - 1, x + 1); nx++) {
-                inspected++;
-                if (isContent(nx, ny)) occupied++;
-            }
-        }
-        return occupied >= Math.ceil(inspected * 0.90);
-    }
-
-    let best = null;
-    for (const corner of corners) {
-        let nearest = null;
-        let distanceSq = Infinity;
-        let interior = null;
-        let interiorDistanceSq = Infinity;
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                if (!isContent(x, y)) continue;
-                const dx = x - corner.x;
-                const dy = y - corner.y;
-                const candidate = dx * dx + dy * dy;
-                if (candidate < distanceSq) {
-                    distanceSq = candidate;
-                    nearest = { x, y };
-                }
-                if (candidate < interiorDistanceSq && isInteriorPixel(x, y)) {
-                    interiorDistanceSq = candidate;
-                    interior = { x, y };
-                }
-            }
-        }
-        const chosen = interior || nearest;
-        if (!chosen) continue;
-        const normalizedDistance = Math.sqrt(interior ? interiorDistanceSq : distanceSq) /
-            Math.max(1, Math.min(width, height));
-        if (!best || normalizedDistance > best.normalizedDistance) {
-            best = { corner: corner.name, ...chosen, normalizedDistance };
-        }
-    }
-    return best;
-}
-
-function scaleNeededForCutCoverage(anchor, width, height, cut) {
-    if (!anchor) return 0;
-
-    const targetX = anchor.corner.indexOf("right") !== -1 ? CANVAS_SIZE : 0;
-    const targetY = anchor.corner.indexOf("bottom") !== -1 ? CANVAS_SIZE : 0;
-
-    let required = 0;
-
-    if (cut.left && targetX !== 0 && anchor.x > 0) {
-        required = Math.max(required, CANVAS_SIZE / anchor.x);
-    }
-    if (cut.right && targetX !== CANVAS_SIZE && (width - 1 - anchor.x) > 0) {
-        required = Math.max(required, CANVAS_SIZE / (width - 1 - anchor.x));
-    }
-    if (cut.top && targetY !== 0 && anchor.y > 0) {
-        required = Math.max(required, CANVAS_SIZE / anchor.y);
-    }
-    if (cut.bottom && targetY !== CANVAS_SIZE && (height - 1 - anchor.y) > 0) {
-        required = Math.max(required, CANVAS_SIZE / (height - 1 - anchor.y));
-    }
-
-    return required;
-}
-
+// Trimming is for MEASURING the visible source. Never create a permanent
+// 1001px crop of a Smart Object that intentionally extends past the canvas.
 async function trimFirstImage(buffer) {
     try {
-        const result = await trimToContent(buffer);
-        return result.buffer;
+        return (await trimToContent(buffer)).buffer;
     } catch (error) {
         return buffer;
     }
 }
 
-async function cropToCanvas(buffer, width, height, left, top) {
-    const sourceX = Math.max(0, -left);
-    const sourceY = Math.max(0, -top);
-    const destinationX = Math.max(0, left);
-    const destinationY = Math.max(0, top);
+// Cut edges enlarge uniformly. A four-sided cut MUST cover the full
+// 1001 x 1001 viewport, even when the source is a tall portrait. The
+// complete resized image is kept for the embedded Photoshop Smart Object;
+// top/bottom or left/right overflow is clipped ONLY in the JPG viewport.
+// Image 1 still follows the original centered 801 x 801 Amazon rule.
+const CUT_ENLARGEMENT = 1.04;
 
-    const visibleWidth = Math.min(
-        width - sourceX,
-        CANVAS_SIZE - destinationX
-    );
-
-    const visibleHeight = Math.min(
-        height - sourceY,
-        CANVAS_SIZE - destinationY
-    );
-
-    if (visibleWidth <= 0 || visibleHeight <= 0) {
-        throw new Error("Image ended outside canvas.");
-    }
-
-    let visible = buffer;
-
-    if (
-        sourceX !== 0 ||
-        sourceY !== 0 ||
-        visibleWidth !== width ||
-        visibleHeight !== height
-    ) {
-        visible = await sharp(buffer)
-            .extract({
-                left: sourceX,
-                top: sourceY,
-                width: visibleWidth,
-                height: visibleHeight
-            })
-            .png()
-            .toBuffer();
-    }
-
+function getCutFlags(detectedCut) {
     return {
-        buffer: visible,
-        left: destinationX,
-        top: destinationY
+        left: !!detectedCut?.left,
+        right: !!detectedCut?.right,
+        top: !!detectedCut?.top,
+        bottom: !!detectedCut?.bottom
     };
 }
 
-async function renderAmazonImage(sourceBuffer, outputPosition, cut) {
-    const { buffer: trimmedBuffer } = await trimToContent(sourceBuffer);
-    const metadata = await sharp(trimmedBuffer).metadata();
-    const sourceWidth = metadata.width;
-    const sourceHeight = metadata.height;
-
-    if (!sourceWidth || !sourceHeight) {
-        throw new Error("Invalid source image dimensions.");
-    }
-
-    const hasCut = !!(cut.left || cut.right || cut.top || cut.bottom);
+function placeScaledImage(width, height, outputPosition, cut) {
+    const target = outputPosition === 1 ? MAIN_AREA : REST_AREA;
     const horizontalPair = cut.left && cut.right;
     const verticalPair = cut.top && cut.bottom;
-    const allSides = horizontalPair && verticalPair;
 
-    const target = outputPosition === 1
-        ? MAIN_AREA
-        : REST_AREA;
+    // Only an axis with cut edges moves towards the edge. The other axis
+    // stays centered on the 1001px canvas (or safe area for normal images).
+    let left = Math.round(target.x + (target.width - width) / 2);
+    let top = Math.round(target.y + (target.height - height) / 2);
+    // The original Amazon first-image rule has always been a centered
+    // 801px product inside the 1001px canvas, even for cut images.
+    if (outputPosition === 1) return {
+        left, top, width, height,
+        overflow: left < 0 || top < 0 || left + width > CANVAS_SIZE || top + height > CANVAS_SIZE
+    };
+    if (horizontalPair) left = Math.round((CANVAS_SIZE - width) / 2);
+    else if (cut.left) left = 0;
+    else if (cut.right) left = CANVAS_SIZE - width;
 
-    // Normal images retain the Amazon safe-area rules. Once a genuine cut is
-    // detected, cut placement overrides safe-area centering and aligns the
-    // actual product pixels to the relevant canvas edge/corner.
-    let scale = Math.min(
-        target.width / sourceWidth,
-        target.height / sourceHeight
-    );
+    if (verticalPair) top = Math.round((CANVAS_SIZE - height) / 2);
+    else if (cut.top) top = 0;
+    else if (cut.bottom) top = CANVAS_SIZE - height;
 
-    if (hasCut) {
-        if (allSides) {
-            scale = Math.max(
-                CANVAS_SIZE / sourceWidth,
-                CANVAS_SIZE / sourceHeight
-            );
-        } else {
-            if (horizontalPair) {
-                scale = Math.max(scale, CANVAS_SIZE / sourceWidth);
-            }
-            if (verticalPair) {
-                scale = Math.max(scale, CANVAS_SIZE / sourceHeight);
-            }
-        }
+    return { left, top, width, height, overflow:
+        left < 0 || top < 0 || left + width > CANVAS_SIZE || top + height > CANVAS_SIZE };
+}
+
+function calculateAmazonPlacement(sourceWidth, sourceHeight, outputPosition, detectedCut) {
+    if (!Number.isFinite(sourceWidth) || !Number.isFinite(sourceHeight) ||
+        sourceWidth <= 0 || sourceHeight <= 0) {
+        throw new Error("Invalid source image dimensions.");
+    }
+    if (!Number.isInteger(outputPosition) || outputPosition < 1 || outputPosition > 8) {
+        throw new Error("Amazon output position must be between 1 and 8.");
     }
 
-    // Adjacent cut sides can still leave a triangular transparent/white gap
-    // at the requested corner even when the bounding box touches both edges.
-    // Lock the nearest real item pixel to the worst affected cut corner and,
-    // where necessary, increase scale just enough to preserve coverage of the
-    // other cut sides.
-    const cornerAnchor = hasCut
-        ? await getOpaqueCornerAnchor(trimmedBuffer, cut)
-        : null;
+    const cut = getCutFlags(detectedCut);
+    const numberOfCutSides = Object.values(cut).filter(Boolean).length;
+    const target = outputPosition === 1 ? MAIN_AREA : REST_AREA;
+    const baseScale = Math.min(target.width / sourceWidth, target.height / sourceHeight);
+    const fullContain = Math.min(CANVAS_SIZE / sourceWidth, CANVAS_SIZE / sourceHeight);
+    let scale = baseScale;
 
-    if (cornerAnchor && cornerAnchor.normalizedDistance > 0.002) {
-        scale = Math.max(
-            scale,
-            scaleNeededForCutCoverage(
-                cornerAnchor,
-                sourceWidth,
-                sourceHeight,
-                cut
-            )
-        );
+    if (outputPosition === 1) {
+        // The original Image 1 rule: centered inside the 801 x 801 safe area.
+        scale = baseScale;
+    } else if (numberOfCutSides === 4) {
+        // Restore the original four-edge COVER rule from amazonRules(3).js.
+        // No portrait/panorama aspect-ratio cap. Cover the full canvas, zoom
+        // a further 4%, and center the ENTIRE SOURCE FRAME. Portrait overflow
+        // above and below the viewport is intentional and non-destructive.
+        scale = Math.max(CANVAS_SIZE / sourceWidth,
+            CANVAS_SIZE / sourceHeight) * CUT_ENLARGEMENT;
+    } else if (numberOfCutSides) {
+        // Preserve current 1-3 edge handling and 4% edge enlargement.
+        const requested = Math.max(baseScale,
+            cut.left && cut.right ? CANVAS_SIZE / sourceWidth : 0,
+            cut.top && cut.bottom ? CANVAS_SIZE / sourceHeight : 0);
+        scale = Math.min(requested, fullContain) * CUT_ENLARGEMENT;
     }
 
-    const resizedWidth = Math.max(1, Math.round(sourceWidth * scale));
-    const resizedHeight = Math.max(1, Math.round(sourceHeight * scale));
+    // Both output dimensions come from ONE scale. Never independently stretch
+    // a product's width/height to cover the canvas.
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+    const position = placeScaledImage(width, height, outputPosition, cut);
+    const limitedCutSides = [];
+    if (outputPosition > 1 && cut.left && cut.right && width < CANVAS_SIZE) limitedCutSides.push("left/right");
+    if (outputPosition > 1 && cut.top && cut.bottom && height < CANVAS_SIZE) limitedCutSides.push("top/bottom");
 
-    let left = Math.round(target.x + (target.width - resizedWidth) / 2);
-    let top = Math.round(target.y + (target.height - resizedHeight) / 2);
+    return { ...position, cut, limitedCutSides, scale, enlargement: outputPosition > 1 && numberOfCutSides ? CUT_ENLARGEMENT : 1 };
+}
 
-    if (hasCut) {
-        if (horizontalPair) {
-            left = Math.round((CANVAS_SIZE - resizedWidth) / 2);
-        } else if (cut.left) {
-            left = 0;
-        } else if (cut.right) {
-            left = CANVAS_SIZE - resizedWidth;
-        }
+async function renderAmazonImage(sourceBuffer, outputPosition, cut) {
+    const creativeFrame = await isCreativeFrame(sourceBuffer);
+    const detected = getCutFlags(cut);
+    const effectiveCut = creativeFrame
+        ? { left: true, right: true, top: true, bottom: true }
+        : detected;
+    const allCut = Object.values(effectiveCut).every(Boolean);
+    // Four-edge compositions are complete SOURCE FRAMES. Never crop one by
+    // an inferred product rectangle first. Only white/transparent product
+    // assets with fewer cut sides use the usual blank-pixel trim.
+    const contentBuffer = allCut ? sourceBuffer : (await trimToContent(sourceBuffer)).buffer;
+    const metadata = await sharp(contentBuffer).metadata();
+    const placementPlan = calculateAmazonPlacement(metadata.width, metadata.height,
+        outputPosition, effectiveCut);
 
-        if (verticalPair) {
-            top = Math.round((CANVAS_SIZE - resizedHeight) / 2);
-        } else if (cut.top) {
-            top = 0;
-        } else if (cut.bottom) {
-            top = CANVAS_SIZE - resizedHeight;
-        }
-
-        if (cornerAnchor && cornerAnchor.normalizedDistance > 0.002) {
-            const scaledAnchorX = cornerAnchor.x * scale;
-            const scaledAnchorY = cornerAnchor.y * scale;
-
-            if (cornerAnchor.corner.indexOf("left") !== -1) {
-                left = Math.round(-scaledAnchorX);
-            } else {
-                left = Math.round(CANVAS_SIZE - scaledAnchorX);
-            }
-
-            if (cornerAnchor.corner.indexOf("top") !== -1) {
-                top = Math.round(-scaledAnchorY);
-            } else {
-                top = Math.round(CANVAS_SIZE - scaledAnchorY);
-            }
-        }
-    }
-
-    const resized = await sharp(trimmedBuffer)
+    // One uniform resize with libvips' proportional INSIDE fit. Pixel rounding
+    // may change a dimension by one pixel: recompute alignment using the
+    // resulting dimensions rather than stretching to match both numbers.
+    const fullResized = await sharp(contentBuffer)
         .resize({
-            width: resizedWidth,
-            height: resizedHeight,
-            fit: "fill"
+            width: placementPlan.width,
+            height: placementPlan.height,
+            fit: "inside",
+            kernel: sharp.kernel.lanczos3
         })
         .png()
         .toBuffer();
+    const resizedMeta = await sharp(fullResized).metadata();
+    const exact = placeScaledImage(resizedMeta.width, resizedMeta.height, outputPosition, placementPlan.cut);
+    const placement = { ...placementPlan, ...exact };
+    placement.limitedCutSides = [];
+    if (outputPosition > 1 && placement.cut.left && placement.cut.right && placement.width < CANVAS_SIZE) placement.limitedCutSides.push("left/right");
+    if (outputPosition > 1 && placement.cut.top && placement.cut.bottom && placement.height < CANVAS_SIZE) placement.limitedCutSides.push("top/bottom");
 
-    const visible = await cropToCanvas(
-        resized,
-        resizedWidth,
-        resizedHeight,
-        left,
-        top
-    );
+    // libvips cannot composite an image larger than the destination directly.
+    // Compute ONLY the visible viewport for the final JPG/PNG. This is not a
+    // destructive crop of the Photoshop source: fullResized is stored intact
+    // as a separate embedded Smart Object whenever overflow occurs.
+    const intersectionLeft = Math.max(0, placement.left);
+    const intersectionTop = Math.max(0, placement.top);
+    const intersectionRight = Math.min(CANVAS_SIZE, placement.left + placement.width);
+    const intersectionBottom = Math.min(CANVAS_SIZE, placement.top + placement.height);
+    const visibleWidth = intersectionRight - intersectionLeft;
+    const visibleHeight = intersectionBottom - intersectionTop;
+    if (visibleWidth < 1 || visibleHeight < 1) {
+        throw new Error("Amazon image is outside the output canvas.");
+    }
+    const crop = {
+        left: intersectionLeft - placement.left,
+        top: intersectionTop - placement.top,
+        width: visibleWidth,
+        height: visibleHeight
+    };
+    const visibleOverlay = crop.width === placement.width && crop.height === placement.height
+        ? fullResized
+        : await sharp(fullResized).extract(crop).png().toBuffer();
 
     const pngBuffer = await sharp({
         create: {
@@ -511,31 +475,37 @@ async function renderAmazonImage(sourceBuffer, outputPosition, cut) {
             channels: 4,
             background: { r: 255, g: 255, b: 255, alpha: 0 }
         }
-    })
-        .composite([{
-            input: visible.buffer,
-            left: visible.left,
-            top: visible.top
-        }])
-        .png()
-        .toBuffer();
+    }).composite([{
+        input: visibleOverlay,
+        left: intersectionLeft,
+        top: intersectionTop
+    }]).png().toBuffer();
 
     const jpgBuffer = await sharp(pngBuffer)
         .flatten({ background: "#ffffff" })
         .jpeg({ quality: 95, chromaSubsampling: "4:4:4" })
         .toBuffer();
 
-    return { pngBuffer, jpgBuffer };
+    return {
+        pngBuffer,
+        jpgBuffer,
+        placement,
+        // Saved only for oversized images; all off-canvas pixels remain in
+        // the underlying Photoshop Smart Object rather than the JPG viewport.
+        smartObjectBuffer: placement.overflow ? fullResized : null
+    };
 }
 
 module.exports = {
     CANVAS_SIZE,
     MAIN_AREA,
     REST_AREA,
+    CUT_ENLARGEMENT,
     detectCutSides,
     trimFirstImage,
     renderAmazonImage,
     getContentBounds,
     trimToContent,
-    getOpaqueCornerAnchor
+    calculateAmazonPlacement,
+    isCreativeFrame
 };

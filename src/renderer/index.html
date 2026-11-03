@@ -60,6 +60,7 @@
                 <button class="nav-item" data-page="remove-bg">Remove BG + Shadow</button>
                 <button class="nav-item" data-page="landing-page">Landing Page Generator</button>
                 <button class="nav-item" data-page="lp-folder">LP Folder Generator</button>
+                <button class="nav-item" data-page="combine">Combine Generator</button>
                 <button class="nav-item" data-page="progress">Progress & History</button>
                 <button class="nav-item" data-page="settings">Settings</button>
             </nav>
@@ -132,6 +133,12 @@
                         <p>Select a folder of mixed-format images. Detect Single, arrange parts, and export an editable Photoshop PSD/PSB plus a high-quality JPEG into the same source folder.</p>
                         <span class="card-link">Open module →</span>
                     </button>
+                    <button class="workflow-card" data-open="combine">
+                        <span class="card-kicker">COMBINE</span>
+                        <strong>Combine Generator</strong>
+                        <p>Single + two-column Line Up with editable 28 px color names + Detail grid. Drag to reorder; export a layered 600 px PSD/PSB and JPEG.</p>
+                        <span class="card-link">Open Combine Generator →</span>
+                    </button>
                     <button class="workflow-card" data-open="remove-bg">
                         <span class="card-kicker">IMAGE TOOLS</span>
                         <strong>Remove Background + Shadow</strong>
@@ -165,6 +172,10 @@
 
             <section class="page module-page" id="page-landing-page">
                 <iframe id="landingPageFrame" class="module-frame" src="../modules/landing-page/renderer/index.html" title="Landing Page Generator"></iframe>
+            </section>
+
+            <section class="page module-page" id="page-combine">
+                <iframe id="combineFrame" class="module-frame" src="../modules/combine/renderer/index.html" title="Combine Generator"></iframe>
             </section>
 
             <section class="page module-page" id="page-lp-folder">

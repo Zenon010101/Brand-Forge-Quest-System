@@ -109,6 +109,8 @@ function runJsxSim(sliced = false) {
 
 async function main() {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "bf-lp-folder-test-"));
+    const oldStateDir = process.env.BRANDFORGE_LP_STATE_DIR;
+    process.env.BRANDFORGE_LP_STATE_DIR = path.join(root, "localBrandForgeState");
     try {
         const dir = path.join(root, "AKA-90"); await fs.promises.mkdir(dir);
         await createImage(path.join(dir, "AKA-90.jpg"), 600, 600);
@@ -134,17 +136,21 @@ async function main() {
         assert.equal(layout.width, 1000); assert.equal(layout.single.y, 0);
         assert.equal(layout.single.placedHeight, 1000);
         assert.equal(layout.sections[0].y, 1000);
-        // Custom PSD/JPEG filename is designer-editable and independent of folder.
-        assert.equal(planner.normalizeOutputBaseName("Custom Name.psd", "AKA-90"), "Custom Name");
-        assert.equal(planner.normalizeOutputBaseName("別注 LP 2026.jpg", "AKA-90"), "別注 LP 2026");
-        assert.equal(planner.normalizeOutputBaseName(undefined, "AKA-90"), "AKA-90_LP");
-        for (const invalid of ["", "../hack", "my:name", "CON", "nul.txt", "bad.", ".secret", "x".repeat(121)]) {
-            assert.throws(() => planner.normalizeOutputBaseName(invalid, "AKA-90"), /Invalid LP output filename/);
+        // Product ID naming: lowercase ID immediately followed by lowercase lp.
+        assert.equal(scanned.suggestedOutputName, "aka-90");
+        assert.equal(planner.normalizeOutputBaseName("ABM-90", "AKA-90"), "abm-90lp");
+        assert.equal(planner.normalizeOutputBaseName("abm-90lp", "AKA-90"), "abm-90lp", "Do not double-append lp");
+        assert.equal(planner.normalizeOutputBaseName("ABM-90_LP.psd", "AKA-90"), "abm-90lp", "Convert legacy LP names");
+        assert.equal(planner.normalizeOutputBaseName(undefined, "AKA-90"), "aka-90lp");
+        for (const invalid of ["", "../hack", "my:name", "CON", "nul.txt", "bad.", ".secret", "x".repeat(119), "ABM 90"]) {
+            assert.throws(() => planner.normalizeOutputBaseName(invalid, "AKA-90"), /Invalid LP Product ID/);
         }
-        const renamed = planner.createLayout(scanned, order, scanned.singlePath, "Custom Name.psd");
-        assert.equal(renamed.baseName, "Custom Name");
-        assert.throws(() => planner.createLayout(scanned, order, scanned.singlePath, "AKA-90"), /conflicts with source/i);
-        assert.throws(() => planner.createLayout(scanned, order, scanned.singlePath, "4_editable.psd"), /conflicts with source/i);
+        const renamed = planner.createLayout(scanned, order, scanned.singlePath, "ABM-90.psd");
+        assert.equal(renamed.baseName, "abm-90lp");
+        const collisionSnapshot = { ...scanned, images: [
+            ...scanned.images, { ...scanned.images[0], name: "abm-90lp.jpg" }
+        ] };
+        assert.throws(() => planner.createLayout(collisionSnapshot, order, scanned.singlePath, "ABM-90"), /conflicts with source/i);
         assert.equal(layout.sections[0].placedHeight, 1600);
         for (let i=1; i<layout.sections.length; i++) {
             assert.equal(layout.sections[i].y, layout.sections[i-1].y+layout.sections[i-1].placedHeight, "no vertical gaps");
@@ -172,6 +178,7 @@ async function main() {
         await createImage(path.join(arbitrary, "AKA-90.jpg"), 600, 600);
         await createImage(path.join(arbitrary, "01_details.png"), 400, 900);
         assert.equal((await planner.scanFolder(arbitrary)).singlePath, path.join(arbitrary, "AKA-90.jpg"));
+        assert.equal((await planner.scanFolder(arbitrary)).suggestedOutputName, "aka-90", "Infer ID from Single even if folder name differs");
         assert.throws(() => planner.parsePhotoshopHeader(Buffer.from("bad"), "abc.psd"), /signature/);
         const tall = { ...scanned, images: [scanned.images[0], { ...scanned.images[1], height: 31000, width: 1000 }] };
         const tallOrder = tall.images.map(i=>i.path);
@@ -181,7 +188,8 @@ async function main() {
         const lpUiJs = fs.readFileSync(path.join(__dirname, "../src/modules/lp-folder/renderer/app.js"), "utf8");
         assert(/id="generate"[^>]*>Generate LP<\/button>/.test(lpUi));
         assert(/id="outputJpegName"/.test(lpUi));
-        assert(/id="outputBaseName"/.test(lpUi), "LP output name must be editable");
+        assert(/id="outputBaseName"/.test(lpUi), "LP Product ID must be editable");
+        assert(/Product ID \(adds lowercase lp automatically\)/.test(lpUi), "LP UI explains lowercase suffix");
         assert(/outputBaseName:\s*filename\.name/.test(lpUiJs), "Custom output name must be sent to backend");
         assert(/Generate LP/.test(lpUiJs));
         runJsxSim();
@@ -211,6 +219,8 @@ async function main() {
         assert(replaced.backupPath && fs.existsSync(replaced.backupPath));
         assert.equal((await fingerprint(replaced.backupPath)).size,5200);
         assert.equal((await fingerprint(replaced.outputPath)).size,5400);
+        assert(!replaced.backupPath.startsWith(dir + path.sep), "Backup files must be stored outside the LP image folder");
+        assert(!fs.existsSync(path.join(dir, ".brandforge-lp-backups")), "No BrandForge backup directory in LP output folder");
         const srcHash = await fingerprint(path.join(dir,"AKA-90.jpg"));
         // Paired publishing: same stem for editable PSD and JPEG, then versioned
         // as a matched pair even when only one destination filename exists.
@@ -266,29 +276,49 @@ async function main() {
         const result = await mockService.generate({ orderedPaths:state.images.map(i=>i.path), singlePath:state.singlePath, existingAction:"version" });
         assert.equal(path.dirname(result.outputPath),dir);
         assert.equal(result.jpegPaths.length,1);
-        assert.equal(path.basename(result.jpegPath),"AKA-90_LP_v2.jpg");
+        assert.equal(path.basename(result.jpegPath),"aka-90lp.jpg");
+        assert.equal(path.basename(result.outputPath),"aka-90lp.psd");
         assert.equal((await sharp(result.jpegPath).metadata()).height,result.height);
         assert.equal(result.width,1000);
-        // Use a completely different name, including spaces/Unicode. Photoshop
-        // and JPEG must match, and source images must never be renamed.
+        // Generate matching PSD/JPEG using ID-only input, then verify versioning.
         const customPayload = { orderedPaths:state.images.map(i=>i.path), singlePath:state.singlePath,
-            outputBaseName:"別注 LP 2026.psd", existingAction:"version" };
+            outputBaseName:"ABM-90", existingAction:"version" };
         const customA = await mockService.generate(customPayload);
-        assert.equal(path.basename(customA.outputPath),"別注 LP 2026.psd");
-        assert.equal(path.basename(customA.jpegPath),"別注 LP 2026.jpg");
-        const customB = await mockService.generate(customPayload);
-        assert.equal(path.basename(customB.outputPath),"別注 LP 2026_v2.psd");
-        assert.equal(path.basename(customB.jpegPath),"別注 LP 2026_v2.jpg");
+        assert.equal(path.basename(customA.outputPath),"abm-90lp.psd");
+        assert.equal(path.basename(customA.jpegPath),"abm-90lp.jpg");
+        const customB = await mockService.generate({ ...customPayload, outputBaseName:"abm-90LP.psd" });
+        assert.equal(path.basename(customB.outputPath),"abm-90lp_v2.psd");
+        assert.equal(path.basename(customB.jpegPath),"abm-90lp_v2.jpg");
         const rescanned = await planner.scanFolder(dir);
         assert.equal(rescanned.images.length, state.images.length,
-            "Custom-named outputs must not become new source LP images after refresh");
-        assert(!rescanned.images.some(i=>i.name.includes("別注 LP 2026")));
-        await assert.rejects(mockService.generate({ ...customPayload, outputBaseName:"AKA-90", existingAction:"replace" }),
-            /conflicts with source/i, "An output name must never overwrite an original product JPG");
+            "Generated outputs must not become new source LP images after refresh");
+        assert(!rescanned.images.some(i=>i.name.toLowerCase().includes("abm-90lp")));
+        // The LP image folder must contain only images and produced PSD/JPEG;
+        // no sidecar JSON/JS/JSX or backup files are to be created there.
+        assert(!fs.existsSync(path.join(dir, ".brandforge-lp-generated.jsonl")),
+            "LP output folder must not contain a JSON/JSONL tracking manifest");
+        assert(!(await fs.promises.readdir(dir)).some(n => /\.(?:json|jsonl|js|jsx)$/i.test(n)),
+            "No JavaScript or JSON output should be published beside LP images");
+        const { generatedNames, INDEX_NAME, indexPath } = require("../src/modules/lp-folder/main/generatedIndex");
+        assert(fs.existsSync(indexPath(dir)), "Generated-output tracking must live in BrandForge local app data");
+        assert((await generatedNames(dir)).has("abm-90lp.jpg"));
+        // Older BrandForge releases wrote a hidden JSONL into the LP folder.
+        // On refresh it must be safely migrated to local app data and removed.
+        await fs.promises.writeFile(path.join(dir, INDEX_NAME),
+            JSON.stringify({files:["Old_CUSTOM_LP.jpg"]}) + "\n");
+        const migrated = await generatedNames(dir);
+        assert(migrated.has("old_custom_lp.jpg"));
+        assert(!fs.existsSync(path.join(dir, INDEX_NAME)), "Legacy LP helper index should be removed after migration");
+        await assert.rejects(mockService.generate({ ...customPayload, outputBaseName:"ABM 90", existingAction:"replace" }),
+            /Invalid LP Product ID/i, "Output must follow the no-space IDlp naming format");
         assert.equal((await fingerprint(path.join(dir,"AKA-90.jpg"))).hash,srcHash.hash);
         await assert.rejects(mockService.generate({ orderedPaths:["C:/outside.png"],singlePath:state.singlePath }),/invalid|duplicate/i);
         assert(!mockService.busy);
-        console.log("LP Folder Generator tests PASS: mixed sources, editable PSD/JPEG filename, Unicode names, source collision protection, generated-output scan exclusion, paired outputs, rollback, versioning, JSX composition and Slider LINEUP color.");
-    } finally { await fs.promises.rm(root,{recursive:true,force:true}).catch(()=>{}); }
+        console.log("LP Folder Generator tests PASS: mixed sources, IDlp PSD/JPEG naming, clean output folder, collision protection, generated-output scan exclusion, paired outputs, rollback, versioning, JSX composition and Slider LINEUP color.");
+    } finally {
+        if (oldStateDir === undefined) delete process.env.BRANDFORGE_LP_STATE_DIR;
+        else process.env.BRANDFORGE_LP_STATE_DIR = oldStateDir;
+        await fs.promises.rm(root,{recursive:true,force:true}).catch(()=>{});
+    }
 }
 main().catch(error=>{ console.error(error.stack||error);process.exitCode=1; });

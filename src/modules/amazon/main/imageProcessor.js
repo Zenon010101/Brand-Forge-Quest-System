@@ -5,7 +5,6 @@ const sharp = require("sharp");
 
 const {
     detectCutSides,
-    trimFirstImage,
     renderAmazonImage
 } = require("./amazonRules");
 
@@ -164,13 +163,9 @@ async function processVariant(
             emit({ status: "cut-detection" });
             const cut = await detectCutSides(sourceBuffer);
 
-            if (outputPosition === 1) {
-                emit({ status: "trimming-first" });
-                sourceBuffer = await trimFirstImage(sourceBuffer);
-            }
-
-            // renderAmazonImage trims to ACTUAL visible pixels and centers every
-            // non-cut item in the 801/921 target area. Cut sides remain edge-aware.
+            // The renderer measures visible product bounds once for every
+            // image. No separate first-image trim or cut-corner zoom is used.
+            // Detected cut sides only control placement, never product cropping.
             emit({ status: "rendering", cut });
 
             const rendered = await renderAmazonImage(
@@ -190,16 +185,27 @@ async function processVariant(
             await fs.promises.writeFile(jpgPath, rendered.jpgBuffer);
             await fs.promises.writeFile(pngPath, rendered.pngBuffer);
 
+            // Keep the FULL oversized product as the embedded Photoshop
+            // Smart Object. The standard 1001px PNG/JPG is only the view.
+            let smartPngPath = null;
+            if (rendered.smartObjectBuffer) {
+                smartPngPath = path.join(variantWorkFolder, `${baseName}_full_smart.png`);
+                await fs.promises.writeFile(smartPngPath, rendered.smartObjectBuffer);
+            }
+
             jpgs.push(jpgPath);
             layers.push({
                 pngPath,
+                smartPngPath,
+                placement: smartPngPath ? rendered.placement : null,
                 layerName: baseName
             });
 
             emit({
                 status: "complete",
                 output: `${baseName}.jpg`,
-                cut
+                cut,
+                limitedCutSides: rendered.placement.limitedCutSides
             });
         }
 

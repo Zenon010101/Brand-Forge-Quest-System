@@ -169,6 +169,8 @@ async function processSharedAmazonJob(event, payload, psdName, inspection) {
                         const jpgs = await publishGroup(pairs, publishOptions);
                         const layers = processed.layers.map((layer, index) => ({
                             pngPath: layer.pngPath,
+                            smartPngPath: layer.smartPngPath || null,
+                            placement: layer.placement || null,
                             layerName: outputName(sharedId, index + 1).replace(/\.jpg$/i, "")
                         }));
                         successfulForParent.push({ variantId: sharedId, layers, jpgs });

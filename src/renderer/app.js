@@ -5,6 +5,7 @@ const pageMeta = {
     "remove-bg": ["Remove Background + Shadow", "Batch cutout PNG QC and editable Slider contact shadow PSDs."],
     "landing-page": ["Landing Page Generator", "Reconstruct 1000px-wide landing pages from Single images and ordered screenshots."],
     "lp-folder": ["LP Folder Generator", "Auto-compose editable long LP PSD/PSB + high-quality JPEG from a folder of images."],
+    "combine": ["Combine Generator", "600 px Single, two-column Line Up with color names, and a flexible Detail grid."],
     progress: ["Progress & History", "Levels, EXP, achievements, brands, and Monday–Friday history."],
     settings: ["Settings", "System readiness, local profile, shared workflow rules, and app data."]
 };
@@ -35,7 +36,7 @@ function showPage(pageName) {
     pageTitle.textContent = meta[0];
     pageSubtitle.textContent = meta[1];
 
-    const fullModule = ["slider", "amazon", "remove-bg", "landing-page", "lp-folder"].includes(pageName);
+    const fullModule = ["slider", "amazon", "remove-bg", "landing-page", "lp-folder", "combine"].includes(pageName);
     mainContent.classList.toggle("embedded-module-active", fullModule);
 
     if (pageName === "dashboard" || pageName === "progress") {

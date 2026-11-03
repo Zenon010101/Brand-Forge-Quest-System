@@ -849,7 +849,7 @@ clearOutputBtn.onclick = () => {
     state.linkedProjectRoot = null;
     state.autoLinkedOutput = null;
     document.dispatchEvent(new Event("brandforge:project-manual"));
-    outputPath.textContent = "Not selected — PSD will stay open in Photoshop";
+    outputPath.textContent = "Not selected — choose a folder or link your G: brand project";
     outputPath.title = "";
 };
 
@@ -884,6 +884,27 @@ generateBtn.onclick = async () => {
         return;
     }
 
+    // Output is mandatory so the PSD left open in Photoshop is the ACTUAL
+    // published file rather than a temporary/unsaved document.
+    if (!state.outputFolder) {
+        try {
+            const selected = await sliderApi.selectOutputFolder();
+            if (!selected?.folderPath) {
+                setStatus("Output folder required", "Choose where to save the Slider PSD before generating.", "error");
+                return;
+            }
+            state.outputFolder = selected.folderPath;
+            state.linkedProjectRoot = null;
+            state.autoLinkedOutput = null;
+            document.dispatchEvent(new Event("brandforge:project-manual"));
+            outputPath.textContent = state.outputFolder;
+            outputPath.title = state.outputFolder;
+        } catch (error) {
+            setStatus("Output folder required", error.message || String(error), "error");
+            return;
+        }
+    }
+
     setBusy(true);
     setStatus("Starting Photoshop", "Preparing the Slider Maker job...", "busy");
 
@@ -897,8 +918,9 @@ generateBtn.onclick = async () => {
         const levelText = result.progression?.levelUp ? `\nLEVEL UP! LV. ${result.progression.profile.level.level}` : "";
 
         if (result.outputPsdPath) {
-            setStatus("PSD generated", result.outputPsdPath, "ready");
-            alert(`PSD generated successfully.\n\n${result.outputPsdPath}${xpText}${levelText}`);
+            const openMessage = result.openWarning || `The saved PSD is now open in Photoshop: ${result.outputPsdPath}`;
+            setStatus(result.openWarning ? "PSD saved - open warning" : "PSD generated and opened", openMessage, "ready");
+            alert(`PSD generated successfully.\n\n${result.outputPsdPath}${result.openWarning ? `\n\n${result.openWarning}` : "\n\nThe saved PSD is now open in Photoshop."}${xpText}${levelText}`);
         } else {
             setStatus(
                 "PSD generated",
@@ -941,7 +963,7 @@ document.addEventListener("brandforge:project-linked", event => {
 document.addEventListener("brandforge:project-unlinked", () => {
     if (state.autoLinkedOutput && state.outputFolder === state.autoLinkedOutput) {
         state.outputFolder = null;
-        outputPath.textContent = "Not selected — PSD will stay open in Photoshop";
+        outputPath.textContent = "Not selected — choose a folder or link your G: brand project";
         outputPath.title = "";
     }
     state.linkedProjectRoot = null;

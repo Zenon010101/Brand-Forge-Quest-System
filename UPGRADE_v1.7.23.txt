@@ -1,0 +1,31 @@
+BrandForge v1.7.23 - Rakuten Slider Download Only
+
+New simplified Rakuten workflow in Combine Generator:
+1. Paste a public Rakuten item URL (https://item.rakuten.co.jp/...) or
+   a Rakuten GOLD slider iframe URL (https://www.rakuten.ne.jp/gold/...).
+2. Optionally select a local parent folder. If omitted, Windows Downloads is used.
+3. Click Download Slider Images. The system scans the slider iframe and
+   downloads only the identified slider image sequence in website order.
+4. BrandForge creates one new product folder, such as LVH-97/ or LVH-97_v2/.
+   It saves numbered originals directly inside, plus slider_manifest.json.
+5. Click Open Download Folder. No categories, PSD or JPEG Combine generation
+   are applied by this downloader. To make a Combine later, use the separate
+   Single, Line Up, and Details upload sections as before.
+
+Saved images retain original image bytes, dimensions and formats. No resize,
+crop, stretching or recompression. Original source URLs and individual
+failures are listed in the manifest. One failed image does not cancel others.
+
+If an item page is not accessible, use the iframe URL shown in the product
+HTML or expand Advanced and paste the slider's HTML. HTML alone does not
+reliably identify content categories; auto classification is not attempted.
+
+Existing Combine PSD/JPEG, Amazon, Slider, Colorbox, LP, Remove BG, profiles,
+EXP/history, and Google Drive marker path behavior remain unchanged.
+
+Run: npm.cmd run validate
+Start: npm.cmd start
+
+Live Rakuten item-page downloading needs validation on Windows with an
+accessible public Rakuten page. Backend scans are tested with fixed HTML and
+image fixtures; they cannot guarantee access to every live website.

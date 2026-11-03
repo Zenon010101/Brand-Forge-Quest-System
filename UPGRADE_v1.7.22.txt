@@ -1,0 +1,16 @@
+BrandForge v1.7.22 — Rakuten Slider Import + No-Stretch Combine
+
+New in Combine Generator:
+1. WEB / Rakuten Slider Import. Paste a public Rakuten GOLD iframe link and Scan Slider.
+2. Choose Download Folder and Download Slider Images. Saves exact original bytes and a manifest in a new numbered folder. No original files are altered.
+3. Review categories for every image; first slide is a tentative Single, and the other slides start as Needs Review. Bulk-assign selected slides to Line Up or Details.
+4. Organize + Add to Combine copies files into categorized subfolders and loads them into the existing Single, Line Up, and Details queues in website order.
+5. Enter color names for Line Up images, then Generate Combine as usual.
+
+Fixed: Line Up and Detail image preparation no longer stretches images with separate X/Y scaling or enlarges low-resolution sources. Photoshop uses uniform scaling.
+
+Unchanged: 600 px canvas, dynamic height, 15 px Single gap, two columns, editable 28 px labels, Detail box gaps, layered PSD/PSB + JPEG, all Amazon/Slider/LP/Profile modules, Google Drive linking, no LAN leaderboard or Smart Folder Import.
+
+Notes: The shown HTML does not contain semantic categories. Category assignment requires designer review. Website retrieval was tested with local HTML/image fixtures; actual Rakuten download and Photoshop still need Windows workstation validation.
+
+From v1.7.21: replace source files with the patch ZIP (or use the complete project ZIP), then run npm.cmd start. No new npm packages required.

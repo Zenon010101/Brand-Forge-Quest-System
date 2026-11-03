@@ -1,0 +1,19 @@
+BRANDFORGE v1.7.21 - OPTIONAL COMBINE LINE UP
+
+Patch base: BrandForge v1.7.20.
+
+- The Line Up upload is OPTIONAL. You can generate with Single + Details,
+  Single + Line Up, all three, or Single alone.
+- When Line Up is empty, there is no blank Line Up row, color-name text,
+  or empty Line Up PSD group. Details start immediately after the normal
+  15 px Single gap and editable DETAILS heading.
+- Single-only output is 600 x 600 px with no empty trailing section.
+- Existing layout, image order, proportional fitting, and PSD + JPEG
+  export behavior remain unchanged.
+- No changes to Amazon, Slider, Remove BG, LP, profile, and history modules.
+
+INSTALLATION
+Close BrandForge first. Back up your v1.7.20 folder and then
+extract the patch into the project root, preserving directory structure.
+Run npm.cmd run test:combine, npm.cmd run validate, npm.cmd start.
+A Windows + Photoshop test is still required for final PSD rendering.
