@@ -81,16 +81,38 @@ function makeRow(entry, section, i) {
     const title = document.createElement("strong"); title.textContent = entry.name;
     const meta = document.createElement("small");
     meta.textContent = section === "single" ? "Top section · 600 x 600" : section === "lineup"
-        ? `Variation ${i + 1} · 28 px name` : `Detail ${i + 1} · box 293 x 293`;
+        ? (entry.rowMode === "dual" ? `Image ${i + 1} · full row · 2 × 28 px labels` : `Variation ${i + 1} · half row · 28 px name`)
+        : `Detail ${i + 1} · box 293 x 293`;
     copy.append(title, meta);
     if (section === "lineup") {
-        const name = document.createElement("input"); name.type = "text"; name.className = "name-edit";
-        name.placeholder = "Color name (required)"; name.maxLength = 120;
-        name.value = entry.colorName || "";
-        name.disabled = state.busy;
-        name.addEventListener("click", event => event.stopPropagation());
-        name.addEventListener("input", event => { entry.colorName = event.target.value; requestLayout(); });
-        copy.appendChild(name);
+        const mode = document.createElement("select"); mode.className = "lineup-mode";
+        for (const [value, title] of [["single", "1 item · half row"], ["dual", "2 items · ONE full row"]]) {
+            const option = document.createElement("option"); option.value = value; option.textContent = title;
+            mode.appendChild(option);
+        }
+        mode.value = entry.rowMode === "dual" ? "dual" : "single";
+        mode.disabled = state.busy;
+        mode.addEventListener("click", event => event.stopPropagation());
+        mode.addEventListener("change", event => {
+            entry.rowMode = event.target.value; renderQueues(); requestLayout();
+        });
+        copy.appendChild(mode);
+        const names = document.createElement("div"); names.className = "lineup-name-fields";
+        const left = document.createElement("input"); left.type = "text"; left.className = "name-edit";
+        left.placeholder = mode.value === "dual" ? "LEFT color name (required)" : "Color name (required)";
+        left.maxLength = 120; left.value = entry.colorName || ""; left.disabled = state.busy;
+        left.addEventListener("click", event => event.stopPropagation());
+        left.addEventListener("input", event => { entry.colorName = event.target.value; requestLayout(); });
+        names.appendChild(left);
+        if (mode.value === "dual") {
+            const right = document.createElement("input"); right.type = "text"; right.className = "name-edit";
+            right.placeholder = "RIGHT color name (required)";
+            right.maxLength = 120; right.value = entry.colorNameRight || ""; right.disabled = state.busy;
+            right.addEventListener("click", event => event.stopPropagation());
+            right.addEventListener("input", event => { entry.colorNameRight = event.target.value; requestLayout(); });
+            names.appendChild(right);
+        }
+        copy.appendChild(names);
     }
     copy.addEventListener("click", () => setActivePreview(entry));
     row.appendChild(copy);
@@ -118,18 +140,38 @@ function makeRow(entry, section, i) {
     scheduleThumb(entry, 360);
     return row;
 }
+function estimateLineupRows(items) {
+    let rows = 0, pending = 0;
+    for (const item of items) {
+        if (item.rowMode === "dual") {
+            if (pending) { rows++; pending = 0; }
+            rows++;
+        } else {
+            if (++pending === 2) { rows++; pending = 0; }
+        }
+    }
+    return rows + (pending ? 1 : 0);
+}
+function setAllLineupModes(mode) {
+    if (state.busy) return;
+    state.lineup.forEach(item => { item.rowMode = mode; });
+    renderQueues(); requestLayout();
+    note(mode === "dual" ? "Each Line Up source image now takes one full row. Enter LEFT and RIGHT color names."
+        : "Regular Line Up mode restored: two separate images per row.");
+}
 function renderQueues() {
     for (const [section, id] of [["single", "singleItems"], ["lineup", "lineupItems"], ["details", "detailItems"]]) {
         const target = el(id); target.replaceChildren();
         const list = sectionList(section);
         if (!list.length) {
             const p = document.createElement("p"); p.className = "empty";
-            p.textContent = section === "single" ? "No Single selected." : section === "lineup"
+            p.textContent = section === "single" ? "No Single selected (optional)." : section === "lineup"
                 ? "Line Up is optional — empty section will be skipped." : "No Detail images (optional).";
             target.appendChild(p);
         } else list.forEach((item, index) => target.appendChild(makeRow(item, section, index)));
     }
-    el("lineCount").textContent = state.lineup.length ? `${state.lineup.length} variation(s)` : "Optional · skipped";
+    el("lineCount").textContent = state.lineup.length
+        ? `${state.lineup.length} image(s) · ${estimateLineupRows(state.lineup)} row(s)` : "Optional · skipped";
     el("lineupBulk").hidden = !state.lineup.length;
     el("detailCount").textContent = `${state.details.length} image(s)`;
     refreshButtons();
@@ -162,7 +204,8 @@ async function addImages(section, result) {
         for (const item of incoming) {
             if (exists.has(item.path.toLowerCase())) continue;
             exists.add(item.path.toLowerCase());
-            state[section].push(section === "lineup" ? { ...item, colorName: suggestColorName(item) } : item);
+            state[section].push(section === "lineup" ? { ...item, rowMode: "single",
+                colorName: suggestColorName(item), colorNameRight: "" } : item);
         }
     }
     const failed = (result.failed || []).length;
@@ -183,6 +226,7 @@ function rakPreview(index) {
         .catch(()=>{}).finally(()=>{ rak.previewPending.delete(index); renderRakuten(); });
 }
 function renderRakuten() {
+    refreshCleanupButtons();
     const rows=rak.download?.images || rak.scan?.images || [];
     el("rakutenDownload").disabled=rak.busy||state.busy;
     el("rakutenChooseFolder").disabled=rak.busy||state.busy;
@@ -260,7 +304,8 @@ async function dropImages(section, event) {
 }
 function payload() {
     return { singlePath: state.single?.path || null,
-        lineup: state.lineup.map(item => ({ path: item.path, colorName: item.colorName || "" })),
+        lineup: state.lineup.map(item => ({ path: item.path, rowMode: item.rowMode === "dual" ? "dual" : "single",
+            colorName: item.colorName || "", colorNameRight: item.colorNameRight || "" })),
         details: state.details.map(item => item.path),
         outputName: el("outputName").value.trim(), existingAction: el("saveAction").value };
 }
@@ -270,19 +315,21 @@ function updateTabs() {
 }
 function refreshButtons() {
     el("removeSingle").disabled = !state.single || state.busy;
-    for (const id of ["chooseSingle", "chooseLineup", "chooseDetails", "clearLineup", "clearDetails", "applyColors", "chooseOutput", "reset", "saveAction", "outputName"]) {
+    for (const id of ["chooseSingle", "chooseLineup", "chooseDetails", "clearLineup", "clearDetails", "applyColors", "setAllDual", "setAllNormal", "chooseOutput", "reset", "saveAction", "outputName"]) {
         el(id).disabled = state.busy;
     }
     el("bulkColorNames").disabled = state.busy || !state.lineup.length;
     el("applyColors").disabled = state.busy || !state.lineup.length;
+    el("setAllDual").disabled = state.busy || !state.lineup.length;
+    el("setAllNormal").disabled = state.busy || !state.lineup.length;
     el("generate").disabled = state.busy || !state.layout || !state.outputFolder || !!state.error;
     el("generate").textContent = state.busy ? "Generating Combine..." : "Generate Combine";
     el("openOutput").disabled = !state.lastOutput || state.busy;
 }
 function requestLayout() {
     const seq = ++planSeq;
-    if (!state.single) {
-        state.layout = null; state.error = "Upload a Single image. Line Up and Details are optional.";
+    if (!allEntries().length) {
+        state.layout = null; state.error = "Add at least one image to Single, Line Up, or Details.";
         showPlan(); return;
     }
     api.layout(payload()).then(layout => {
@@ -296,12 +343,13 @@ function requestLayout() {
 function showPlan() {
     const layout = state.layout;
     el("heightStat").textContent = layout ? `${layout.height.toLocaleString()} px` : "—";
-    el("lineStat").textContent = `${state.lineup.length} · ${Math.ceil(state.lineup.length / 2)} rows`;
+    el("lineStat").textContent = `${state.lineup.length} · ${layout?.lineupRows?.length ?? estimateLineupRows(state.lineup)} rows`;
     el("detailsStat").textContent = `${state.details.length} · ${Math.ceil(state.details.length / 2)} rows`;
-    const omitted = layout && !state.lineup.length ? (state.details.length ? "Line Up skipped · Details follow Single." : "Single-only Combine · Line Up and Details skipped.") : "";
+    const skipped = layout ? [!state.single && "Single", !state.lineup.length && "Line Up", !state.details.length && "Details"].filter(Boolean) : [];
+    const omitted = skipped.length ? `${skipped.join(" / ")} skipped.` : "";
     el("warnings").textContent = state.error || `Ready: ${layout.sourceCount} image layers · ${layout.format.toUpperCase()} + ${layout.jpegCount} JPEG(s).${omitted ? ` ${omitted}` : ""}`;
     el("warnings").classList.toggle("good", !!layout && !state.error);
-    el("previewCaption").textContent = layout ? `600 x ${layout.height.toLocaleString()} px · ${!state.lineup.length ? "Line Up skipped · " : ""}source order follows list` : "Upload Single to start; other sections are optional.";
+    el("previewCaption").textContent = layout ? `600 x ${layout.height.toLocaleString()} px · ${!state.lineup.length ? "Line Up skipped · " : ""}source order follows list` : "Add at least one image; all sections are optional.";
     el("previewInfo").textContent = layout ? `JPEG: ${layout.jpegCount} file(s)` : "600 px canvas";
     refreshButtons();
     if (state.view === "full") drawFullPreview();
@@ -322,7 +370,7 @@ function drawFullPreview() {
     target.hidden = false;
     target.style.width = `${Math.round(600 * scale)}px`;
     target.style.height = `${Math.round(layout.height * scale)}px`;
-    for (const section of [layout.single, ...layout.lineup, ...layout.details]) {
+    for (const section of [...(layout.single ? [layout.single] : []), ...layout.lineup, ...layout.details]) {
         const data = thumbs.get(section.path);
         const layer = document.createElement(data ? "img" : "div");
         layer.className = data ? "composition-image" : "preview-placeholder";
@@ -331,13 +379,17 @@ function drawFullPreview() {
         position(layer, section.x, section.y, section.placedWidth, section.placedHeight, scale);
         target.appendChild(layer);
     }
-    for (const row of layout.lineup) {
-        const label = document.createElement("div"); label.className = "composition-label";
-        label.textContent = row.labelLines.join("\n");
-        label.style.fontSize = `${Math.max(8, Math.round(28 * scale))}px`;
-        label.style.lineHeight = `${Math.round(36 * scale)}px`;
-        position(label, row.labelX, row.labelY, row.labelWidth, row.labelHeight, scale);
-        target.appendChild(label);
+    for (const entry of layout.lineup) {
+        const labels = entry.labels || [{ lines: entry.labelLines, x: entry.labelX,
+            y: entry.labelY, width: entry.labelWidth, height: entry.labelHeight }];
+        for (const caption of labels) {
+            const label = document.createElement("div"); label.className = "composition-label";
+            label.textContent = caption.lines.join("\n");
+            label.style.fontSize = `${Math.max(8, Math.round(28 * scale))}px`;
+            label.style.lineHeight = `${Math.round(36 * scale)}px`;
+            position(label, caption.x, caption.y, caption.width, caption.height, scale);
+            target.appendChild(label);
+        }
     }
     if (layout.detailsHeader) {
         const heading = document.createElement("div"); heading.className = "composition-heading";
@@ -368,7 +420,7 @@ function showFull() {
     updateTabs(); drawFullPreview();
 }
 function switchToSelected() { state.view = "selected"; updateTabs(); showSelected(); }
-function toggleBusy(busy) { state.busy = busy; refreshButtons(); renderQueues(); renderRakuten(); }
+function toggleBusy(busy) { state.busy = busy; refreshButtons(); renderQueues(); renderRakuten(); refreshCleanupButtons(); }
 async function generate() {
     if (state.busy) return;
     try {
@@ -385,17 +437,27 @@ async function generate() {
 }
 function wire() {
     wireRakuten();
+    wireCleanup();
     el("chooseSingle").addEventListener("click", () => pick("single"));
     el("chooseLineup").addEventListener("click", () => pick("lineup"));
     el("chooseDetails").addEventListener("click", () => pick("details"));
     el("removeSingle").addEventListener("click", () => remove("single", 0));
     el("clearLineup").addEventListener("click", () => { state.lineup = []; renderQueues(); requestLayout(); });
     el("clearDetails").addEventListener("click", () => { state.details = []; renderQueues(); requestLayout(); });
+    el("setAllDual").addEventListener("click", () => setAllLineupModes("dual"));
+    el("setAllNormal").addEventListener("click", () => setAllLineupModes("single"));
     el("applyColors").addEventListener("click", () => {
         const names = el("bulkColorNames").value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
         if (!names.length) return note("Paste one color name per line.", true);
-        names.forEach((value, i) => { if (state.lineup[i]) state.lineup[i].colorName = value; });
-        renderQueues(); requestLayout(); note(`Applied ${Math.min(names.length, state.lineup.length)} color names in current Line Up order.`);
+        names.forEach((value, i) => {
+            const entry = state.lineup[i]; if (!entry) return;
+            if (entry.rowMode === "dual" && value.includes("|")) {
+                const split = value.split("|");
+                entry.colorName = split.shift().trim();
+                entry.colorNameRight = split.join("|").trim();
+            } else entry.colorName = value;
+        });
+        renderQueues(); requestLayout(); note(`Applied names to ${Math.min(names.length, state.lineup.length)} Line Up image(s). Dual rows use LEFT | RIGHT.`);
     });
     for (const zone of document.querySelectorAll(".drop-zone")) {
         const section = zone.dataset.section;

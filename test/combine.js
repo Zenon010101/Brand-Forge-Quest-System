@@ -49,6 +49,54 @@ async function testLayouts() {
     }
     assert.deepEqual(layout.lineup.map(x => x.colorName), ["Black", "Navy", "Beige", "White", "Red"]);
     assert.equal(layout.jpegCount, 1);
+    // New full-row mode: ONE 600px source with TWO products is kept intact and
+    // receives TWO separately editable 28px labels, not two separate images.
+    const duo = {...part("two-jackets", 600, 600), rowMode:"dual",
+        colorName:"Off White (012)", colorNameRight:"Spugnola (110)"};
+    const fullRow = buildCombineLayout({single:null,lineup:[duo],details:[],outputName:"DUAL_FULL_ROW"});
+    assert.equal(fullRow.sourceCount,1);
+    assert.equal(fullRow.lineupRowCount,1);
+    assert.equal(fullRow.lineupRows[0].kind,"dual");
+    assert.equal(fullRow.lineupRows[0].imageHeight,594);
+    assert.deepEqual(fullRow.lineupRows[0].imageIndices,[0]);
+    assert.equal(fullRow.lineup[0].slotX,3);
+    assert.equal(fullRow.lineup[0].slotY,0);
+    assert.equal(fullRow.lineup[0].slotWidth,594);
+    assert.equal(fullRow.lineup[0].slotHeight,594);
+    assert.equal(fullRow.lineup[0].labels.length,2);
+    assert.equal(fullRow.lineup[0].labels[0].text,"Off White (012)");
+    assert.equal(fullRow.lineup[0].labels[1].text,"Spugnola (110)");
+    assert.equal(fullRow.lineup[0].labels[0].x,3);
+    assert.equal(fullRow.lineup[0].labels[1].x,304);
+    assert.equal(fullRow.lineup[0].labels[0].y,fullRow.lineup[0].labels[1].y);
+    assert.equal(fullRow.height,594 + DIM.labelGap + DIM.labelLine);
+    // Multiple two-product images stack vertically, one image per row.
+    const duos = Array.from({length:3}, (_,i) => ({...part("dual"+i),rowMode:"dual",
+        colorName:"Left "+i,colorNameRight:"Right "+i}));
+    const threeRows = buildCombineLayout({single:null,lineup:duos,details:[],outputName:"THREE_DUAL_ROWS"});
+    assert.equal(threeRows.lineupRowCount,3);
+    assert.deepEqual(threeRows.lineupRows.map(r=>r.imageIndices),[[0],[1],[2]]);
+    assert.equal(threeRows.sourceCount,3);
+    assert.equal(threeRows.lineup.reduce((n,e)=>n+e.labels.length,0),6);
+    assert.equal(threeRows.lineup[1].slotY,fullRow.height+DIM.rowGap);
+    assert.equal(threeRows.lineup[2].slotY,2*(fullRow.height+DIM.rowGap));
+    // Mixed rows must not pull a later image across a two-product source.
+    const mixed = buildCombineLayout({single:null,lineup:[
+        {...part("regularA"),colorName:"A"},duo,
+        {...part("regularB"),colorName:"B"}, {...part("regularC"),colorName:"C"}],
+        details:[part("detail")],outputName:"MIXED_ROWS"});
+    assert.equal(mixed.lineupRowCount,3);
+    assert.deepEqual(mixed.lineupRows.map(r=>r.imageIndices),[[0],[1],[2,3]]);
+    assert.deepEqual(mixed.lineupRows.map(r=>r.kind),["regular","dual","regular"]);
+    assert.deepEqual(mixed.lineup.map(e=>e.name),["regularA.png","two-jackets.png","regularB.png","regularC.png"]);
+    assert.equal(mixed.lineup[3].slotX,304);
+    assert.equal(mixed.lineup[3].slotY,mixed.lineup[2].slotY);
+    assert(mixed.detailsHeader.y>=mixed.lineupRows[2].top+mixed.lineupRows[2].rowHeight+DIM.detailsGap);
+    assert.throws(()=>buildCombineLayout({single:null,lineup:[{...duo,colorNameRight:""}],details:[],outputName:"MISSING_RIGHT"}),/color name/i);
+    assert.throws(()=>buildCombineLayout({single:null,lineup:[{...duo,rowMode:"triple"}],details:[],outputName:"BAD_MODE"}),/row mode/i);
+    const longDual = buildCombineLayout({single:null,lineup:[{...duo,colorNameRight:"Dark Brown / Navy / Extremely Long Name"}],details:[],outputName:"LONG_DUAL"});
+    assert(longDual.lineup[0].labelHeight>DIM.labelLine);
+    assert.equal(longDual.lineup[0].labels[0].height,longDual.lineup[0].labels[1].height);
     const noLine = buildCombineLayout({ single, lineup: [], details: [part("detail")], outputName:"test" });
     assert.equal(noLine.details[0].slotY, 615 + DIM.detailsHeadingHeight + DIM.detailsHeadingGap);
     assert.equal(noLine.detailsHeader.y, DIM.single + DIM.singleGap);
@@ -80,7 +128,21 @@ async function testLayouts() {
         details: [], outputName:"veryBig" });
     assert.equal(veryTall.format, "psb");
     assert(veryTall.jpegCount > 1);
-    assert.throws(()=>buildCombineLayout({ single: null, lineup: [], details: [], outputName:"empty" }),/Single image/);
+    assert.throws(()=>buildCombineLayout({ single: null, lineup: [], details: [], outputName:"empty" }),/at least one image/);
+    // Optional Single must not reserve a 600 px blank band or a 15 px gap.
+    const withoutSingleLineup = buildCombineLayout({ single:null, lineup:[{...part("navy"),colorName:"Navy"}], details:[],outputName:"LINEUP_NO_SINGLE" });
+    assert.equal(withoutSingleLineup.single, null);
+    assert.equal(withoutSingleLineup.lineup[0].slotY, 0);
+    assert.equal(withoutSingleLineup.sourceCount, 1);
+    assert.equal(withoutSingleLineup.height, DIM.cell + DIM.labelGap + DIM.labelLine);
+    const withoutSingleDetails = buildCombineLayout({single:null,lineup:[],details:[part("detailA"),part("detailB")],outputName:"DETAILS_NO_SINGLE"});
+    assert.equal(withoutSingleDetails.detailsHeader.y, 0);
+    assert.equal(withoutSingleDetails.details[0].slotY, DIM.detailsHeadingHeight + DIM.detailsHeadingGap);
+    assert.equal(withoutSingleDetails.sourceCount,2);
+    const withoutSingleBoth = buildCombineLayout({single:null,lineup:[{...part("black"),colorName:"Black"}],details:[part("detailC")],outputName:"BOTH_NO_SINGLE"});
+    assert.equal(withoutSingleBoth.lineup[0].slotY, 0);
+    assert.equal(withoutSingleBoth.detailsHeader.y, withoutSingleBoth.lineup[0].labelY + withoutSingleBoth.lineup[0].labelHeight + DIM.detailsGap);
+    assert.equal(withoutSingleBoth.sourceCount,2);
     assert.throws(()=>buildCombineLayout({ single, lineup, details, outputName:"NUL" }),/valid output filename/);
     assert.throws(()=>safeOutputName("../bad"),/valid output filename/);
     const japanese = wrapColorName("ブラック／ホワイト カラーバリエーション");
@@ -159,6 +221,34 @@ async function testService(root, assets) {
     assert.equal(singleResult.lineupCount,0);
     assert.equal(singleResult.detailCount,0);
     assert.equal((await sharp(singleResult.jpegPath).metadata()).height,600);
+    // Backend service and publisher must accept Single-free generations.
+    const detailNoSingle = {details:[assets.white],outputName:"DETAILS_NO_SINGLE",existingAction:"version"};
+    const noSingleLayout = service.layout(detailNoSingle);
+    assert.equal(noSingleLayout.single,null);
+    assert.equal(noSingleLayout.detailsHeader.y,0);
+    const noSingleResult = await service.generate(detailNoSingle);
+    assert.equal(noSingleResult.sourceCount,1);
+    assert.equal((await sharp(noSingleResult.jpegPath).metadata()).height,noSingleLayout.height);
+    const lineupNoSingle = {lineup:[{path:assets.transparent,colorName:"White"}],outputName:"LINEUP_NO_SINGLE",existingAction:"version"};
+    const noSingleLineupResult = await service.generate(lineupNoSingle);
+    assert.equal(noSingleLineupResult.sourceCount,1);
+    assert.equal(noSingleLineupResult.lineupCount,1);
+    assert.throws(()=>service.layout({outputName:"EMPTY"}),/at least one image/);
+    // The service must retain the dual mode and both captions all the way
+    // through to the prepared Photoshop layout.
+    const dualInput = {singlePath:null,lineup:[{path:assets.white,rowMode:"dual",
+        colorName:"Off White (012)",colorNameRight:"Spugnola (110)"}],
+        outputName:"DUAL_SERVICE",existingAction:"version"};
+    const dualLayout = service.layout(dualInput);
+    assert.equal(dualLayout.lineup.length,1);
+    assert.equal(dualLayout.lineupRowCount,1);
+    assert.equal(dualLayout.lineup[0].labels.length,2);
+    assert.equal(dualLayout.lineup[0].colorNameRight,"Spugnola (110)");
+    const dualExport = await service.generate(dualInput);
+    assert.equal(dualExport.sourceCount,1);
+    assert.equal(dualExport.lineupCount,1);
+    assert.equal((await sharp(dualExport.jpegPath).metadata()).height,dualLayout.height);
+    assert.throws(()=>service.layout({...dualInput,lineup:[{...dualInput.lineup[0],colorNameRight:""}]}),/color name/i);
     const version = await service.generate(payload);
     assert(/_v2\.psd$/i.test(version.outputPath));
     assert(/_v2\.jpg$/i.test(version.jpegPath));
@@ -182,6 +272,9 @@ function testJsx() {
     assert(code.includes('group("02_LINE_UP"'));
     assert(code.includes('j.lineup.length ? "03_DETAILS" : "02_DETAILS"'));
     assert(code.includes('if (j.lineup.length)'));
+    assert(code.includes('variation.labels ||'));
+    assert(code.includes('"_LEFT"'));
+    assert(code.includes('"_RIGHT"'));
     assert(code.indexOf("doc.saveAs(documentFile") < code.indexOf("doc.flatten()"));
     assert(!/copy\s*merged|cropToCanvas|dropShadow/i.test(code));
     assert(fs.readFileSync(path.join(__dirname,"../src/modules/combine/template/COMBINE_TEMPLATE_REFERENCE.psd")).subarray(0,4).toString()==="8BPS");

@@ -12,7 +12,7 @@
 //   2. Lineup groups    (existing Lineup Generator grouping/placement)
 //   3. Detail images    (full-canvas "fill" placement, SIX naming)
 //
-// Total images across all three sections is capped at 18.
+// The total number of output items is flexible: there is no fixed maximum.
 // Smart Objects remain non-destructive during placement/cutting so source
 // resolution is preserved inside the generated PSD.
 //
@@ -60,7 +60,6 @@ var DETAIL_CUT_BOTTOM_WHITE = 50;
 // is covered by Main. Main placement itself is never shifted by this rule.
 var PSD_SHADOW_LIFT_PX = 4;
 
-var MAX_TOTAL_IMAGES = 18;
 // Let Photoshop decide which file types it can actually open.
 // The picker is intentionally not limited to PNG/JPG/JPEG so files such as
 // PSD, TIFF, BMP, GIF, WEBP, etc. can also be selected when supported by
@@ -3685,7 +3684,7 @@ function showUnifiedDialog() {
 
     function updateTotalCount() {
         var total = countTotalImages(state);
-        totalText.text = "Total images: " + total + " / " + MAX_TOTAL_IMAGES;
+        totalText.text = "Total images: " + total;
     }
 
     // ---- Errors directly under the header ----
@@ -3779,12 +3778,6 @@ function showUnifiedDialog() {
             errors.push("Add at least one image (Creative, Lineup, or Detail).");
         }
 
-        if (total > MAX_TOTAL_IMAGES) {
-            errors.push(
-                "Maximum " + MAX_TOTAL_IMAGES + " images total across Creative, " +
-                "Lineup, and Detail. You currently have " + total + "."
-            );
-        }
 
         updateTotalCount();
 

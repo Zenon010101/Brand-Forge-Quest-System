@@ -6,6 +6,8 @@ const service = new CombineService();
 const { RakutenImporter } = require("./rakutenImporter");
 const rakutenImporter = new RakutenImporter();
 const sharp = require("sharp");
+const { TextCleanupService } = require("./textCleanup");
+const textCleanup = new TextCleanupService();
 
 const FILTERS = [{ name: "Photoshop and image files", extensions: ["jpg", "jpeg", "png", "webp", "tif", "tiff", "bmp", "gif", "psd", "psb", "avif", "heic", "heif", "tga", "svg", "jp2", "exr", "hdr"] },
     { name: "All files", extensions: ["*"] }];
@@ -70,4 +72,27 @@ ipcMain.handle("combine:rakuten-preview", async (_event, index) => {
     const image = await sharp(item.path).resize({width:400,height:400,fit:"inside",withoutEnlargement:true}).png().toBuffer();
     return "data:image/png;base64,"+image.toString("base64");
 });
-module.exports = { service, rakutenImporter };
+// Non-destructive caption cleanup is user-triggered. Downloaded originals remain
+// independent of the Combine import queues unless a cleaned copy is approved.
+const CLEANUP_FILTERS = [{ name: "Raster images for text cleanup", extensions: ["jpg", "jpeg", "png", "webp", "tif", "tiff", "bmp", "gif", "avif"] }];
+ipcMain.handle("combine:cleanup-choose-files", async () => {
+    const picked = await dialog.showOpenDialog({ title: "Choose images for optional text cleanup",
+        defaultPath: app.getPath("pictures"), properties: ["openFile", "multiSelections"], filters: CLEANUP_FILTERS });
+    return picked.canceled ? { images: [], failed: [] } : textCleanup.addFiles(picked.filePaths);
+});
+ipcMain.handle("combine:cleanup-add-downloaded", () => {
+    const files = (rakutenImporter.downloaded?.images || [])
+        .filter(item => item.status === "downloaded" && item.path).map(item => item.path);
+    if (!files.length) throw new Error("Download Rakuten slider images first, or choose files for cleanup.");
+    return textCleanup.addFiles(files);
+});
+ipcMain.handle("combine:cleanup-scan", (_event, filePath) => textCleanup.scan(filePath));
+ipcMain.handle("combine:cleanup-preview", (_event, payload) => textCleanup.preview(payload || {}));
+ipcMain.handle("combine:cleanup-save", async (_event, payload) => {
+    const saved = await textCleanup.save(payload || {});
+    // The user separately chooses the target Single / Line Up / Details section.
+    // A verified cleaned copy is registered for the existing Combine layout.
+    const imported = await service.addFiles([saved.path]);
+    return { ...saved, imported };
+});
+module.exports = { service, rakutenImporter, textCleanup };

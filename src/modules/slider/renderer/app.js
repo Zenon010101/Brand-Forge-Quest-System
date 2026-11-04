@@ -130,13 +130,12 @@ function setStatus(title, sub, mode = "ready") {
 
 function renderCounters() {
     const total = totalOutputs();
-    totalCounter.textContent = `${total} / 18`;
-    totalCounter.classList.toggle("over", total > 18);
+    totalCounter.textContent = String(total);
     creativeNavCount.textContent = state.creative.length;
     lineupNavCount.textContent = state.lineupRows.length;
     detailNavCount.textContent = state.detail.length;
 
-    generateBtn.disabled = state.busy || total === 0 || total > 18;
+    generateBtn.disabled = state.busy || total === 0;
 }
 
 function emptyState(text) {
@@ -680,7 +679,6 @@ function validateBeforeGenerate() {
 
     const total = totalOutputs();
     if (total === 0) errors.push("Add at least one Creative, Lineup, or Detail item.");
-    if (total > 18) errors.push(`Maximum is 18 output items. Current total: ${total}.`);
 
     const slots = activeSlotCount();
     state.lineupRows.forEach((row, index) => {

@@ -1,0 +1,16 @@
+BrandForge v1.7.29 - Full-width dual-item Line Up rows
+
+Upgrade base: BrandForge v1.7.28 full-source build with Combine Optional Single
+and Text Cleanup.
+
+Changes:
+ - New per-entry single/dual row mode in Combine's Line Up list.
+ - Dual row: one source image, 594px wide slot, two independently editable
+   color-name labels positioned at x=3 and x=304, each 293px wide.
+ - Mixed rows preserve item order. Bulk dual mode and left|right names.
+ - Text Cleanup can reuse two manually approved OCR captions as the left and
+   right editable labels on the cleaned copy.
+ - Extended planner/service/JSX regression tests; browser UI mock test added.
+
+No changes to Amazon, Slider, LP, Remove BG, Profiles or Rakuten Downloader.
+Original image bytes remain untouched; use Text Cleanup to remove baked text.

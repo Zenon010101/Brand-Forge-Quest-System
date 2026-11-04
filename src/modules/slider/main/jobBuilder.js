@@ -116,12 +116,6 @@ function buildJobScript(enginePath, job) {
         if (__total === 0) {
             throw new Error("Add at least one image (Creative, Lineup, or Detail).");
         }
-        if (__total > MAX_TOTAL_IMAGES) {
-            throw new Error(
-                "Maximum " + MAX_TOTAL_IMAGES +
-                " images total. Current total: " + __total + "."
-            );
-        }
 
         __builtDoc = buildUnifiedDocument(__state, __code);
 

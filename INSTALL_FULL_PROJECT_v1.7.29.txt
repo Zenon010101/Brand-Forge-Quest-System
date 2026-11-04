@@ -1,0 +1,65 @@
+BRANDFORGE v1.7.29 - COMPLETE SOURCE (DUAL-ITEM LINE UP)
+=======================================================
+
+This ZIP contains the WHOLE BrandForge Electron source project, not just src/
+patch files. It includes the previous v1.7.28 code and the new Combine mode.
+It is NOT a compiled Windows EXE; rebuilding is needed for a portable EXE.
+
+SAFE INSTALL / REPAIR (Windows)
+------------------------------
+1. Close BrandForge and make a BACKUP of your entire existing project.
+2. Extract this ZIP to a NEW folder FIRST, e.g. D:\BrandForge_v1.7.29.
+   Check that this folder contains package.json, package-lock.json,
+   src\main\main.js, src\main\preload.js, src\renderer, and test.
+3. Run VERIFY_BRANDFORGE_ROOT.cmd from the extracted folder. It should show [OK].
+4. EITHER use this extracted folder as the new project root, OR copy ALL its
+   contents into your existing D:\gulliver-image-workflow\gulliver-image-workflow
+   folder. Select MERGE for folders and REPLACE existing files.
+   IMPORTANT: Do not replace the entire src folder with a partial copy.
+   Do not copy the project into an extra nested folder by accident.
+5. Use your normal BrandForge launcher from the project ROOT. For source-mode
+   startup (if Node + Electron are installed), open terminal in the root and
+   run 'npm start'. If dependencies are missing, run 'npm ci' first.
+6. If you use a PREBUILT portable EXE, source-file copying will NOT change it.
+   Rebuild the application from this project ('npm run build:portable') on a
+   Windows environment with Node/Electron/build tooling.
+
+COMBINE - TWO PRODUCTS PER ONE IMAGE
+------------------------------------
+1. (Recommended) Remove EXISTING printed text: open 'Remove Existing Image
+   Text', choose the original JPGs or downloaded Rakuten slides, select only
+   caption regions, Preview, then Save Clean Copy + Add to Combine. Review
+   the preview to ensure no product/logo pixels were damaged.
+2. If you instead directly upload original images to Line Up, they stay
+   unmodified and their printed captions may appear alongside new text.
+3. In Combine > Line Up, select '2 items - ONE full row' for each image
+   containing two items. Or click 'All images -> 2 items / full row'.
+4. Enter LEFT / RIGHT color names; or paste one bulk line per uploaded image,
+   e.g. Off White (012) | Spugnola (110).
+5. Review the full preview. One source photo now equals one full-width row;
+   both names are separate, editable 28px text layers in the PSD.
+6. Choose output folder and Generate Combine as usual.
+
+AUTO NAME REUSE
+---------------
+If you select two OCR caption regions (one in left half and one in right)
+inside Text Cleanup, the cleaned output is automatically set to dual-item
+Line Up and names are populated. OCR may be inaccurate or unavailable on some
+PCs; you can always select dual mode and edit the labels manually.
+
+WHAT IS PRESERVED
+-----------------
+- Original Amazon / Slider / Colorbox / LP / Remove BG / Profiles / project
+  folder marker behaviors have not been intentionally modified.
+- Original Rakuten download bytes remain untouched. Cleanup outputs go into
+  COMBINE_CLEANED with unique versioned filenames.
+- Optional Single, Details-only and normal two-image-per-row layouts remain.
+- No new runtime Python dependency; OCR uses existing optional Tesseract
+  or Windows OCR. Text restoration uses existing local patch/Photoshop option.
+
+VERIFICATION & LIMITATIONS
+--------------------------
+- Automated JS validation and browser mock UI tests passed in this environment.
+- Windows Adobe Photoshop rendering, PSD output and live Japanese OCR were NOT
+  runnable here; please test a sample PSD/JPEG locally before production use.
+- No node_modules, Electron executable, Photoshop or OCR installers are bundled.

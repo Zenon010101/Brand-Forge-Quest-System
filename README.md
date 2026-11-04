@@ -1,4 +1,72 @@
-# BrandForge v1.7.27 — Slider Saved PSD + Clean LP Folder Outputs
+# BrandForge v1.7.30 — Slider Flexible Image Count
+
+**Slider no longer has a fixed output-item limit.** The prior 18-item ceiling was
+removed from the Electron UI, validation, Photoshop job runner and standalone
+Photoshop dialog. Nineteen output items are allowed, **not required**: 1, 19,
+20, 25 or more are accepted. The UI shows the actual item count, and generation
+is disabled only for zero items or while processing.
+
+**All previously approved v1.7.29 Combine functionality is preserved**, including
+optional Single, Text Cleanup and dual-item full-width Line Up rows. The Amazon,
+Colorbox, LP, Remove BG, Profiles and G: project-location workflows are unchanged.
+
+For installation, see `INSTALL_FULL_PROJECT_v1.7.30.txt`, and for Slider specifics,
+see `UPGRADE_v1.7.30.txt` and `src/modules/slider/README.md`.
+The expanded counts have automated regression coverage; actual high-count
+Photoshop generation still needs a Windows workstation trial.
+
+---
+
+# BrandForge v1.7.29 — Complete Project: Dual-Item Line Up Rows
+
+This is the **FULL Electron source project** (not just an incremental patch and
+not a compiled EXE). The previous BrandForge v1.7.28 source, Optional Single,
+Rakuten Downloader and non-destructive Text Cleanup are retained.
+
+## New Combine behavior
+
+- **Regular Line Up:** 2 separate image files per row; each gets its own
+  editable 28px color label, as before.
+- **Dual-item Line Up:** 1 source image with 2 products occupies **one full
+  594px-wide row**. The complete source stays ONE Smart Object, not cut into
+  two images. Two independent editable 28px labels appear below it, at left
+  and right. The row height follows source aspect ratio (fit inside, no crop).
+- Uploads can mix regular and dual images. Their visual order is preserved;
+  regular rows are flushed before a full-width dual row. Multiple dual-item
+  images become separate vertically stacked rows.
+- Each imported Line Up image has a **1 item / 2 items** selector; use
+  **All images -> 2 items / full row** for a folder of dual-product images.
+- Bulk color names: one line per uploaded image; for a dual image write
+  `Off White (012) | Spugnola (110)` (left name | right name).
+- If you remove two **approved OCR color-name captions** through Text Cleanup,
+  with one detected on each side of the image, the cleaned import is
+  automatically set as a dual-item row and both captions fill the new names.
+- **Original downloaded captions are not silently erased.** Use Remove Existing
+  Image Text, preview the reconstruction, and save a cleaned copy before
+  generating, otherwise original embedded captions may appear alongside the
+  new editable labels. Original files are never overwritten.
+- Optional Single and Details-only generation stay supported. Amazon, Slider,
+  Colorbox, both LP generators, Remove BG, Profiles, and project-location
+  handling are not altered by this change.
+
+For installation, read `INSTALL_FULL_PROJECT_v1.7.29.txt`. For Combine details,
+see `src/modules/combine/README.md` and `UPGRADE_v1.7.29.txt`.
+
+---
+
+# BrandForge v1.7.28 — Rakuten Product URL Slider Detection Fix
+
+## New in v1.7.28 — Rakuten Slider Downloader
+
+- Accepts Rakuten item links when the slider iframe URL is present in literal HTML, encoded description text, escaped JavaScript/JSON, or a nested GOLD iframe.
+- Finds and prefers the slider matching the item code rather than unrelated product carousels.
+- Reports how many candidate GOLD pages were checked and returns a clearer fallback when access is blocked.
+- Retains **download-only** behavior: original bytes, site image order, numbered local folder, and no Combine categorization.
+- Original Amazon, Slider, Colorbox, LP, and Combine generation modules are unchanged.
+- Browser-access restrictions may still require the actual iframe URL.
+
+See `UPGRADE_v1.7.28.txt` and `src/modules/combine/README.md`.
+
 
 - **Slider Maker:** Generate now always requires a save destination (auto-linked G: project or selected folder). After verified publishing, Photoshop opens the **actual saved PSD**; temporary/staged documents are closed, not left as the active output. If an existing tab contains unsaved edits, it is left intact and a warning is shown.
 - **LP Folder Generator:** Saves the finished PSD/PSB and JPEG(s) beside the source images. Internal JSX scripts, temporary assets, backups and the generated-output index live in OS temp / BrandForge local app data, **not** the LP output folder. Historical BrandForge-only helper indexes can be migrated on scan.

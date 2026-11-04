@@ -8,6 +8,7 @@ const path = require("path");
 const DIM = Object.freeze({
     width: 600, single: 600, singleGap: 15,
     margin: 3, cell: 293, columnGap: 8, rowGap: 7,
+    dualWidth: 594, dualMinHeight: 160, dualMaxHeight: 1600,
     labelGap: 6, labelSize: 28, labelLine: 36,
     detailsGap: 30, detailsHeadingSize: 28,
     detailsHeadingHeight: 36, detailsHeadingGap: 16,
@@ -71,35 +72,84 @@ function fitInside(entry, x, y, slotWidth, slotHeight) {
         placedWidth: width, placedHeight: height };
 }
 function buildCombineLayout({ single, lineup, details, outputName }) {
-    if (!single || typeof single !== "object") throw new Error("Upload one Single image before generating Combine.");
+    if (single != null && (typeof single !== "object" || Array.isArray(single))) throw new Error("Invalid Single image.");
     if (!Array.isArray(lineup) || !Array.isArray(details)) throw new Error("Line Up and Details must be ordered lists.");
-    // The only mandatory upload is Single. Either optional section may be omitted.
+    if (!single && !lineup.length && !details.length) throw new Error("Add at least one image to Single, Line Up, or Details.");
     if (lineup.length + details.length > DIM.maxParts) throw new Error(`Maximum ${DIM.maxParts} Line Up and Detail images per Combine.`);
     const name = safeOutputName(outputName);
-    const placedSingle = fitInside(single, 0, 0, DIM.single, DIM.single);
-    // Keep the 15 px gap before the first supplied section, but do not add
-    // a trailing blank band for a Single-only Combine.
-    let y = DIM.single + ((lineup.length || details.length) ? DIM.singleGap : 0);
+    const placedSingle = single ? fitInside(single, 0, 0, DIM.single, DIM.single) : null;
+    // Only reserve the 600 px Single area and 15 px separation when supplied.
+    // Without Single, Line Up or Details starts at the top of the canvas.
+    let y = placedSingle ? DIM.single + ((lineup.length || details.length) ? DIM.singleGap : 0) : 0;
     const lineupRows = [];
     const placedLineup = [];
-    for (let i = 0; i < lineup.length; i += 2) {
-        const items = lineup.slice(i, i + 2);
-        const labels = items.map(item => wrapColorName(item.colorName));
-        const lines = Math.max(...labels.map(l => l.length));
-        const labelHeight = lines * DIM.labelLine;
-        const row = { top: y, imageHeight: DIM.cell, labelTop: y + DIM.cell + DIM.labelGap,
+    // Respect the exact source-image order. Regular one-item images share a
+    // two-column row; a two-item image takes one entire full-width row and
+    // creates TWO independent editable color-name text layers underneath it.
+    // Never split, crop, or duplicate a two-item image into separate slots.
+    let pending = [];
+    function appendNormalRow(items) {
+        if (!items.length) return;
+        const labels = items.map(({ item }) => wrapColorName(item.colorName));
+        const labelHeight = Math.max(...labels.map(lines => lines.length)) * DIM.labelLine;
+        const labelTop = y + DIM.cell + DIM.labelGap;
+        const row = { kind: "regular", top: y, imageHeight: DIM.cell, labelTop,
             labelHeight, rowHeight: DIM.cell + DIM.labelGap + labelHeight,
-            imageIndices: items.map((_, j) => i + j) };
-        items.forEach((item, j) => {
-            const colX = DIM.margin + j * (DIM.cell + DIM.columnGap);
-            const fitted = fitInside(item, colX, y, DIM.cell, DIM.cell);
-            placedLineup.push({ ...fitted, colorName: item.colorName, labelLines: labels[j],
-                labelX: colX, labelY: row.labelTop, labelWidth: DIM.cell,
-                labelHeight, order: i + j + 1 });
+            imageIndices: items.map(({ index }) => index) };
+        items.forEach(({ item, index }, column) => {
+            const x = DIM.margin + column * (DIM.cell + DIM.columnGap);
+            const lines = labels[column];
+            const label = { side: "single", text: item.colorName, lines,
+                x, y: labelTop, width: DIM.cell, height: labelHeight };
+            placedLineup.push({ ...fitInside(item, x, y, DIM.cell, DIM.cell), rowMode: "single",
+                colorName: item.colorName, labelLines: lines,
+                labelX: x, labelY: labelTop, labelWidth: DIM.cell, labelHeight,
+                labels: [label], order: index + 1 });
         });
         lineupRows.push(row);
         y += row.rowHeight + DIM.rowGap;
     }
+    function appendDualRow(item, index) {
+        const left = wrapColorName(item.colorName);
+        const right = wrapColorName(item.colorNameRight);
+        const rawWidth = Number(item.visibleWidth || item.width);
+        const rawHeight = Number(item.visibleHeight || item.height);
+        if (!(rawWidth > 0 && rawHeight > 0)) throw new Error(`Invalid dimensions: ${item.name}`);
+        // Keep the complete source-image composition intact, with a row height
+        // derived from its aspect ratio. Fit-inside is uniform: never stretch.
+        const imageHeight = Math.max(DIM.dualMinHeight, Math.min(DIM.dualMaxHeight,
+            Math.round(DIM.dualWidth * rawHeight / rawWidth)));
+        const labelHeight = Math.max(left.length, right.length) * DIM.labelLine;
+        const labelTop = y + imageHeight + DIM.labelGap;
+        const xRight = DIM.margin + DIM.cell + DIM.columnGap;
+        const labels = [
+            { side: "left", text: item.colorName, lines: left,
+                x: DIM.margin, y: labelTop, width: DIM.cell, height: labelHeight },
+            { side: "right", text: item.colorNameRight, lines: right,
+                x: xRight, y: labelTop, width: DIM.cell, height: labelHeight }
+        ];
+        const row = { kind: "dual", top: y, imageHeight, labelTop,
+            labelHeight, rowHeight: imageHeight + DIM.labelGap + labelHeight,
+            imageIndices: [index] };
+        placedLineup.push({ ...fitInside(item, DIM.margin, y, DIM.dualWidth, imageHeight),
+            rowMode: "dual", colorName: item.colorName, colorNameRight: item.colorNameRight,
+            labelLines: left, labelX: DIM.margin, labelY: labelTop,
+            labelWidth: DIM.cell, labelHeight, labels, order: index + 1 });
+        lineupRows.push(row);
+        y += row.rowHeight + DIM.rowGap;
+    }
+    lineup.forEach((item, index) => {
+        const mode = item.rowMode == null ? "single" : item.rowMode;
+        if (mode !== "single" && mode !== "dual") throw new Error(`Invalid Line Up row mode for ${item.name}.`);
+        if (mode === "dual") {
+            appendNormalRow(pending); pending = [];
+            appendDualRow(item, index);
+        } else {
+            pending.push({ item, index });
+            if (pending.length === 2) { appendNormalRow(pending); pending = []; }
+        }
+    });
+    appendNormalRow(pending);
     // Empty last Line Up row is never emitted. Keep only the agreed 7 px
     // between rows; after the final row the Details section sets its own gap.
     if (lineupRows.length) y -= DIM.rowGap;
@@ -126,7 +176,8 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
         width: DIM.width, height: y, format: y > DIM.maxPsdHeight ? "psb" : "psd", name,
         single: placedSingle, lineup: placedLineup, details: placedDetails,
         lineupRows, detailsHeader, geometry: DIM,
-        sourceCount: 1 + placedLineup.length + placedDetails.length,
+        lineupRowCount: lineupRows.length,
+        sourceCount: (placedSingle ? 1 : 0) + placedLineup.length + placedDetails.length,
         jpegCount: Math.ceil(y / 60000)
     };
 }

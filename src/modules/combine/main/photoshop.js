@@ -54,7 +54,7 @@ async function preparedEntry(entry, index, folder, psdPreviewMap) {
 
 async function createCombineFiles(layout, folder, progress = () => {}) {
     if (process.platform !== "win32") throw new Error("Combine PSD/JPEG creation requires Adobe Photoshop on Windows.");
-    const ordered = [layout.single, ...layout.lineup, ...layout.details];
+    const ordered = [...(layout.single ? [layout.single] : []), ...layout.lineup, ...layout.details];
     progress({ stage: "preparing", message: "Preparing original images and transparent content bounds..." });
     const previews = await rasterizePsdSources(ordered.map(item => item.path), folder);
     const all = [];
@@ -67,9 +67,9 @@ async function createCombineFiles(layout, folder, progress = () => {}) {
     const jpegParts = planJPEGParts(layout.height, folder);
     const job = {
         width: layout.width, height: layout.height, format: layout.format,
-        name: layout.name, single: all[0],
-        lineup: all.slice(1, 1 + layout.lineup.length),
-        details: all.slice(1 + layout.lineup.length),
+        name: layout.name, single: layout.single ? all[0] : null,
+        lineup: all.slice(layout.single ? 1 : 0, (layout.single ? 1 : 0) + layout.lineup.length),
+        details: all.slice((layout.single ? 1 : 0) + layout.lineup.length),
         detailsHeader: layout.detailsHeader, jpegParts,
         geometry: layout.geometry
     };

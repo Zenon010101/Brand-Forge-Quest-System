@@ -111,14 +111,25 @@
                 var variation = j.lineup[i];
                 var slot = group("LINE_UP_" + (i + 1 < 10 ? "0" : "") + (i + 1), line);
                 addEntry(variation, slot, "VARIATION_" + (i + 1) + " - " + variation.name);
-                colorText(variation.labelLines.join("\r"), slot,
-                    { x: variation.labelX, y: variation.labelY, width: variation.labelWidth,
-                        height: variation.labelHeight }, j.geometry.labelSize,
-                    "COLOR_NAME_" + (i + 1), true);
+                // A full-width dual image is ONE editable Smart Object with
+                // two distinct 28 px editable labels (left / right).
+                var labels = variation.labels || [{ side: "single",
+                    lines: variation.labelLines, x: variation.labelX, y: variation.labelY,
+                    width: variation.labelWidth, height: variation.labelHeight }];
+                for (var l = 0; l < labels.length; l++) {
+                    var caption = labels[l];
+                    var suffix = labels.length === 2 ? (l === 0 ? "_LEFT" : "_RIGHT") : "";
+                    colorText(caption.lines.join("\r"), slot,
+                        { x: caption.x, y: caption.y, width: caption.width,
+                            height: caption.height }, j.geometry.labelSize,
+                        "COLOR_NAME_" + (i + 1) + suffix, true);
+                }
             }
         }
-        var single = group("01_SINGLE", doc);
-        addEntry(j.single, single, "SINGLE");
+        if (j.single) {
+            var single = group("01_SINGLE", doc);
+            addEntry(j.single, single, "SINGLE");
+        }
         var documentFile = new File(COMBINE_DEST);
         var psdOpts = j.format === "psb" ? new LargeDocumentFormatSaveOptions() : new PhotoshopSaveOptions();
         psdOpts.layers = true;

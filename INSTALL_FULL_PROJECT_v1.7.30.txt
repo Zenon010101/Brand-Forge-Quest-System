@@ -1,0 +1,22 @@
+BRANDFORGE v1.7.30 - COMPLETE SOURCE PROJECT
+============================================
+This is the complete source tree (not a patch and not a compiled EXE).
+It includes the previous BrandForge v1.7.29 Combine updates and the new
+Slider flexible image-count change.
+
+HOW TO INSTALL
+1. CLOSE BrandForge.
+2. BACK UP your current project directory.
+3. Extract the full ZIP, then COPY ALL CONTENTS into the root of the
+   BrandForge source project (the folder with package.json).
+4. MERGE src and test instead of replacing a whole folder with a partial patch.
+5. Run VERIFY_BRANDFORGE_ROOT.cmd before starting.
+6. Use your normal startup, or run npm start with dependencies installed.
+   A previously built EXE does not automatically update; rebuild if needed.
+
+FIXED: Slider no longer enforces 18 images / any maximum. Counts of
+1, 19, 20, 25, etc. are permitted; at least one item is still required.
+The original photo order and all other generation modes are preserved.
+
+TESTED: npm run validate (see upgrade notes).
+NOT TESTED IN THIS ENVIRONMENT: actual Windows Photoshop generation.

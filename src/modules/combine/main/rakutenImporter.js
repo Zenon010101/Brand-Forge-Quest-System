@@ -14,7 +14,7 @@ const ALLOWED_HOSTS = new Set([
 ]);
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif", ".tif", ".tiff"]);
 const MAX_IMAGES = 80;
-const MAX_HTML_BYTES = 3 * 1024 * 1024;
+const MAX_HTML_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 32 * 1024 * 1024;
 
 function safeUrl(raw, base, kind = "page") {
@@ -70,7 +70,7 @@ function imageGroupKey(url) {
     return `${u.host}/${path.posix.dirname(u.pathname)}/${stem.replace(/(?:[_-]\d{1,3})$/, "").toLowerCase()}`;
 }
 function findSliderImages(html, base) {
-    const raw = String(html || "");
+    const raw = normalizeEmbeddedHtml(html);
     if (raw.length > MAX_HTML_BYTES) throw new Error("Page HTML is too large to inspect safely.");
     // Prefer the exact lightSlider gallery shown by the Rakuten example.
     const lists = [...raw.matchAll(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi)];
@@ -106,24 +106,90 @@ function findSliderImages(html, base) {
     const best = [...groups.values()].sort((a,b)=>b.length-a.length)[0] || [];
     return { urls: best.length >= 2 ? best : [], method: best.length >= 2 ? "numbered-image-family" : "none" };
 }
+// Rakuten item pages frequently store their GOLD iframe markup as escaped
+// description text or as JS string data rather than a literal <iframe> node.
+// Normalize only inert text. Never evaluate scripts or load non-Rakuten URLs.
+function normalizeEmbeddedHtml(source) {
+    let text = String(source || "");
+    for (let pass = 0; pass < 3; pass++) {
+        const next = decodeEntities(text)
+            .replace(/\\u003[cC]|\\x3[cC]|%3[cC]/g, "<")
+            .replace(/\\u003[eE]|\\x3[eE]|%3[eE]/g, ">")
+            .replace(/\\u0022|\\x22|%22/gi, '"')
+            .replace(/\\u0027|\\x27|%27/gi, "'")
+            .replace(/\\(["'])/g, "$1")
+            .replace(/\\u002[fF]|\\x2[fF]|%2[fF]/g, "/")
+            .replace(/\\u003[aA]|\\x3[aA]|%3[aA]/g, ":")
+            .replace(/\\\//g, "/");
+        if (next === text) break;
+        text = next;
+    }
+    return text;
+}
+function isGoldHtmlUrl(url) {
+    const u = new URL(url);
+    return ["www.rakuten.ne.jp", "rakuten.ne.jp"].includes(u.hostname.toLowerCase()) &&
+        /^\/gold\//i.test(u.pathname) && /\.html?$/i.test(u.pathname);
+}
 function iframeUrls(html, page) {
     const out = [];
-    for (const tag of String(html || "").match(/<iframe\b[^>]*>/gi) || []) {
-        const raw = decodeEntities(attr(tag, "src") || attr(tag, "data-src"));
-        try {
-            const u = safeUrl(raw, page);
-            if (new URL(u).pathname.toLowerCase().endsWith(".html")) out.push(u);
-        } catch (_) { /* ignore unrelated unsafe frames */ }
+    for (const tag of normalizeEmbeddedHtml(html).match(/<iframe\b[^>]*>/gi) || []) {
+        for (const key of ["src", "data-src", "data-original", "data-lazy-src"]) {
+            const raw = decodeEntities(attr(tag, key));
+            if (!raw) continue;
+            try {
+                const url = safeUrl(raw, page);
+                if (isGoldHtmlUrl(url)) { out.push(url); break; }
+            } catch (_) { /* no external or unsafe iframe URLs */ }
+        }
     }
-    return orderedUnique(out).slice(0, 8);
+    return orderedUnique(out);
 }
-function getUrlBuffer(sourceUrl, { maxBytes = MAX_HTML_BYTES, redirectCount = 0 } = {}) {
+function goldHtmlUrls(html, page) {
+    const normalized = normalizeEmbeddedHtml(html);
+    const values = iframeUrls(normalized, page);
+    // Also discover URLs embedded in JSON, document.write, and product descriptions
+    // that don't contain literal iframe tags. Only GOLD HTML pages are candidates.
+    const re = /(?:https?:)?\/\/(?:www\.)?rakuten\.ne\.jp\/gold\/[^\s"'<>\\]+?\.html?(?:\?[^\s"'<>\\]*)?/gi;
+    for (const match of normalized.match(re) || []) {
+        try {
+            const url = safeUrl(match.startsWith("//") ? `https:${match}` : match, page);
+            if (isGoldHtmlUrl(url)) values.push(url);
+        } catch (_) { /* ignore unsafe or invalid URL */ }
+    }
+    return orderedUnique(values);
+}
+function sameItem(slider, itemId) {
+    if (!itemId) return false;
+    const needle = itemId.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (needle.length < 3) return false;
+    return [slider.sliderPage, ...(slider.urls || [])].some(url =>
+        new URL(url).pathname.toLowerCase().replace(/[^a-z0-9]/g, "").includes(needle));
+}
+function prioritizeGoldUrls(urls, itemPage) {
+    const u = new URL(itemPage);
+    const itemId = u.pathname.split("/").filter(Boolean).pop() || "";
+    const shop = (u.pathname.split("/").filter(Boolean)[0] || "").toLowerCase();
+    return urls.map((url, index) => {
+        const p = new URL(url).pathname.toLowerCase();
+        let score = 0;
+        const normalized = p.replace(/[^a-z0-9]/g, "");
+        const token = itemId.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (token.length >= 3 && normalized.includes(token)) score += 100;
+        if (/\/(?:six|slider|slide|gallery|product)\//.test(p)) score += 20;
+        if (shop && p.startsWith(`/gold/${shop}/`)) score += 10;
+        if (/\/banner|\/header|\/footer|\/campaign|\/ranking/.test(p)) score -= 30;
+        return { url, index, score };
+    }).sort((a,b) => b.score-a.score || a.index-b.index).map(entry => entry.url);
+}
+
+function getUrlBuffer(sourceUrl, { maxBytes = MAX_HTML_BYTES, redirectCount = 0, timeoutMs = 16000 } = {}) {
     const target = safeUrl(sourceUrl);
     if (redirectCount > 4) return Promise.reject(new Error("Too many redirects."));
     return new Promise((resolve, reject) => {
         const req = https.get(target, {
             headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36", "Accept": "text/html,image/avif,image/webp,image/*,*/*;q=0.8", "Accept-Encoding": "gzip, deflate, br" },
-            timeout: 16000
+            timeout: timeoutMs
         }, response => {
             const code = response.statusCode || 0;
             if (code >= 300 && code < 400 && response.headers.location) {
@@ -132,7 +198,7 @@ function getUrlBuffer(sourceUrl, { maxBytes = MAX_HTML_BYTES, redirectCount = 0 
                 let next;
                 try { next = safeUrl(location, target); }
                 catch (error) { reject(error); return; }
-                getUrlBuffer(next, { maxBytes, redirectCount: redirectCount + 1 }).then(resolve,reject); return;
+                getUrlBuffer(next, { maxBytes, redirectCount: redirectCount + 1, timeoutMs }).then(resolve,reject); return;
             }
             if (code !== 200) { response.resume(); reject(new Error(`Rakuten returned HTTP ${code} for ${new URL(target).pathname}.`)); return; }
             const parts = []; let size = 0;
@@ -177,46 +243,88 @@ class RakutenImporter {
     }
     async scan(pageUrl, pastedHtml) {
         const original = safeUrl(pageUrl);
+        const isItemPage = new URL(original).hostname.toLowerCase() === "item.rakuten.co.jp";
         let html = String(pastedHtml || "").trim();
         if (!html) {
-            const response = await this.fetcher(original, { maxBytes: MAX_HTML_BYTES });
+            let response;
+            try { response = await this.fetcher(original, { maxBytes: MAX_HTML_BYTES }); }
+            catch (error) {
+                const guidance = isItemPage ? " Try pasting the direct Rakuten GOLD slider iframe URL from the item's page instead." : "";
+                throw new Error(`Could not read the Rakuten page: ${error.message}.${guidance}`);
+            }
             if (!/text\/html|text\/plain|application\/xhtml|^$/i.test(response.contentType)) {
                 throw new Error("This URL did not return an HTML page.");
             }
             html = response.buffer.toString("utf8");
         }
-        const isItemPage = new URL(original).hostname.toLowerCase() === "item.rakuten.co.jp";
-        // Rakuten product pages can include several unrelated carousels. When
-        // given an item URL, search embedded slider iframes first rather than
-        // mistaking the product gallery for the dedicated Combine slider.
+        // Prefer dedicated GOLD sliders to the unrelated product galleries,
+        // advertising carousels, and recommendation lists on item pages.
         let detected = isItemPage ? { urls:[], method:"none" } : findSliderImages(html, original);
         let sliderPage = original;
+        const failures = [];
+        const matches = [];
+        const rootCandidates = prioritizeGoldUrls(goldHtmlUrls(html, original), original);
+        const queue = rootCandidates.slice(0, 12).map(url => ({ url, depth:1 }));
+        const visited = new Set();
+        const itemId = new URL(original).pathname.split("/").filter(Boolean).pop() || "";
+        const MAX_CANDIDATES = 12;
         if (!detected.urls.length) {
-            for (const frame of iframeUrls(html, original)) {
+            while (queue.length && visited.size < MAX_CANDIDATES) {
+                const { url:frame, depth } = queue.shift();
+                if (visited.has(frame)) continue;
+                visited.add(frame);
                 try {
-                    const response = await this.fetcher(frame, { maxBytes: MAX_HTML_BYTES });
+                    const response = await this.fetcher(frame, { maxBytes: MAX_HTML_BYTES, timeoutMs:10000 });
                     if (!/text\/html|text\/plain|application\/xhtml|^$/i.test(response.contentType)) continue;
-                    const result = findSliderImages(response.buffer.toString("utf8"), frame);
-                    if (result.urls.length) { detected = result; sliderPage = frame; break; }
-                } catch (_) { /* continue to the next public Rakuten iframe */ }
+                    const frameHtml = response.buffer.toString("utf8");
+                    const result = findSliderImages(frameHtml, frame);
+                    if (result.urls.length) {
+                        matches.push({ ...result, sliderPage:frame, matchesItem:sameItem({ sliderPage:frame, urls:result.urls }, itemId) });
+                        if (!isItemPage || matches[matches.length - 1].matchesItem) break;
+                    }
+                    // Some Rakuten stores use a GOLD wrapper iframe that
+                    // loads the actual gallery from another GOLD HTML page.
+                    if (depth < 2) {
+                        for (const child of prioritizeGoldUrls(goldHtmlUrls(frameHtml, frame), original)) {
+                            if (child !== frame && !visited.has(child) && !queue.some(q => q.url === child)) {
+                                queue.push({url:child, depth:depth+1});
+                            }
+                        }
+                    }
+                } catch (error) { failures.push(`${new URL(frame).pathname}: ${error.message}`); }
+            }
+            if (matches.length) {
+                const matching = matches.filter(x => x.matchesItem);
+                // If several different GOLD sliders were found but none can be
+                // tied to the item, do not silently download a random one.
+                if (matching.length || matches.length === 1) {
+                    const result = matching[0] || matches[0];
+                    detected = { urls:result.urls, method:result.method };
+                    sliderPage = result.sliderPage;
+                }
             }
         }
         if (isItemPage && !detected.urls.length) {
-            // Only accept a strong in-page LightSlider marker as a fallback;
-            // generic numbered product photos are not safe slider candidates.
+            // Only accept a strong in-page slider gallery, never ordinary
+            // numbered item photographs found elsewhere in the product page.
             const direct = findSliderImages(html, original);
-            if (direct.method === "lightslider-gallery") detected = direct;
+            if (["lightslider-gallery", "slider-list"].includes(direct.method)) detected = direct;
         }
         if (!detected.urls.length) {
             this.scanned = null;
             this.downloaded = null;
-            throw new Error("No slider images found. The Rakuten item page may block automated access; paste its slider iframe URL or HTML instead.");
+            const detail = !rootCandidates.length ? "No Rakuten GOLD iframe URL was exposed in the downloaded item HTML." :
+                matches.length > 1 ? "Multiple unrelated GOLD sliders were found, so none was chosen automatically." :
+                `${visited.size} GOLD page(s) checked, but no matching slider gallery was identified.`;
+            const failed = failures.length ? ` First failed iframe: ${failures[0]}.` : "";
+            throw new Error(`No slider images found. ${detail}${failed} The product page may load its iframe in the browser or restrict automated requests. Paste the direct slider iframe URL, or its HTML in Advanced, instead.`);
         }
         const images = detected.urls.map((url, i) => ({ index:i+1, url, name:displayName(url) }));
         this.scanned = { sourcePage:original, sliderPage, method:detected.method, images };
         this.downloaded = null;
         return this.scanned;
     }
+
     async download(parentFolder, progress=()=>{}) {
         if (!this.scanned) throw new Error("Scan the Rakuten iframe first.");
         const root = await fs.promises.realpath(parentFolder);
@@ -251,4 +359,4 @@ class RakutenImporter {
     }
 
 }
-module.exports={RakutenImporter,findSliderImages,iframeUrls,safeUrl,displayName,getUrlBuffer};
+module.exports={RakutenImporter,findSliderImages,iframeUrls,goldHtmlUrls,normalizeEmbeddedHtml,safeUrl,displayName,getUrlBuffer};

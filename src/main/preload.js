@@ -115,6 +115,11 @@ contextBridge.exposeInMainWorld("brandProjectApp", {
 
 
 contextBridge.exposeInMainWorld("combineApp", {
+    chooseCleanupFiles: () => ipcRenderer.invoke("combine:cleanup-choose-files"),
+    addDownloadedToCleanup: () => ipcRenderer.invoke("combine:cleanup-add-downloaded"),
+    scanCleanup: filePath => ipcRenderer.invoke("combine:cleanup-scan", filePath),
+    previewCleanup: data => ipcRenderer.invoke("combine:cleanup-preview", data),
+    saveCleanup: data => ipcRenderer.invoke("combine:cleanup-save", data),
     scanRakuten: data => ipcRenderer.invoke("combine:rakuten-scan", data),
     chooseRakutenFolder: () => ipcRenderer.invoke("combine:rakuten-choose-folder"),
     downloadRakuten: folder => ipcRenderer.invoke("combine:rakuten-download", folder),

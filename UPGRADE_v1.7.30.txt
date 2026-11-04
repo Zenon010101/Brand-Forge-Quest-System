@@ -1,0 +1,30 @@
+BRANDFORGE v1.7.30 - SLIDER FLEXIBLE IMAGE COUNT
+================================================
+
+Changes
+-------
+- Removed the 18-output-item maximum from Slider UI, pre-generation checks,
+  Photoshop JSX job runner, and standalone Photoshop dialog.
+- The Slider counter displays the actual total, without a maximum denominator.
+- 19 images are now accepted but never required; you may supply fewer or more.
+- The generation button remains unavailable for empty jobs only.
+- Existing source order, Creative/Lineup/Detail logic, output naming,
+  editable PSD publishing, and BrandForge Combine features are unchanged.
+
+Installation
+------------
+1. Make a backup of your BrandForge source folder.
+2. Extract this FULL PROJECT ZIP to a new folder, or merge ALL project files
+   with your original BrandForge project root (the one containing package.json).
+3. Run VERIFY_BRANDFORGE_ROOT.cmd in the root folder to check startup files.
+4. Launch BrandForge using your normal method (npm start if dependencies exist).
+5. If using a portable compiled EXE, rebuild it from the updated source.
+
+Important: Photoshop performance and file size depend on the number and
+resolution of source items, despite there being no arbitrary item limit.
+
+Verification
+------------
+- npm run test:slider-count
+- npm run validate
+- Real Photoshop generation on Windows still needs local verification.

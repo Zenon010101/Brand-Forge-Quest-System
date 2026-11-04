@@ -48,12 +48,14 @@ class CombineService {
         return entry;
     }
     layout(payload) {
-        if (!payload || !payload.singlePath) throw new Error("Upload your Single image.");
+        if (!payload || typeof payload !== "object") throw new Error("Invalid Combine request.");
         const resolve = p => this.getImage(p);
-        const single = resolve(payload.singlePath);
+        const single = payload.singlePath ? resolve(payload.singlePath) : null;
         const lineup = (payload.lineup || []).map(item => {
             if (!item || typeof item !== "object") throw new Error("Invalid Line Up image entry.");
-            return { ...resolve(item.path), colorName: String(item.colorName || "").trim() };
+            return { ...resolve(item.path), colorName: String(item.colorName || "").trim(),
+                rowMode: item.rowMode == null ? "single" : item.rowMode,
+                colorNameRight: String(item.colorNameRight || "").trim() };
         });
         const details = (payload.details || []).map(p => resolve(typeof p === "string" ? p : p?.path));
         for (const group of [lineup, details]) {
@@ -79,7 +81,7 @@ class CombineService {
         if (!(await fs.promises.stat(resolved)).isDirectory()) throw new Error("Output location is not a directory.");
         const behavior = payload?.existingAction || "version";
         if (!["version", "replace", "cancel"].includes(behavior)) throw new Error("Invalid output overwrite behavior.");
-        const currentInputs = [layout.single, ...layout.lineup, ...layout.details];
+        const currentInputs = [...(layout.single ? [layout.single] : []), ...layout.lineup, ...layout.details];
         // Protect original images, including when they are saved in the output
         // directory. Never let a custom output name overwrite any input.
         for (const entry of currentInputs) {

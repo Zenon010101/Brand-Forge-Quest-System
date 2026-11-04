@@ -1,4 +1,4 @@
-# BrandForge Combine Generator (v1.7.23)
+# BrandForge Combine Generator (v1.7.29)
 
 This is a standalone Electron/Photoshop module. The uploaded `!COMBINE_TEMPLATE.psd`
 is retained in `template/COMBINE_TEMPLATE_REFERENCE.psd` as a read-only geometric
@@ -7,14 +7,15 @@ layered PSD/PSB is generated using the approved reference geometry.
 
 ## Workflow
 
-1. **Single**: upload or drop one image; always first in a 600 x 600 area.
+1. **Single (optional)**: upload or drop one image if needed; it appears first in a 600 x 600 area.
 2. **Line Up (optional)**: leave this section completely empty to skip it, or
    upload color variations. Color names are required **only for uploaded Line Up
    images**. Use the bulk name paste field (one per line, in the current order).
    Drag an entry to reorder its image and name together.
 3. **Details (optional)**: upload images independently; drag entries to reorder.
-   Without Line Up, Details follow the Single with the same 15 px separation
-   before the DETAILS heading. Single-only Combine is also supported.
+   Without Line Up, Details follow Single with a 15 px gap when Single is present.
+   Without Single, the first Line Up or Details section starts at the canvas top.
+   Any one section alone is valid; an entirely empty Combine is not.
 4. **QC Preview**: inspect the complete composition or a selected original.
 5. **Output**: enter a PSD filename and select a destination folder; choose
    Save New Version, Back Up + Replace, or Cancel.
@@ -24,15 +25,17 @@ layered PSD/PSB is generated using the approved reference geometry.
 ## Fixed rules
 
 - Canvas width: **600 px**; height expands from image counts and wrapped labels.
-- Single: **600 x 600 px** at the top, with a **15 px gap** before the
+- Single (optional): **600 x 600 px** at the top, with a **15 px gap** before the
   first included section (Line Up or Details). A Single-only export is exactly
-  **600 px high**, with no empty section or trailing gap.
+  **600 px high**, with no empty section or trailing gap. Without Single,
+  Line Up or Details begins at y=0 with no reserved 600 px blank area.
 - Line Up: **2 columns**, image areas **293 x 293 px**, at x=3 and x=304;
   **8 px** between columns. Each variation has a **28 px editable text layer**
   beneath its image (6 px text separation, 36 px per text line, 7 px row gap).
 - Details: **2 columns**, **293 x 293 px** cells, **8 px horizontal gap**,
   **7 px vertical gap**, with 3 px outer margins. Images move left-to-right,
   then down, exactly following the ordered queue.
+- Omitted Single creates no empty 600 px area or Photoshop group.
 - Omitted Line Up creates no dummy rows, empty Photoshop group, or color
   labels. Details group is named `02_DETAILS` when Line Up is omitted.
 - Details heading: editable text. The placeholder gray squares and the
@@ -102,3 +105,107 @@ network environment; only offline fixtures were verified here.
 **No-stretch correction:** prepared Line Up/Details now use uniform `fit: inside` scaling with `withoutEnlargement`, and Photoshop applies one equal X/Y percentage to placed Smart Objects. Existing uploaded source image dimensions and pixels remain unchanged; exported 600 px layouts may downscale images to fit their boxes but do not enlarge a small image just to fill a 293 px slot. Re-test with your real source images in Windows Photoshop.
 
 Test with `npm.cmd run test:rakuten-combine`, `npm.cmd run validate`. No Python is required to run BrandForge.
+
+## v1.7.28 Rakuten item link detection
+
+The Rakuten download-only importer now discovers GOLD iframe URLs in literal
+HTML, encoded product-description HTML (`&lt;iframe&gt;`), escaped JSON/JS
+strings, and one additional nested GOLD iframe layer. It prioritizes a gallery
+whose URL or image filenames match the item ID, and it does **not** fall back to
+unrelated product-gallery images. The scanner checks at most 12 GOLD pages.
+
+This improves product-link support but cannot bypass Rakuten HTTP 403/429
+responses or run arbitrary website JavaScript. If the item page refuses access
+or dynamically creates an iframe after page load, open the item in a normal
+browser, inspect the actual slider iframe, copy its `src` (for example a URL
+ending in `/six/.../ITEM.html`), and paste that into the downloader. As another
+manual fallback, paste the relevant iframe HTML in **Advanced** along with
+the iframe URL. The original images are saved into a numbered local folder;
+no Single/Line Up/Details categorization occurs.
+
+Run `npm run test:rakuten-discovery`, `npm run test:rakuten-combine`, and
+`npm run validate`. Live access is network-dependent and was not confirmed
+against the user's particular Rakuten item URL.
+
+## Combine Text Cleanup update (optional; installed with the Optional Single patch)
+
+The **Remove Existing Image Text** panel provides a non-destructive way to
+remove captions which are already baked into downloaded Rakuten JPG/PNG files.
+It does **not** modify the Rakuten Downloader or automatically classify slides.
+
+1. Download the slides with the existing Rakuten tool (still download-only), then
+   click **Use Downloaded Slides** in **Remove Existing Image Text**. Alternatively
+   choose raster images from anywhere with **Choose Images**.
+2. Text detection uses BrandForge's existing **Tesseract OCR** if available,
+   with `eng+jpn` language data preferred. Otherwise, on Windows it attempts the
+   installed **Windows OCR** engine. Japanese text detection requires a Japanese
+   OCR language pack; if not installed, there is no guarantee Japanese captions
+   will be detected. If OCR is unavailable or misses text, use **Draw Text Area**.
+3. Default selection mode is **Review**: nothing is approved automatically.
+   Click detected rectangles or their checkboxes to select **only** captions,
+   never product logos, labels, printed designs or textures. **Auto-select**
+   suggests likely lower-half captions, but does NOT remove anything until you
+   review the regions, preview the result and click Save.
+4. Choose reconstruction engine:
+   - **Built-in local background matching**: no added runtime dependencies,
+     works best on simple/plain or repeating backgrounds. It samples neighboring
+     background colors/patches and may blur or alter complicated patterns.
+   - **Photoshop Content-Aware Fill**: uses your existing desktop Photoshop to
+     reconstruct textured photos. It never opens the original directly, instead
+     working on a temp PNG; output needs QC and actual Windows Photoshop testing.
+     It is NOT a bundled LaMa neural-network model.
+5. Click **Preview Text Removal**, compare **Original + Regions** with **Cleaned
+   Preview**, and adjust regions if the repair affects a product. You cannot
+   save a changed selection until previewing again.
+6. Choose **Line Up**, **Details**, or **Single**, then click **Save Clean Copy +
+   Add to Combine**. A new PNG is saved in `COMBINE_CLEANED/` next to the input
+   file, using `_textclean.png` or `_textclean_v2.png` etc. Existing files,
+   including the original Rakuten downloads, are never overwritten. The new
+   image is registered with the standard Combine upload pipeline.
+7. If exactly one OCR caption was approved, **Reuse one removed OCR caption**
+   can fill in the **editable 28px Line Up color name**. The text remains
+   editable through the existing Line Up controls and inside the output PSD.
+
+**Compatibility**: Single is optional. Any nonempty combination of Single,
+Line Up, and Details is valid; a completely empty Combine is rejected.
+No Python installation is needed to run BrandForge. You do not need a new npm
+package; the feature uses the existing `sharp` dependency and the existing
+OCR/Photoshop services. Bundled raster quality and UI tests run without Windows;
+real Tesseract/Windows OCR and Photoshop actions must be checked on the user's
+Windows workstation.
+
+Tests: `npm run test:combine`, `npm run test:combine-cleanup`, then
+`npm run validate`. The optional `python test/combineCleanupBrowser.py` is a
+QA-only browser fixture and is NOT required by BrandForge users.
+
+## v1.7.29 — Full-width dual-item Line Up rows
+
+For downloaded images showing **two products and two color captions inside
+ONE JPG/PNG source file**, choose `2 items · ONE full row` in that image's
+Line Up entry. This is also available in bulk with `All images -> 2 items /
+full row`. To return to the old behavior, choose `1 item · half row` or use
+`All images -> 1 item / half row`.
+
+- Regular items: continue in pairs, left-to-right, one 293x293 slot per file.
+- Dual items: remain a **single complete 594px-wide image** centered in a
+  dynamically sized full row. Never split the image down the middle; preserve
+  its original aspect ratio and non-destructive embedded Smart Object.
+- Each dual row adds **two distinct editable 28px Photoshop text layers** named
+  `COLOR_NAME_N_LEFT` and `COLOR_NAME_N_RIGHT` under their respective items.
+- Image order is exact: a dual row interrupts any pending regular row; the
+  next regular image starts a new row. Any number of dual rows can be stacked.
+- Enter LEFT and RIGHT names for each dual image. Bulk input uses one image
+  per line, with `LEFT NAME | RIGHT NAME` for dual rows.
+- While using Text Cleanup, approving one OCR caption on each half of a
+  downloaded image allows the saved clean copy to import as a **dual row**
+  automatically. OCR extraction works on approved regions only. Always inspect
+  the cleaned preview; OCR may be unavailable or imperfect.
+- Source JPG/PNG files that still include printed captions will still show
+  those captions. Use the separate **Remove Existing Image Text** panel first
+  to eliminate duplication while keeping the source originals unchanged.
+- Single is **optional**, and Details continue supporting the old 293px grid.
+
+Tests: `npm run test:combine`, `npm run test:combine-cleanup`, and
+`npm run validate`. Optional browser QA: `python test/combineDualRowBrowser.py`
+(requires Playwright/Chromium only for QA, not to run BrandForge). Photoshop
+JSX/PSD export still needs verification on the Windows workstation.

@@ -1,0 +1,63 @@
+BRANDFORGE v1.7.28 - COMBINE OPTIONAL SINGLE + TEXT CLEANUP PATCH
+==================================================================
+
+PATCH FOR SOURCE PROJECT (not a prebuilt EXE)
+
+1. CLOSE BrandForge, Electron and Photoshop jobs that are running.
+2. MAKE A BACKUP of your original BrandForge project folder.
+3. EXTRACT the patch ZIP. You will see src/, test/, and package.json.
+4. COPY those items into the ORIGINAL BrandForge project root -- the
+   folder that already has package.json and src/. Choose MERGE FOLDERS
+   and REPLACE EXISTING FILES when prompted.
+5. Do NOT delete other project folders. This patch only updates Combine,
+   adds caption cleanup, and extends automated tests. Amazon/Slider/etc.
+   are unchanged.
+6. Run the usual BrandForge start procedure (e.g. npm start where Node
+   and Electron are installed). If you use an already-built portable EXE,
+   you must rebuild the EXE from the updated source first. Copying src/
+   beside a compiled EXE does NOT update the compiled application.
+
+USAGE
+-----
+Download Rakuten slider images using the existing downloader. That action
+remains download-only, saves byte-identical originals, and does not add
+images to Combine automatically.
+
+Open 'Remove Existing Image Text' -> 'Use Downloaded Slides' (or 'Choose
+Images'). Review OCR rectangles; approve only color-name captions, or draw
+manual rectangles where OCR misses. Optional auto-select suggests regions;
+no files are changed before you explicitly preview and save. Use the
+Original / Cleaned preview to verify the product itself is untouched.
+
+Choose 'Built-in local background matching' (plain backgrounds), or use
+'Photoshop Content-Aware Fill' for photo textures. The latter requires
+Adobe Photoshop on Windows and is not yet verified in live Photoshop here.
+
+Select the destination Single/Line Up/Details, then 'Save Clean Copy + Add
+to Combine'. Cleaned PNGs are saved non-destructively in a new sibling
+COMBINE_CLEANED folder. Multiple saves create _v2, _v3, etc.
+The original downloaded files are NEVER overwritten.
+
+For Line Up, a single approved OCR caption can be reused as the new
+EDITABLE 28px color-name layer. Verify/edit it in the Line Up list.
+Single is optional; Line Up-only and Details-only exports are supported.
+
+LIMITATIONS AND QC
+------------------
+- OCR accuracy depends on local Tesseract/Windows OCR language support.
+  Japanese OCR may require jpn.traineddata or the Windows Japanese pack.
+- The built-in repair is local color/texture sampling; it is NOT a neural
+  LaMa image-inpainting model. Complex patterns / captions across product
+  details can be imperfect. Inspect before accepting.
+- Content-Aware Fill needs Windows + a compatible Photoshop installation;
+  execution is not verified in this Linux test environment.
+- No runtime Python requirement and no additional npm packages.
+- Original Rakuten Downloader, Amazon, Slider, LP, Remove BG, profile,
+  project markers, and unrelated source files are not modified.
+
+AUTOMATED VERIFICATION PERFORMED
+-------------------------------
+- npm run validate (all existing tests and cleanup tests passed)
+- Browser UI automation for download-only isolation, OCR approval,
+  clean preview, saving, manual box drawing and optional Single passed
+- Real Windows OCR and Photoshop execution still require local QA

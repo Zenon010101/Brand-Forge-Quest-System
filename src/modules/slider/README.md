@@ -26,3 +26,12 @@ Select the G: brand root in the shared panel. The selected SLIDER PSD is a marke
 ## v1.7.27 — Saved PSD handoff
 
 The output folder is required. If no G: project link or output folder has been set, the Generate action prompts for a folder. Photoshop saves an intermediate PSD locally; BrandForge copies and verifies the final PSD at the selected location, closes the intermediate document, and opens the **published PSD** in Photoshop. An unsaved older tab for the same final PSD is not forcibly closed. If re-opening fails, the saved PSD path and warning are shown. The project templates remain location markers only.
+
+
+## v1.7.30 — Flexible output image count
+
+Slider output item count is **not capped**. Generate with 1, 19, 20, or more items,
+subject to Photoshop and system resources. Creative, Lineup, and Detail all
+contribute to the displayed output count, and their ordering rules remain intact.
+Only an empty job is rejected. This applies both to the Electron Slider interface
+and the Photoshop ScriptUI fallback.

@@ -8,14 +8,14 @@
 <body>
 <div class="workspace">
   <header class="module-head">
-    <div><p class="kicker">BRANDFORGE / IMAGE WORKFLOW STUDIO</p><h1>COMBINE Generator <span class="version">v1.7.23</span></h1><p>Upload by section, set the color names, drag images into order, and export a layered Photoshop Combine with JPEG.</p></div>
+    <div><p class="kicker">BRANDFORGE / IMAGE WORKFLOW STUDIO</p><h1>COMBINE Generator <span class="version">v1.7.29 · Dual Line Up Rows + Text Cleanup</span></h1><p>Upload by section, set the color names, drag images into order, and export a layered Photoshop Combine with JPEG.</p></div>
     <div class="head-stats"><strong>600 PX</strong><span>Fixed width · Dynamic height</span></div>
   </header>
   <div class="workgrid">
     <aside class="editor">
       <section class="panel section rakuten-panel" id="rakutenPanel">
         <div class="panel-head"><div><span class="step">WEB</span><h2>Rakuten Slider Downloader</h2></div><span class="tag">Download only</span></div>
-        <p class="tip">Paste a Rakuten product item URL or its slider iframe URL. Download only the slider images in original website order. Files stay unchanged and go into one numbered product folder. No classification or Combine upload is required.</p>
+        <p class="tip">Paste a Rakuten product item URL or its slider iframe URL. The scanner checks normal, encoded, and nested Rakuten GOLD iframes. Download only slider images in original website order. Files stay unchanged and go into one numbered product folder. No classification or Combine upload is required.</p>
         <label class="field-label" for="rakutenUrl">Rakuten Product / Slider URL</label>
         <input class="field" id="rakutenUrl" placeholder="https://item.rakuten.co.jp/glv/lvh-97/" spellcheck="false" />
         <details class="html-override"><summary>Advanced: Paste slider HTML if the page blocks scanning</summary>
@@ -28,19 +28,46 @@
         <div id="rakutenSlideList" class="rakuten-list"><p class="empty">Downloaded slide files will appear here in order.</p></div>
         <p id="rakutenStatus" class="tip">Only slider images are downloaded. Single, Line Up and Details can be assigned later using the normal Combine uploads.</p>
       </section>
+      <section class="panel section cleanup-panel" id="cleanupPanel">
+        <div class="panel-head"><div><span class="step">CLEAN</span><h2>Remove Existing Image Text</h2></div><span class="tag">Optional · originals safe</span></div>
+        <p class="tip">Detect embedded English/Japanese captions on downloaded JPG/PNG images, choose only the text that should disappear, then inspect the reconstructed background. Logos and product details must remain untouched. Nothing is removed automatically from downloaded files.</p>
+        <div class="section-tools"><button type="button" id="cleanupFromDownloads" class="action">Use Downloaded Slides</button><button type="button" id="cleanupChoose" class="minor">Choose Images</button></div>
+        <div id="cleanupQueue" class="cleanup-queue"><p class="empty">Select downloaded slides or choose local images to clean.</p></div>
+        <label class="field-label" for="cleanupMode">Detection / selection mode</label>
+        <select class="field" id="cleanupMode"><option value="review">Review — manually approve text areas (safest)</option><option value="auto">Auto-select likely captions, then review</option><option value="off">Off — keep images unchanged</option></select>
+        <label class="field-label" for="cleanupRestore">Background reconstruction</label>
+        <select class="field" id="cleanupRestore"><option value="local">Built-in local background matching (fast, no extra software)</option><option value="photoshop">Photoshop Content-Aware Fill (for textured photographs)</option></select>
+        <p id="cleanupEngine" class="tip">OCR uses Tesseract when installed, otherwise Windows OCR. You can draw manual boxes if no text is detected.</p>
+        <div class="cleanup-stage" id="cleanupStage" hidden>
+          <img id="cleanupImage" alt="Text cleanup before and after preview" draggable="false" />
+          <div id="cleanupOverlay" class="cleanup-overlay"></div>
+          <div id="cleanupDraw" class="cleanup-draw" hidden></div>
+        </div>
+        <div class="section-tools cleanup-view-tools"><button type="button" id="cleanupBefore" class="minor">Original + Regions</button><button type="button" id="cleanupAfter" class="minor" disabled>Cleaned Preview</button></div>
+        <div class="section-tools"><button type="button" id="cleanupSelectSuggested" class="minor" disabled>Select Suggested</button><button type="button" id="cleanupClearSelections" class="minor" disabled>Clear Selections</button><button type="button" id="cleanupManual" class="minor" disabled>Draw Text Area</button></div>
+        <div id="cleanupRegions" class="cleanup-regions"><p class="empty">Detected text areas appear here.</p></div>
+        <p class="tip" id="cleanupInstructions">Review each box. For manual cleanup, click Draw Text Area and drag a rectangle over the caption.</p>
+        <div class="section-tools"><button type="button" id="cleanupPreview" class="action" disabled>Preview Text Removal</button></div>
+        <label class="field-label" for="cleanupTarget">Add cleaned copy to Combine section</label>
+        <select class="field" id="cleanupTarget"><option value="lineup">Line Up</option><option value="details">Details</option><option value="single">Single (replace selected Single)</option></select>
+        <label class="cleanup-pref"><input type="checkbox" id="cleanupReuseCaption" checked> Reuse approved OCR captions as editable 28px names; two captions in separate columns create one dual-item row (Line Up only)</label>
+        <button type="button" class="action cleanup-save" id="cleanupSave" disabled>Save Clean Copy + Add to Combine</button>
+        <p id="cleanupStatus" class="tip">Only approved regions will be edited. Saved PNGs go into a COMBINE_CLEANED folder beside the source images; output names are versioned to avoid overwriting.</p>
+      </section>
       <section class="panel section" id="sectionSingle">
-        <div class="panel-head"><div><span class="step">01</span><h2>Single</h2></div><span class="tag">1 image</span></div>
+        <div class="panel-head"><div><span class="step">01</span><h2>Single</h2></div><span class="tag">Optional · max 1 image</span></div>
         <div class="drop-zone" data-section="single" tabindex="0"><span class="drop-icon">▣</span><strong>Drop Single here</strong><small>or click Add / Replace</small></div>
         <div class="section-tools"><button type="button" id="chooseSingle" class="action">Add / Replace Single</button><button type="button" id="removeSingle" class="minor">Remove</button></div>
         <div id="singleItems" class="items"><p class="empty">No Single selected.</p></div>
       </section>
       <section class="panel section" id="sectionLineup">
         <div class="panel-head"><div><span class="step">02</span><h2>Line Up</h2></div><span class="tag" id="lineCount">0 variations</span></div>
-        <p class="tip"><strong>Optional — leave this section empty to skip.</strong> If included: two per row, left → right; each image stays paired with its editable 28 px color-name text.</p>
+        <p class="tip"><strong>Optional.</strong> Regular images use 2 images per row. For an image containing two products (like two jackets side by side), select <strong>2 items · ONE full row</strong> and enter both LEFT and RIGHT color names. The complete image stays intact; two separate editable 28 px labels are added. Use Text Cleanup first to remove captions already printed on JPG/PNG images.</p>
         <div class="drop-zone compact" data-section="lineup" tabindex="0"><span class="drop-icon">＋</span><strong>Drop Line Up images</strong><small>Multiple files supported</small></div>
         <div class="section-tools"><button type="button" id="chooseLineup" class="action">Add Line Up Images</button><button type="button" id="clearLineup" class="minor">Clear Line Up</button></div>
+        <div class="section-tools lineup-bulk-mode"><button type="button" id="setAllDual" class="minor">All images → 2 items / full row</button><button type="button" id="setAllNormal" class="minor">All images → 1 item / half row</button></div>
         <div id="lineupItems" class="items"><p class="empty">No Line Up — this section will be skipped.</p></div>
-        <div class="bulk" id="lineupBulk"><label for="bulkColorNames">Bulk color names (one name per line, in current image order)</label><textarea id="bulkColorNames" rows="3" placeholder="Black&#10;Navy&#10;Beige"></textarea><button type="button" class="minor" id="applyColors">Apply Names in Order</button></div>
+        <div class="bulk" id="lineupBulk"><label for="bulkColorNames">Bulk color names (one line per image; for 2-item rows use LEFT | RIGHT)</label><textarea id="bulkColorNames" rows="3" placeholder="Off White (012) | Spugnola (110)&#10;Navy (002) | Beige (103)&#10;Black"></textarea><button type="button" class="minor" id="applyColors">Apply Names in Order</button></div>
       </section>
       <section class="panel section" id="sectionDetails">
         <div class="panel-head"><div><span class="step">03</span><h2>Details</h2></div><span class="tag" id="detailCount">0 images</span></div>
@@ -52,15 +79,15 @@
     </aside>
     <main class="inspection">
       <section class="panel preview-panel">
-        <div class="preview-top"><div><h2>QC Preview</h2><p id="previewCaption">Upload a Single to start.</p></div><div class="switch"><button id="tabFull" type="button" class="selected">Full Combine</button><button id="tabSelected" type="button">Selected Image</button></div></div>
+        <div class="preview-top"><div><h2>QC Preview</h2><p id="previewCaption">Add at least one image to start; Single is optional.</p></div><div class="switch"><button id="tabFull" type="button" class="selected">Full Combine</button><button id="tabSelected" type="button">Selected Image</button></div></div>
         <div class="preview-screen" id="previewScreen"><div class="empty-view" id="previewEmpty">Upload your images to preview the Combine.</div><div id="fullPreview" class="full-preview" hidden></div><img id="selectedPreview" alt="Selected product preview" hidden></div>
         <div class="preview-bottom"><span id="currentSelection">No image selected</span><span id="previewInfo">600 px canvas</span></div>
       </section>
       <section class="panel summary-panel">
         <div class="panel-head"><div><span class="step">LAYOUT</span><h2>Composition</h2></div><span class="tag">Template dimensions</span></div>
         <div class="metrics"><div><span>Width</span><strong>600 px</strong></div><div><span>Height</span><strong id="heightStat">—</strong></div><div><span>Line Up</span><strong id="lineStat">0</strong></div><div><span>Details</span><strong id="detailsStat">0</strong></div></div>
-        <div class="structure">Single: 600 × 600 px <b>·</b> 15 px gap <b>·</b> 2 Line Up columns / 28 px labels <b>·</b> 2 Detail columns / 293 px boxes</div>
-        <div id="warnings" class="warnings">Upload a Single to start. Line Up and Details are optional.</div>
+        <div class="structure">Optional Single: 600 × 600 px <b>·</b> 15 px gap when used <b>·</b> 2 Line Up columns / 28 px labels <b>·</b> 2 Detail columns / 293 px boxes</div>
+        <div id="warnings" class="warnings">Add at least one image; Single, Line Up and Details are optional sections.</div>
       </section>
       <section class="panel output-panel">
         <div class="panel-head"><div><span class="step">04</span><h2>Output</h2></div><span class="tag">PSD/PSB + JPEG</span></div>
@@ -73,5 +100,6 @@
   </div>
   <footer class="footer"><div class="footer-main"><button type="button" id="generate" class="generate" disabled>Generate Combine</button><button type="button" id="openOutput" class="minor" disabled>Open Output Folder</button><button type="button" id="reset" class="minor">Clear All</button></div><div class="status"><span id="statusText">Ready — upload source images.</span><span id="statusMeta">No output yet</span></div></footer>
 </div>
+<script src="cleanupUi.js"></script>
 <script src="app.js"></script>
 </body></html>

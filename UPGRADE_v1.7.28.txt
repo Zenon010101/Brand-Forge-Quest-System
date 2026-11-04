@@ -1,0 +1,14 @@
+BRANDFORGE v1.7.28 - RAKUTEN PRODUCT LINK SLIDER DETECTION FIX
+
+Patch onto v1.7.27 or use the complete project.
+
+1. Close BrandForge, back up the project, and extract this patch at the project root.
+2. Run npm.cmd run validate then npm.cmd start.
+3. Open Combine Generator -> Rakuten Slider Downloader.
+4. Paste the Rakuten item URL and click Download Slider Images.
+5. It scans the item page for ordinary, encoded/escaped, and nested Rakuten GOLD iframe references.
+6. If found, it downloads only the original slider image files in order to one numbered local product folder.
+7. If it still reports no slider, Rakuten may block HTML requests or render the iframe dynamically; copy the slider iframe src from the browser and paste that URL instead.
+
+Important: There is NO automatic Single/Line Up/Details categorization. All other modules remain unchanged.
+Actual access to a specific live Rakuten item page needs validation on the user's Windows workstation.
