@@ -31,10 +31,17 @@
 
 .cleanup-pref{display:flex;align-items:start;gap:7px;margin-top:9px;color:var(--muted);font-size:11px;line-height:1.5}.cleanup-pref input{margin-top:2px;accent-color:#81ceaa}
 
-/* Dual-item Line Up rows: keep both product names editable and distinguish row mode. */
-.lineup-mode{width:100%;margin-top:7px;min-height:28px;padding:5px 7px;border-radius:6px;background:#10171c;border:1px solid #53606a;color:var(--ink);font-size:11px;cursor:pointer}
-.lineup-mode:focus,.name-edit:focus{outline:1px solid var(--accent)}
-.lineup-name-fields{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.lineup-name-fields .name-edit{flex:1 1 125px;min-width:115px}
+/* Per-image variant selection. Never hide the second field off-screen. */
+.lineup-mode-row{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+.lineup-mode-label{display:flex;flex-direction:column;gap:4px;color:#b9c3c9;font-size:10px}
+.lineup-mode{width:100%;min-height:30px;padding:5px 8px;border-radius:6px;background:#10171c;border:1px solid #53606a;color:var(--ink);font-size:11px;cursor:pointer}
+.lineup-add-variant{align-self:stretch;min-height:31px;padding:6px 9px;text-align:left;color:#f1e3b8;font-size:11px;font-weight:600;border:1px solid #8a7660;border-radius:6px;background:#342d27}
+.lineup-add-variant:hover:not(:disabled){background:#48382b}
+.lineup-mode:focus,.name-edit:focus,.lineup-add-variant:focus{outline:1px solid var(--accent)}
+.lineup-name-fields{display:grid;grid-template-columns:minmax(0,1fr);gap:7px;margin-top:8px}
+.lineup-color-field{display:block;min-width:0;color:#d8e0e3;font-size:11px}
+.lineup-color-field>span{display:block;font-weight:700}
+.lineup-color-field .name-edit{width:100%;min-width:0;margin-top:4px}
+.lineup-name-fields.is-dual{padding:9px;border:1px solid #7e7861;border-radius:7px;background:#232522}
 .lineup-bulk-mode{margin-top:7px;flex-wrap:wrap}
 .lineup-bulk-mode .minor{flex:1 1 150px;padding:7px 9px;font-size:10px}

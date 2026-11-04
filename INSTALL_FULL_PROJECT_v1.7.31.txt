@@ -1,0 +1,19 @@
+BrandForge v1.7.31 — FULL SOURCE PROJECT
+
+1. Close BrandForge and make a full backup of the original project directory.
+2. Extract this ZIP to a new folder; package.json must sit beside src and test.
+3. Either use the extracted folder as the new source project, or merge every extracted file into your original project root.
+4. Run VERIFY_BRANDFORGE_ROOT.cmd; confirm src\main\main.js exists.
+5. Start BrandForge with your normal Electron/NPM launcher. (When using a compiled portable EXE, rebuild it from this source.)
+
+COMBINE / LINE UP:
+New row button: + Add 2nd color name. Fill Color 1 — LEFT and Color 2 — RIGHT.
+The image takes one full row; two independent editable 28px PSD text layers are generated.
+Pasting LEFT | RIGHT into a single name field or bulk names also enables dual row mode.
+For already-printed captions in downloaded JPG/PNG, run Text Cleanup first and review the clean preview.
+
+Previous modules and the optional Single/19-not-required Slider behavior are preserved.
+
+TESTED:
+Node.js npm run validate and mocked browser test/combineDualRowBrowser.py passed.
+Photoshop COM execution and Windows Electron launch not runnable here; check locally.

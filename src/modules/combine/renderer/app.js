@@ -65,6 +65,32 @@ function makeButton(label, title, callback, className) {
     b.textContent = label; b.title = title; b.addEventListener("click", event => { event.stopPropagation(); callback(); });
     b.disabled = state.busy; return b;
 }
+// One source image can contain either one product/color or two side-by-side
+// products/colors. Users can switch modes, or paste LEFT | RIGHT into either
+// the first name field or the bulk input. A delimiter alone is never enough
+// to switch modes; both names must be present.
+function parseDualColorNames(raw) {
+    const value = String(raw || "");
+    const pivot = value.search(/[|｜]/);
+    if (pivot < 0) return null;
+    const left = value.slice(0, pivot).trim();
+    const right = value.slice(pivot + 1).trim();
+    return left && right ? { left, right } : null;
+}
+function changeLineupVariantCount(entry, mode, focusRight = false) {
+    entry.rowMode = mode === "dual" ? "dual" : "single";
+    renderQueues(); requestLayout();
+    if (focusRight && entry.rowMode === "dual") {
+        const currentRow = Array.from(document.querySelectorAll('#lineupItems .file-item'))
+            .find(row => row.dataset.filePath === entry.path);
+        currentRow?.querySelector('[data-color-side="right"]')?.focus();
+    }
+}
+function applyDualNames(entry, names) {
+    entry.colorName = names.left;
+    entry.colorNameRight = names.right;
+    changeLineupVariantCount(entry, "dual", true);
+}
 function makeRow(entry, section, i) {
     const row = document.createElement("div");
     const selected = entry.path === state.selected;
@@ -85,8 +111,11 @@ function makeRow(entry, section, i) {
         : `Detail ${i + 1} · box 293 x 293`;
     copy.append(title, meta);
     if (section === "lineup") {
+        const modeRow = document.createElement("div"); modeRow.className = "lineup-mode-row";
+        const modeTitle = document.createElement("label"); modeTitle.className = "lineup-mode-label";
+        const caption = document.createElement("span"); caption.textContent = "Variants in this image";
         const mode = document.createElement("select"); mode.className = "lineup-mode";
-        for (const [value, title] of [["single", "1 item · half row"], ["dual", "2 items · ONE full row"]]) {
+        for (const [value, title] of [["single", "1 variant / 1 color name"], ["dual", "2 variants / 2 color names (full row)"]]) {
             const option = document.createElement("option"); option.value = value; option.textContent = title;
             mode.appendChild(option);
         }
@@ -94,23 +123,55 @@ function makeRow(entry, section, i) {
         mode.disabled = state.busy;
         mode.addEventListener("click", event => event.stopPropagation());
         mode.addEventListener("change", event => {
-            entry.rowMode = event.target.value; renderQueues(); requestLayout();
+            changeLineupVariantCount(entry, event.target.value, event.target.value === "dual");
         });
-        copy.appendChild(mode);
-        const names = document.createElement("div"); names.className = "lineup-name-fields";
-        const left = document.createElement("input"); left.type = "text"; left.className = "name-edit";
-        left.placeholder = mode.value === "dual" ? "LEFT color name (required)" : "Color name (required)";
-        left.maxLength = 120; left.value = entry.colorName || ""; left.disabled = state.busy;
-        left.addEventListener("click", event => event.stopPropagation());
-        left.addEventListener("input", event => { entry.colorName = event.target.value; requestLayout(); });
-        names.appendChild(left);
+        modeTitle.append(caption, mode);
+        modeRow.appendChild(modeTitle);
+        const quick = document.createElement("button"); quick.type = "button";
+        quick.className = "lineup-add-variant";
+        quick.textContent = mode.value === "dual" ? "− Use 1 color only" : "+ Add 2nd color name";
+        quick.title = mode.value === "dual" ? "Change this image back to one variant" : "Show a separate RIGHT color-name field";
+        quick.disabled = state.busy;
+        quick.addEventListener("click", event => {
+            event.stopPropagation();
+            const next = entry.rowMode === "dual" ? "single" : "dual";
+            changeLineupVariantCount(entry, next, next === "dual");
+        });
+        modeRow.appendChild(quick);
+        copy.appendChild(modeRow);
+        const names = document.createElement("div");
+        names.className = `lineup-name-fields${mode.value === "dual" ? " is-dual" : ""}`;
+        function colorField(side, title, placeholder, value, onInput) {
+            const field = document.createElement("label"); field.className = "lineup-color-field";
+            const heading = document.createElement("span"); heading.textContent = title;
+            const input = document.createElement("input"); input.type = "text";
+            input.className = "name-edit"; input.dataset.colorSide = side;
+            input.placeholder = placeholder; input.maxLength = 120;
+            input.value = value || ""; input.disabled = state.busy;
+            input.addEventListener("click", event => event.stopPropagation());
+            input.addEventListener("input", event => { onInput(event.target.value); requestLayout(); });
+            field.append(heading, input);
+            names.appendChild(field);
+            return input;
+        }
+        const left = colorField("left", mode.value === "dual" ? "Color 1 — LEFT" : "Color name",
+            mode.value === "dual" ? "LEFT color name (required)" : "Enter color name (or paste LEFT | RIGHT)",
+            entry.colorName, value => { entry.colorName = value; });
+        // Pasting two names also enables the second field automatically. This
+        // works even when the original image was imported in 1-variant mode.
+        left.addEventListener("paste", event => {
+            const names = parseDualColorNames(event.clipboardData?.getData("text/plain"));
+            if (!names) return;
+            event.preventDefault(); event.stopPropagation();
+            applyDualNames(entry, names);
+        });
+        left.addEventListener("change", () => {
+            const names = parseDualColorNames(left.value);
+            if (names) applyDualNames(entry, names);
+        });
         if (mode.value === "dual") {
-            const right = document.createElement("input"); right.type = "text"; right.className = "name-edit";
-            right.placeholder = "RIGHT color name (required)";
-            right.maxLength = 120; right.value = entry.colorNameRight || ""; right.disabled = state.busy;
-            right.addEventListener("click", event => event.stopPropagation());
-            right.addEventListener("input", event => { entry.colorNameRight = event.target.value; requestLayout(); });
-            names.appendChild(right);
+            colorField("right", "Color 2 — RIGHT", "RIGHT color name (required)",
+                entry.colorNameRight, value => { entry.colorNameRight = value; });
         }
         copy.appendChild(names);
     }
@@ -451,13 +512,17 @@ function wire() {
         if (!names.length) return note("Paste one color name per line.", true);
         names.forEach((value, i) => {
             const entry = state.lineup[i]; if (!entry) return;
-            if (entry.rowMode === "dual" && value.includes("|")) {
-                const split = value.split("|");
-                entry.colorName = split.shift().trim();
-                entry.colorNameRight = split.join("|").trim();
-            } else entry.colorName = value;
+            const pair = parseDualColorNames(value);
+            if (pair) {
+                // Automatically enable dual/full-row mode on LEFT | RIGHT input.
+                entry.rowMode = "dual";
+                entry.colorName = pair.left;
+                entry.colorNameRight = pair.right;
+            } else {
+                entry.colorName = value;
+            }
         });
-        renderQueues(); requestLayout(); note(`Applied names to ${Math.min(names.length, state.lineup.length)} Line Up image(s). Dual rows use LEFT | RIGHT.`);
+        renderQueues(); requestLayout(); note(`Applied names to ${Math.min(names.length, state.lineup.length)} Line Up image(s). LEFT | RIGHT automatically creates 2-variant full-width rows.`);
     });
     for (const zone of document.querySelectorAll(".drop-zone")) {
         const section = zone.dataset.section;

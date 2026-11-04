@@ -1,9 +1,9 @@
 {
   "name": "image-workflow-studio",
-  "version": "1.7.30",
+  "version": "1.7.31",
   "private": true,
   "type": "commonjs",
-  "description": "BrandForge image workflow suite with unrestricted Slider output item count and preserved Combine dual-row/text-cleanup workflows.",
+  "description": "BrandForge image workflow suite with unrestricted Slider output count, explicit 2-variant Line Up color fields, and text cleanup.",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",

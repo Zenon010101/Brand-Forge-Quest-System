@@ -1,0 +1,21 @@
+BrandForge v1.7.31 - Combine: second variant name visible on demand
+
+This is a COMPLETE SOURCE PROJECT (not a prebuilt EXE).
+
+COMBINE / LINE UP
+- After uploading an image, click + Add 2nd color name on that specific image.
+- Input Color 1 (LEFT) and Color 2 (RIGHT) independently.
+- One dual-item image is rendered as one full-width row; PSD labels are separate editable 28px text layers.
+- Pasting LEFT | RIGHT into the first field or bulk input automatically switches the image to dual mode.
+- Switch back to 1 variant using the row's selector or button. Both values are kept in memory in case you switch back.
+- Cleaned images can still import as dual when OCR finds a left/right caption pair.
+
+INSTALL
+1. Back up your current BrandForge project.
+2. Extract this full project to a new folder, or merge ALL its files into your existing project root.
+3. Confirm package.json and src/main/main.js are together in the project root.
+4. Run VERIFY_BRANDFORGE_ROOT.cmd, then launch via your usual npm/Electron setup.
+5. A previously built portable EXE must be rebuilt to include these source changes.
+
+VERIFICATION
+Automated Node.js tests and mocked browser UI tests run without Photoshop; actual PSD generation on Windows/Photoshop remains to be tested.

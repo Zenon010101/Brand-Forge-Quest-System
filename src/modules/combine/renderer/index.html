@@ -8,7 +8,7 @@
 <body>
 <div class="workspace">
   <header class="module-head">
-    <div><p class="kicker">BRANDFORGE / IMAGE WORKFLOW STUDIO</p><h1>COMBINE Generator <span class="version">v1.7.29 · Dual Line Up Rows + Text Cleanup</span></h1><p>Upload by section, set the color names, drag images into order, and export a layered Photoshop Combine with JPEG.</p></div>
+    <div><p class="kicker">BRANDFORGE / IMAGE WORKFLOW STUDIO</p><h1>COMBINE Generator <span class="version">v1.7.31 · Two Variant Color Names + Text Cleanup</span></h1><p>Upload by section, set the color names, drag images into order, and export a layered Photoshop Combine with JPEG.</p></div>
     <div class="head-stats"><strong>600 PX</strong><span>Fixed width · Dynamic height</span></div>
   </header>
   <div class="workgrid">
@@ -62,12 +62,12 @@
       </section>
       <section class="panel section" id="sectionLineup">
         <div class="panel-head"><div><span class="step">02</span><h2>Line Up</h2></div><span class="tag" id="lineCount">0 variations</span></div>
-        <p class="tip"><strong>Optional.</strong> Regular images use 2 images per row. For an image containing two products (like two jackets side by side), select <strong>2 items · ONE full row</strong> and enter both LEFT and RIGHT color names. The complete image stays intact; two separate editable 28 px labels are added. Use Text Cleanup first to remove captions already printed on JPG/PNG images.</p>
+        <p class="tip"><strong>Optional.</strong> Regular images use 2 images per row. For an image containing two products (like two jackets side by side), click <strong>+ Add 2nd color name</strong> (or select <strong>2 variants</strong>) and fill in separate LEFT and RIGHT names. The complete image stays intact; two separate editable 28 px labels are added. Use Text Cleanup first to remove captions already printed on JPG/PNG images.</p>
         <div class="drop-zone compact" data-section="lineup" tabindex="0"><span class="drop-icon">＋</span><strong>Drop Line Up images</strong><small>Multiple files supported</small></div>
         <div class="section-tools"><button type="button" id="chooseLineup" class="action">Add Line Up Images</button><button type="button" id="clearLineup" class="minor">Clear Line Up</button></div>
         <div class="section-tools lineup-bulk-mode"><button type="button" id="setAllDual" class="minor">All images → 2 items / full row</button><button type="button" id="setAllNormal" class="minor">All images → 1 item / half row</button></div>
         <div id="lineupItems" class="items"><p class="empty">No Line Up — this section will be skipped.</p></div>
-        <div class="bulk" id="lineupBulk"><label for="bulkColorNames">Bulk color names (one line per image; for 2-item rows use LEFT | RIGHT)</label><textarea id="bulkColorNames" rows="3" placeholder="Off White (012) | Spugnola (110)&#10;Navy (002) | Beige (103)&#10;Black"></textarea><button type="button" class="minor" id="applyColors">Apply Names in Order</button></div>
+        <div class="bulk" id="lineupBulk"><label for="bulkColorNames">Bulk color names (one line per image; LEFT | RIGHT automatically enables 2-variant full rows)</label><textarea id="bulkColorNames" rows="3" placeholder="Off White (012) | Spugnola (110)&#10;Navy (002) | Beige (103)&#10;Black"></textarea><button type="button" class="minor" id="applyColors">Apply Names in Order</button></div>
       </section>
       <section class="panel section" id="sectionDetails">
         <div class="panel-head"><div><span class="step">03</span><h2>Details</h2></div><span class="tag" id="detailCount">0 images</span></div>

@@ -198,3 +198,12 @@ Combine PSD is included as a non-destructive geometry reference. See
 
 All pre-existing production modules are preserved. No LAN leaderboard or
 Smart Folder Import was reintroduced.
+
+
+## v1.7.31 — Combine Line Up: two variant color names
+
+- Each imported Line Up image initially uses one variant and one color-name field.
+- For an image showing two products, click **+ Add 2nd color name** in that image's row (or select **2 variants / 2 color names**). Two explicit fields appear: **Color 1 — LEFT** and **Color 2 — RIGHT**.
+- A dual-variant image occupies **one full-width row** and creates two independent, editable 28px Photoshop text layers.
+- Pasting `LEFT | RIGHT` into the first field or into the bulk color names box automatically sets that image to dual mode. The full-width row is not split into two source images.
+- Existing optional Single, text cleanup, dual-row PSD export, unrestricted Slider, and other modules are unchanged.

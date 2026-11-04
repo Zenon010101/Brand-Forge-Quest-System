@@ -67,11 +67,41 @@ with sync_playwright() as playwright:
     page.locator('#chooseLineup').click()
     page.wait_for_function('document.querySelectorAll("#lineupItems .file-item").length===3')
     assert page.locator('#singleItems .file-item').count()==0
+    # Every newly imported image exposes an obvious per-image second-name button.
+    assert page.locator('#lineupItems .lineup-add-variant').count()==3
+    assert page.locator('#lineupItems input.name-edit').count()==3
+    page.locator('#lineupItems .lineup-add-variant').first.click()
+    assert page.locator('#lineupItems .file-item').first.locator('input.name-edit').count()==2
+    assert page.locator('#lineupItems .file-item').first.locator('[data-color-side="right"]').count()==1
+    assert page.locator('#lineupItems .lineup-mode').first.input_value()=='dual'
+    page.wait_for_function('document.getElementById("generate").disabled===true')
+    page.locator('#lineupItems .file-item').first.locator('[data-color-side="left"]').fill('Off White (012)')
+    page.locator('#lineupItems .file-item').first.locator('[data-color-side="right"]').fill('Spugnola (110)')
+    page.wait_for_function('document.querySelectorAll(".composition-label").length===4')
+    # Switching to one variant temporarily hides the second name, but retains it.
+    page.locator('#lineupItems .lineup-add-variant').first.click()
+    assert page.locator('#lineupItems .file-item').first.locator('input.name-edit').count()==1
+    # Pasting both captions into the first field automatically restores two-name mode.
+    page.evaluate('''() => {
+      const field=document.querySelector('#lineupItems .file-item [data-color-side="left"]');
+      const clipboard=new DataTransfer();
+      clipboard.setData('text/plain','Off White (012) | Spugnola (110)');
+      field.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:clipboard}));
+    }''')
+    assert page.locator('#lineupItems .lineup-mode').first.input_value()=='dual'
+    assert page.locator('#lineupItems .file-item').first.locator('[data-color-side="left"]').input_value()=='Off White (012)'
+    assert page.locator('#lineupItems .file-item').first.locator('[data-color-side="right"]').input_value()=='Spugnola (110)'
+    # Bulk LEFT | RIGHT auto-promotes rows even without pre-selecting dual mode.
+    page.locator('#setAllNormal').click()
+    assert page.locator('#lineupItems input.name-edit').count()==3
+    page.locator('#bulkColorNames').fill('Off White (012) | Spugnola (110)\nNavy (004) | Beige (106)\nBlack (001) | Red (002)')
+    page.locator('#applyColors').click()
+    assert page.locator('#lineupItems input.name-edit').count()==6
+    assert all(v=='dual' for v in page.locator('#lineupItems .lineup-mode').evaluate_all('elements=>elements.map(el=>el.value)'))
     page.locator('#setAllDual').click()
     assert page.locator('#lineupItems .lineup-mode').count()==3
     assert page.locator('#lineupItems input.name-edit').count()==6
     assert all(v=='dual' for v in page.locator('#lineupItems .lineup-mode').evaluate_all('elements=>elements.map(el=>el.value)'))
-    assert page.locator('#generate').is_disabled(), 'Right captions must be validated'
     page.locator('#bulkColorNames').fill('Off White (012) | Spugnola (110)\nNavy (004) | Beige (106)\nBlack (001) | Red (002)')
     page.locator('#applyColors').click()
     page.wait_for_function('document.getElementById("generate").disabled===false')
@@ -80,7 +110,7 @@ with sync_playwright() as playwright:
     page.wait_for_function('document.querySelectorAll(".composition-image").length===3')
     assert page.locator('#fullPreview .composition-label').nth(0).inner_text()=='Off White (012)'
     assert page.locator('#fullPreview .composition-label').nth(1).inner_text()=='Spugnola (110)'
-    page.screenshot(path='/mnt/data/BrandForge_Dual_Lineup_Full_Project_UI_QA.png', full_page=True)
+    page.screenshot(path='/mnt/data/BrandForge_v1.7.31_Two_Variant_UI_QA.png', full_page=True)
     # Mixing types flushes an incomplete normal row before each full-width row.
     page.locator('#lineupItems .lineup-mode').nth(1).select_option('single')
     page.wait_for_function('document.querySelectorAll(".composition-label").length===5')
@@ -104,5 +134,5 @@ with sync_playwright() as playwright:
     page.wait_for_function('document.getElementById("generate").disabled===false')
     if errors:
         raise RuntimeError('Browser JS errors: '+str(errors))
-    print('PASS dual-row browser UI: optional Single, 3 full-width rows + 6 captions, bulk names, mixed order, PSD payload, OCR two-caption reuse')
+    print('PASS v1.7.31 dual-row browser UI: per-image 2nd color button, paste LEFT | RIGHT, bulk auto-dual, mixed rows, PSD payload, OCR reuse')
     browser.close()
