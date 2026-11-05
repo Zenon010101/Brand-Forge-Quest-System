@@ -45,3 +45,18 @@
 .lineup-name-fields.is-dual{padding:9px;border:1px solid #7e7861;border-radius:7px;background:#232522}
 .lineup-bulk-mode{margin-top:7px;flex-wrap:wrap}
 .lineup-bulk-mode .minor{flex:1 1 150px;padding:7px 9px;font-size:10px}
+
+/* v1.7.33 precision caption mask; the mask never edits the original image. */
+.cleanup-mask{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.cleanup-overlay{z-index:2}
+.cleanup-stage .cleanup-draw{z-index:3}
+.cleanup-stage.painting{cursor:crosshair}
+.cleanup-stage.painting .cleanup-overlay,.cleanup-stage.drawing .cleanup-overlay{pointer-events:none}
+.cleanup-stage.painting .cleanup-region-box,.cleanup-stage.drawing .cleanup-region-box{pointer-events:none}
+.cleanup-region-box.selected{background:transparent;border-color:#82d6ac}
+.cleanup-brush-tools button{flex:1 1 95px!important}
+.cleanup-precision-settings{display:grid;grid-template-columns:1fr 1.1fr;align-items:center;gap:8px 12px;background:#11171c;border:1px solid var(--edge);padding:10px;border-radius:8px;margin-top:6px}
+.cleanup-precision-settings label{font-size:11px;color:#bfcbd0}
+.cleanup-precision-settings output{font-size:10px;color:var(--green)}
+.cleanup-precision-settings input[type=range]{width:100%;accent-color:var(--green)}
+.cleanup-precision-settings select{padding:7px;font-size:10px}

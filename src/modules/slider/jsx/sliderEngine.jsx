@@ -1,4 +1,4 @@
-﻿
+
 // ============================================================
 // Unified PSD Generator — Creative + Lineup + Detail
 //
@@ -46,9 +46,10 @@ var CREATIVE_DETAIL_TOP = 20;
 var CREATIVE_DETAIL_WIDTH = 570;
 var CREATIVE_DETAIL_HEIGHT = 530;
 
-// Detail CUT IMAGE mode: the visible image area is 600x550.
-// Bottom 50px always stays white. Cut-side placement is based only on the
-// actual visible pixels: left/right/top/bottom cuts are pushed to that edge.
+// Detail CUT IMAGE mode: MAXIMIZE visible content to COVER 600x550.
+// Scaling is uniform (no stretch), so overflow is intentionally cropped by
+// the existing non-destructive clip. The bottom 50px ALWAYS remains white.
+// Source cut-edge flags determine which edge receives any overflow.
 var DETAIL_CUT_LEFT = 0;
 var DETAIL_CUT_TOP = 0;
 var DETAIL_CUT_WIDTH = 600;
@@ -1210,27 +1211,11 @@ function computeCutAwarePlacement(w, h, regionLeft, regionTop, regionW, regionH,
     var horizontalPair = !!(cut.left && cut.right);
     var verticalPair = !!(cut.top && cut.bottom);
     var allSides = horizontalPair && verticalPair;
-    var scale = Math.min(regionW / w, regionH / h);
-
-    if (allSides) {
-        // All four sides touch the source canvas. For a clearly tall image,
-        // honor top+bottom only; for a clearly wide image, honor left+right
-        // only. Near the target aspect ratio, maximize the full 600x550 area.
-        var aspect = w / h;
-        var targetAspect = regionW / regionH;
-        if (aspect < targetAspect * 0.90) {
-            scale = regionH / h;
-            horizontalPair = false;
-        } else if (aspect > targetAspect * 1.10) {
-            scale = regionW / w;
-            verticalPair = false;
-        } else {
-            scale = Math.max(regionW / w, regionH / h);
-        }
-    } else {
-        if (horizontalPair) scale = Math.max(scale, regionW / w);
-        if (verticalPair) scale = Math.max(scale, regionH / h);
-    }
+    // Cut Image means FILL, not fit-inside: at least one dimension reaches
+    // the full 600x550 visible region, with intentional overhang on the other.
+    // Never scale X/Y independently. Cut edge flags only choose alignment;
+    // they must not reduce the image and re-introduce blank side margins.
+    var scale = Math.max(regionW / w, regionH / h);
 
     var newW = w * scale;
     var newH = h * scale;
@@ -1270,7 +1255,9 @@ function fitCutLayerToRegion(layer, sourceFile, regionLeft, regionTop, regionW, 
             w, h, regionLeft, regionTop, regionW, regionH, cut
         );
     } else {
-        var scale = Math.min(regionW / w, regionH / h);
+        // Opaque JPGs and unanalysable sources must also fill the Cut
+        // canvas; the original fit-inside fallback caused unwanted margins.
+        var scale = Math.max(regionW / w, regionH / h);
         placement = {
             scale: scale,
             left: regionLeft + (regionW - w * scale) / 2,
@@ -2613,8 +2600,8 @@ function buildUnifiedDocument(state, productCode) {
 
             // Detail has two placement modes:
             // 1) Normal Detail: 15/20/15/50px safe area (570x530), centered.
-            // 2) Cut Image: scale/fill against the FULL 600x600 canvas, then
-            //    hide the bottom 50px non-destructively.
+            // 2) Cut Image: uniformly cover 600x550 without blank margins,
+            //    then keep the bottom 50px WHITE with a non-destructive clip.
             if (state.detail[d].isCut) {
 
                 fitCutLayerToRegion(
@@ -2861,7 +2848,7 @@ function buildSimpleSection(parent, title, list, onChange) {
         var detailHelp = parent.add(
             "statictext",
             undefined,
-            "Normal Detail: 570x530 safe area.  Cut Image: visible pixels fit/maximize within 600x550, cut sides flush to their edge, with 50px white space at the bottom.",
+            "Normal Detail: 570x530 safe area.  Cut Image: visible pixels MAXIMIZE to cover 600x550 (overflow is clipped), with 50px white space at the bottom.",
             { multiline: true }
         );
         detailHelp.alignment = "fill";

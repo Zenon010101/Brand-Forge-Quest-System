@@ -61,11 +61,11 @@ with sync_playwright() as p:
     assert page.locator('#generate').is_enabled(),'optional Single must continue to work'
     assert page.evaluate('mockCalls.save[0].areas.length')==1
     assert page.evaluate('mockCalls.save[0].areas[0].x')==170
-    assert page.evaluate('mockCalls.save[0].engine')=='local'
+    assert page.evaluate('mockCalls.save[0].engine')=='clean'
     # Changing restoration method invalidates QC and requires a new preview.
     page.locator('#cleanupRestore').select_option('photoshop')
     assert page.locator('#cleanupSave').is_disabled()
-    page.locator('#cleanupRestore').select_option('local')
+    page.locator('#cleanupRestore').select_option('clean')
     page.locator('#cleanupMode').select_option('auto')
     page.locator('#cleanupQueue button').nth(1).click()
     page.wait_for_function('document.querySelectorAll(".cleanup-region-row").length===2')

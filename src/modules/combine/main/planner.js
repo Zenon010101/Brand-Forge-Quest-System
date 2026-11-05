@@ -8,7 +8,7 @@ const path = require("path");
 const DIM = Object.freeze({
     width: 600, single: 600, singleGap: 15,
     margin: 3, cell: 293, columnGap: 8, rowGap: 7,
-    dualWidth: 594, dualMinHeight: 160, dualMaxHeight: 1600,
+    dualWidth: 594, dualMaxHeight: 1600,
     labelGap: 6, labelSize: 28, labelLine: 36,
     detailsGap: 30, detailsHeadingSize: 28,
     detailsHeadingHeight: 36, detailsHeadingGap: 16,
@@ -67,9 +67,9 @@ function fitInside(entry, x, y, slotWidth, slotHeight) {
     const scale = Math.min(slotWidth / w, slotHeight / h);
     const width = Math.max(1, Math.min(slotWidth, Math.round(w * scale)));
     const height = Math.max(1, Math.min(slotHeight, Math.round(h * scale)));
+    const offsetY = entry.verticalAlign === "bottom" ? slotHeight - height : Math.floor((slotHeight - height) / 2);
     return { ...entry, slotX: x, slotY: y, slotWidth, slotHeight, x: x + Math.floor((slotWidth - width) / 2),
-        y: y + Math.floor((slotHeight - height) / 2),
-        placedWidth: width, placedHeight: height };
+        y: y + offsetY, placedWidth: width, placedHeight: height };
 }
 function buildCombineLayout({ single, lineup, details, outputName }) {
     if (single != null && (typeof single !== "object" || Array.isArray(single))) throw new Error("Invalid Single image.");
@@ -91,17 +91,23 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
     function appendNormalRow(items) {
         if (!items.length) return;
         const labels = items.map(({ item }) => wrapColorName(item.colorName));
+        // Product height is measured from the actual visible item (not the
+        // source's white/transparent borders). Each product stays within a
+        // 293px column, but short products no longer reserve a 293px-tall
+        // invisible image area above the editable caption.
+        const measured = items.map(({ item }) => fitInside(item, 0, 0, DIM.cell, DIM.cell));
+        const imageHeight = Math.max(...measured.map(item => item.placedHeight));
         const labelHeight = Math.max(...labels.map(lines => lines.length)) * DIM.labelLine;
-        const labelTop = y + DIM.cell + DIM.labelGap;
-        const row = { kind: "regular", top: y, imageHeight: DIM.cell, labelTop,
-            labelHeight, rowHeight: DIM.cell + DIM.labelGap + labelHeight,
+        const labelTop = y + imageHeight + DIM.labelGap;
+        const row = { kind: "regular", top: y, imageHeight, labelTop,
+            labelHeight, rowHeight: imageHeight + DIM.labelGap + labelHeight,
             imageIndices: items.map(({ index }) => index) };
         items.forEach(({ item, index }, column) => {
             const x = DIM.margin + column * (DIM.cell + DIM.columnGap);
             const lines = labels[column];
             const label = { side: "single", text: item.colorName, lines,
                 x, y: labelTop, width: DIM.cell, height: labelHeight };
-            placedLineup.push({ ...fitInside(item, x, y, DIM.cell, DIM.cell), rowMode: "single",
+            placedLineup.push({ ...fitInside({ ...item, verticalAlign: "bottom" }, x, y, DIM.cell, imageHeight), rowMode: "single",
                 colorName: item.colorName, labelLines: lines,
                 labelX: x, labelY: labelTop, labelWidth: DIM.cell, labelHeight,
                 labels: [label], order: index + 1 });
@@ -117,7 +123,10 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
         if (!(rawWidth > 0 && rawHeight > 0)) throw new Error(`Invalid dimensions: ${item.name}`);
         // Keep the complete source-image composition intact, with a row height
         // derived from its aspect ratio. Fit-inside is uniform: never stretch.
-        const imageHeight = Math.max(DIM.dualMinHeight, Math.min(DIM.dualMaxHeight,
+        // A dual-item image is one intact full-width row. Source white/alpha
+        // padding was excluded during import, so do not reserve a minimum
+        // blank row height after the products. Tall sources stay uncropped.
+        const imageHeight = Math.max(1, Math.min(DIM.dualMaxHeight,
             Math.round(DIM.dualWidth * rawHeight / rawWidth)));
         const labelHeight = Math.max(left.length, right.length) * DIM.labelLine;
         const labelTop = y + imageHeight + DIM.labelGap;
@@ -131,7 +140,7 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
         const row = { kind: "dual", top: y, imageHeight, labelTop,
             labelHeight, rowHeight: imageHeight + DIM.labelGap + labelHeight,
             imageIndices: [index] };
-        placedLineup.push({ ...fitInside(item, DIM.margin, y, DIM.dualWidth, imageHeight),
+        placedLineup.push({ ...fitInside({ ...item, verticalAlign: "bottom" }, DIM.margin, y, DIM.dualWidth, imageHeight),
             rowMode: "dual", colorName: item.colorName, colorNameRight: item.colorNameRight,
             labelLines: left, labelX: DIM.margin, labelY: labelTop,
             labelWidth: DIM.cell, labelHeight, labels, order: index + 1 });

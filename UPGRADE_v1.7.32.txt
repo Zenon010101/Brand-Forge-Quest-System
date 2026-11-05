@@ -1,0 +1,16 @@
+BRANDFORGE v1.7.32 — CHANGE SUMMARY
+
+COMBINE
+* New Line Up spacing uses actual visible product bounds (white / alpha padding excluded where detectable).
+* Normal Line Up rows have variable height and bottom-aligned products, keeping 6px between product and caption text box.
+* Dual-item Line Up rows stay one full-width source image + two editable 28px text layers.
+* Missing LEFT/RIGHT color names are caught in the UI; avoids repeating combine:layout handler exceptions.
+* Downloaded originals remain unchanged. Use the existing reviewed Text Cleanup first when captions are printed on the file.
+
+SLIDER
+* Detail Cut Image fills / maximizes the 600x550 area, with proportional scaling and intentional overflow crop.
+* Existing non-destructive Cut Area preserves the bottom 50px as white.
+* All normal Detail, Creative, Line Up, and unrestricted output count rules remain.
+
+Regression tests: npm run validate
+This source bundle is not a compiled EXE, and Photoshop/COM is not available for a live Windows test here.

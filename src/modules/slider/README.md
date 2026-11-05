@@ -35,3 +35,11 @@ subject to Photoshop and system resources. Creative, Lineup, and Detail all
 contribute to the displayed output count, and their ordering rules remain intact.
 Only an empty job is rejected. This applies both to the Electron Slider interface
 and the Photoshop ScriptUI fallback.
+
+## v1.7.32 — Cut Detail maximization
+
+Cut Image (Detail) uses **cover / uniform scaling** against the full 600 x 550
+visible area rather than fit-inside. Intentional overflow is hidden by the
+existing non-destructive Cut Area clip; the bottom 50px of each 600x600 output
+stays white. Left/right/top/bottom cut-edge flags still determine alignment.
+Normal Detail (570x530), Creative and Line Up retain their original rules.

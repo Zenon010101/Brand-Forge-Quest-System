@@ -8,7 +8,7 @@
 <body>
 <div class="workspace">
   <header class="module-head">
-    <div><p class="kicker">BRANDFORGE / IMAGE WORKFLOW STUDIO</p><h1>COMBINE Generator <span class="version">v1.7.31 · Two Variant Color Names + Text Cleanup</span></h1><p>Upload by section, set the color names, drag images into order, and export a layered Photoshop Combine with JPEG.</p></div>
+    <div><p class="kicker">BRANDFORGE / IMAGE WORKFLOW STUDIO</p><h1>COMBINE Generator <span class="version">v1.7.33 · Precision Text Eraser + Clean Fill</span></h1><p>Upload by section, set the color names, drag images into order, and export a layered Photoshop Combine with JPEG.</p></div>
     <div class="head-stats"><strong>600 PX</strong><span>Fixed width · Dynamic height</span></div>
   </header>
   <div class="workgrid">
@@ -35,18 +35,22 @@
         <div id="cleanupQueue" class="cleanup-queue"><p class="empty">Select downloaded slides or choose local images to clean.</p></div>
         <label class="field-label" for="cleanupMode">Detection / selection mode</label>
         <select class="field" id="cleanupMode"><option value="review">Review — manually approve text areas (safest)</option><option value="auto">Auto-select likely captions, then review</option><option value="off">Off — keep images unchanged</option></select>
-        <label class="field-label" for="cleanupRestore">Background reconstruction</label>
-        <select class="field" id="cleanupRestore"><option value="local">Built-in local background matching (fast, no extra software)</option><option value="photoshop">Photoshop Content-Aware Fill (for textured photographs)</option></select>
+        <label class="field-label" for="cleanupRestore">Text removal method</label>
+        <select class="field" id="cleanupRestore"><option value="clean">Clean Fill — selected text pixels only (recommended)</option><option value="photoshop">Photoshop Content-Aware — rectangle areas only (optional)</option><option value="local">Legacy background matching — may copy nearby texture</option></select>
+        <p class="tip">Clean Fill changes only the marked pixels; the eraser removes pixels from the selection mask, not from the product. Text over complex textures may need careful manual QC.</p>
         <p id="cleanupEngine" class="tip">OCR uses Tesseract when installed, otherwise Windows OCR. You can draw manual boxes if no text is detected.</p>
         <div class="cleanup-stage" id="cleanupStage" hidden>
           <img id="cleanupImage" alt="Text cleanup before and after preview" draggable="false" />
+          <canvas id="cleanupMask" class="cleanup-mask" aria-hidden="true"></canvas>
           <div id="cleanupOverlay" class="cleanup-overlay"></div>
           <div id="cleanupDraw" class="cleanup-draw" hidden></div>
         </div>
         <div class="section-tools cleanup-view-tools"><button type="button" id="cleanupBefore" class="minor">Original + Regions</button><button type="button" id="cleanupAfter" class="minor" disabled>Cleaned Preview</button></div>
-        <div class="section-tools"><button type="button" id="cleanupSelectSuggested" class="minor" disabled>Select Suggested</button><button type="button" id="cleanupClearSelections" class="minor" disabled>Clear Selections</button><button type="button" id="cleanupManual" class="minor" disabled>Draw Text Area</button></div>
+        <div class="section-tools"><button type="button" id="cleanupSelectSuggested" class="minor" disabled>Select Suggested</button><button type="button" id="cleanupClearSelections" class="minor" disabled>Clear Mask</button><button type="button" id="cleanupManual" class="minor" disabled>Rectangle</button></div>
+        <div class="section-tools cleanup-brush-tools"><button type="button" id="cleanupBrush" class="minor" disabled>Brush Select / Restore</button><button type="button" id="cleanupEraser" class="minor" disabled>Eraser (Mask)</button><button type="button" id="cleanupUndo" class="minor" disabled>Undo</button><button type="button" id="cleanupRedo" class="minor" disabled>Redo</button></div>
+        <div class="cleanup-precision-settings"><label for="cleanupBrushSize">Brush size <output id="cleanupBrushSizeValue">18px</output></label><input type="range" id="cleanupBrushSize" min="5" max="60" step="1" value="18"/><label for="cleanupFeather">Edge feather</label><select id="cleanupFeather" class="field"><option value="0">0px — precise (default)</option><option value="1">1px — soften edge</option><option value="2">2px — soften edge</option><option value="3">3px — soften edge</option></select></div>
         <div id="cleanupRegions" class="cleanup-regions"><p class="empty">Detected text areas appear here.</p></div>
-        <p class="tip" id="cleanupInstructions">Review each box. For manual cleanup, click Draw Text Area and drag a rectangle over the caption.</p>
+        <p class="tip" id="cleanupInstructions">Approve OCR boxes or use Brush Select to paint only caption pixels. Eraser removes unwanted selection; undo/redo supported. Preview before saving.</p>
         <div class="section-tools"><button type="button" id="cleanupPreview" class="action" disabled>Preview Text Removal</button></div>
         <label class="field-label" for="cleanupTarget">Add cleaned copy to Combine section</label>
         <select class="field" id="cleanupTarget"><option value="lineup">Line Up</option><option value="details">Details</option><option value="single">Single (replace selected Single)</option></select>
@@ -62,7 +66,7 @@
       </section>
       <section class="panel section" id="sectionLineup">
         <div class="panel-head"><div><span class="step">02</span><h2>Line Up</h2></div><span class="tag" id="lineCount">0 variations</span></div>
-        <p class="tip"><strong>Optional.</strong> Regular images use 2 images per row. For an image containing two products (like two jackets side by side), click <strong>+ Add 2nd color name</strong> (or select <strong>2 variants</strong>) and fill in separate LEFT and RIGHT names. The complete image stays intact; two separate editable 28 px labels are added. Use Text Cleanup first to remove captions already printed on JPG/PNG images.</p>
+        <p class="tip"><strong>Optional.</strong> Regular images use 2 images per row. For an image containing two products (like two jackets side by side), click <strong>+ Add 2nd color name</strong> (or select <strong>2 variants</strong>) and fill in separate LEFT and RIGHT names. The complete image stays intact; two separate editable 28 px labels are added close beneath the visible products (without extra source-image whitespace). Enter both names before generating. Use Text Cleanup first to remove captions already printed on JPG/PNG images.</p>
         <div class="drop-zone compact" data-section="lineup" tabindex="0"><span class="drop-icon">＋</span><strong>Drop Line Up images</strong><small>Multiple files supported</small></div>
         <div class="section-tools"><button type="button" id="chooseLineup" class="action">Add Line Up Images</button><button type="button" id="clearLineup" class="minor">Clear Line Up</button></div>
         <div class="section-tools lineup-bulk-mode"><button type="button" id="setAllDual" class="minor">All images → 2 items / full row</button><button type="button" id="setAllNormal" class="minor">All images → 1 item / half row</button></div>

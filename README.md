@@ -1,3 +1,63 @@
+# BrandForge v1.7.33 — Precision Combine Text Cleanup
+
+**Complete Electron source project**, including all features and fixes from
+v1.7.32. Photoshop Windows execution has not been tested in this environment.
+
+**New Combine Text Cleanup controls:** Brush Select / Restore, Eraser (selection
+mask only), Rectangle, Undo/Redo, brush-size slider, optional 0–3px inner-edge
+feather. The default restoration method is **Clean Fill**: it interpolates
+background from the image's unselected pixels. The mask is displayed in green,
+and the eraser subtracts from it without touching the source file. Clean Fill
+never copies a foreign product texture or invokes Content-Aware Fill, and does
+not edit pixels outside the selected mask. Review results carefully where the
+text overlaps product details or textured backgrounds.
+
+**Photoshop Content-Aware remains optional**, but because its current JSX
+interface fills rectangles, it cannot process precise brush/eraser holes. The
+app explicitly requires Clean Fill whenever brush/eraser strokes are present.
+The legacy local texture-matching mode is retained only for compatibility.
+
+OCR/manual selection, before/after QC, versioned `COMBINE_CLEANED` PNG output,
+reused 28px editable color names, optional Single and dual-item Line Up rows,
+Rakuten download-only import, unrestricted Slider item count, and the Slider
+50px Cut Image footer remain unchanged.
+
+**Validation:** `npm run validate`, `node test/combinePrecisionCleanup.js`, and
+optional Chromium UI QA `python test/combinePrecisionBrowser.py`. Read
+`INSTALL_FULL_PROJECT_v1.7.33.txt` before merging into your source folder.
+
+---
+
+# BrandForge v1.7.32 — Combine Spacing + Slider Cut Image Maximize
+
+Full source project for Windows Electron + Adobe Photoshop. Includes all
+v1.7.31 features (Optional Single, dual-item Line Up, Rakuten downloader,
+non-destructive Text Cleanup, and unlimited Slider output-item count).
+
+**Combine changes**
+- Line Up captions now follow the visible product bottom, not unused white or
+  transparent padding in the source image.
+- Regular Line Up images remain two per row, with bottom-aligned products and
+  the original editable 28px caption layers. Dual-item images stay intact as
+  one full-width row with two separate editable 28px LEFT/RIGHT names.
+- Empty color-name fields show local guidance without repeatedly triggering
+  Electron layout errors. Generate stays disabled until required names exist.
+- Input images, PSD source and other generators remain untouched.
+
+**Slider changes**
+- Detail Cut Image now scales uniformly to COVER the 600x550 visible canvas.
+  Overflow remains non-destructively clipped, and the 50px white bottom is
+  retained; normal Detail, Creative and Line Up are unchanged.
+- 19 Slider images are still optional; there is no fixed maximum.
+
+**Testing and usage**
+- `npm run validate` passed on the source (including new sizing tests).
+- Real Windows Photoshop COM/JSX operation must be checked locally before
+  replacing any production installation.
+- Read `INSTALL_FULL_PROJECT_v1.7.32.txt` for merge instructions.
+
+---
+
 # BrandForge v1.7.30 — Slider Flexible Image Count
 
 **Slider no longer has a fixed output-item limit.** The prior 18-item ceiling was

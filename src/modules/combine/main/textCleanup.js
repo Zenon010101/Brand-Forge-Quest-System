@@ -12,6 +12,7 @@ const sharp = require("sharp");
 const { inspectOne } = require("./assets");
 const { recognize } = require("../../landing-page/main/ocr");
 const { photoshopContentAware } = require("./inpaintPhotoshop");
+const { normalizeStrokes, createSelectionMask, cleanFillPixels } = require("./maskCleanup");
 
 const RASTER = new Set([".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".webp", ".tif", ".tiff", ".bmp", ".gif", ".avif"]);
 const MAX_PIXELS = 32_000_000;
@@ -24,8 +25,8 @@ function orientedDimensions(meta) {
     const rotated = [5, 6, 7, 8].includes(Number(meta.orientation));
     return { width: rotated ? meta.height : meta.width, height: rotated ? meta.width : meta.height };
 }
-function normalizeAreas(areas, width, height) {
-    if (!Array.isArray(areas) || !areas.length) throw new Error("Select at least one caption area for removal.");
+function normalizeAreas(areas, width, height, allowEmpty = false) {
+    if (!Array.isArray(areas) || (!allowEmpty && !areas.length)) throw new Error("Select at least one caption area for removal.");
     if (areas.length > MAX_AREAS) throw new Error(`Maximum ${MAX_AREAS} text regions per image.`);
     const normalized = areas.map((area, index) => {
         if (!area || typeof area !== "object") throw new Error(`Invalid text region ${index + 1}.`);
@@ -189,14 +190,32 @@ function reconstructPixels(buffer, width, height, areas) {
     }
     return { methods, warnings };
 }
-async function renderCleanPng(sourcePath, areas, engine = "local") {
-    if (!["local", "photoshop"].includes(engine)) throw new Error("Unknown background-restoration engine.");
+async function renderCleanPng(sourcePath, areas, engine = "clean", strokes = [], feather = 0) {
+    if (!["clean", "local", "photoshop"].includes(engine)) throw new Error("Unknown background-restoration engine.");
     const { data, info } = await sharp(sourcePath, { animated: false, failOn: "error", limitInputPixels: MAX_PIXELS })
         .rotate().ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     if (info.width * info.height > MAX_PIXELS || info.channels !== 4) throw new Error("Text cleanup supports images up to 32 million pixels.");
-    const normalized = normalizeAreas(areas, info.width, info.height);
-    if (engine === "photoshop") return photoshopContentAware(sourcePath, normalized, info.width, info.height);
-    const { methods, warnings } = reconstructPixels(data, info.width, info.height, normalized);
+    const normalizedStrokes = normalizeStrokes(strokes, info.width, info.height);
+    const normalized = normalizeAreas(areas, info.width, info.height, normalizedStrokes.some(s => s.mode === "add"));
+    // Photoshop's rectangle-only Content-Aware API cannot safely honor eraser
+    // holes. Do not silently fill erased portions of the mask.
+    if (engine === "photoshop") {
+        if (normalizedStrokes.length) throw new Error("Precise brush/eraser masks require Clean Fill. Select Clean Fill instead of Photoshop Content-Aware.");
+        return photoshopContentAware(sourcePath, normalized, info.width, info.height);
+    }
+    let methods, warnings;
+    if (engine === "local" && !normalizedStrokes.length) {
+        ({ methods, warnings } = reconstructPixels(data, info.width, info.height, normalized));
+    } else {
+        if (!Number.isInteger(Number(feather)) || Number(feather) < 0 || Number(feather) > 3) {
+            throw new Error("Clean Fill feather must be between 0 and 3 pixels.");
+        }
+        const { mask, sourceGuard } = createSelectionMask(info.width, info.height, normalized, normalizedStrokes);
+        const clean = cleanFillPixels(data, info.width, info.height, mask, Number(feather), sourceGuard);
+        clean.result.copy(data);
+        methods = clean.methods;
+        warnings = clean.warnings;
+    }
     const png = await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
         .png({ compressionLevel: 7 }).toBuffer();
     return { png, width: info.width, height: info.height, methods, warnings };
@@ -271,18 +290,18 @@ class TextCleanupService {
                 engine: results.engine || "Unavailable", warning: results.warning || "" };
         } finally { await fs.promises.rm(working, { recursive: true, force: true }).catch(() => {}); }
     }
-    async preview({ filePath, areas, engine = "local" }) {
+    async preview({ filePath, areas = [], engine = "clean", strokes = [], feather = 0 }) {
         const entry = await this.getFile(filePath);
-        const result = await renderCleanPng(entry.path, areas, engine);
+        const result = await renderCleanPng(entry.path, areas, engine, strokes, feather);
         return { previewDataUrl: await imagePreview(result.png, 850),
             width: result.width, height: result.height, methods: result.methods, warnings: result.warnings };
     }
-    async save({ filePath, areas, engine = "local" }) {
+    async save({ filePath, areas = [], engine = "clean", strokes = [], feather = 0 }) {
         if (this.busy) throw new Error("Text cleanup is already saving an image.");
         this.busy = true;
         try {
             const entry = await this.getFile(filePath);
-            const result = await renderCleanPng(entry.path, areas, engine);
+            const result = await renderCleanPng(entry.path, areas, engine, strokes, feather);
             const folder = path.join(path.dirname(entry.path), "COMBINE_CLEANED");
             await fs.promises.mkdir(folder, { recursive: true });
             const base = path.parse(entry.name).name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 110);

@@ -46,7 +46,9 @@ async function preparedEntry(entry, index, folder, psdPreviewMap) {
     const placedWidth = resultSize.width, placedHeight = resultSize.height;
     return { ...fitted, placedWidth, placedHeight,
         x: fitted.slotX + Math.floor((fitted.slotWidth - placedWidth) / 2),
-        y: fitted.slotY + Math.floor((fitted.slotHeight - placedHeight) / 2),
+        y: fitted.slotY + (fitted.verticalAlign === "bottom"
+            ? fitted.slotHeight - placedHeight
+            : Math.floor((fitted.slotHeight - placedHeight) / 2)),
         input: output.replace(/\\/g, "/"),
         originalPsd: entry.isPhotoshop ? entry.path.replace(/\\/g, "/") : null,
         visibleMode: bounds.mode };

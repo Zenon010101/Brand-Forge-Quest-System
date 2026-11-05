@@ -1,0 +1,30 @@
+BrandForge v1.7.33 — COMPLETE SOURCE PROJECT (not just a patch / not an EXE)
+
+1. CLOSE BrandForge. Back up your existing project folder.
+2. Extract ZIP. It should contain package.json, package-lock.json, src/main/main.js,
+   all module folders, test/ and VERIFY_BRANDFORGE_ROOT.cmd.
+3. Copy ALL extracted contents into:
+   D:\gulliver-image-workflow\gulliver-image-workflow
+   Merge folders and replace existing files. Do not replace only the src folder.
+4. Run VERIFY_BRANDFORGE_ROOT.cmd to check the startup files.
+5. If dependencies are not present, use npm ci (requires Node.js / npm access).
+6. Start the project as usual (npm start for source). A compiled EXE must be
+   rebuilt from this source to contain the changes.
+
+HOW TO USE NEW CLEANUP:
+A. Combine -> Remove Existing Image Text -> Use Downloaded Slides or Choose Images.
+B. Approve detected OCR captions or draw a Rectangle around an existing caption.
+C. Select Brush Select / Restore to add GREEN SELECTION over text pixels.
+D. Select Eraser (Mask) to REMOVE green selection covering products/labels.
+E. Use Undo/Redo and brush size as needed. Default Clean Fill, feather 0px.
+F. Click Preview Text Removal, compare original with cleaned preview.
+G. Save Clean Copy + Add to Combine only after confirming product details.
+
+NOTE: Eraser is a SELECTION eraser, not a destructive pixel eraser. With brush
+or eraser edits, use Clean Fill (Photoshop Content-Aware does not honor those
+precise holes). Original downloaded image files are never overwritten.
+
+VERIFICATION
+- npm run validate: PASS when tests are run successfully in this package.
+- Chromium precision-mask UI QA: test/combinePrecisionBrowser.py.
+- Real Windows Photoshop PSD generation and Content-Aware must be locally tested.

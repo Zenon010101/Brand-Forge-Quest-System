@@ -40,7 +40,7 @@ const hash = p => crypto.createHash("sha256").update(fs.readFileSync(p)).digest(
         const preview = await svc.preview({filePath:source,areas});
         assert(preview.previewDataUrl.startsWith("data:image/png;base64,"));
         assert.equal(preview.width,600);
-        assert.deepEqual(preview.methods,["matched flat background"]);
+        assert.deepEqual(preview.methods,["Clean Fill (selected pixels only)"]);
         const saved = await svc.save({filePath:source,areas});
         assert(saved.path.includes("COMBINE_CLEANED"));
         assert(path.basename(saved.path).endsWith("_textclean.png"));

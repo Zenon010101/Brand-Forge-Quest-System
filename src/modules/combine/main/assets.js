@@ -34,8 +34,23 @@ async function inspectOne(file) {
         if (!width || !height) throw new Error("Image has no readable dimensions.");
         info = { width, height };
     }
+    // Record measured product dimensions at import so the Combine layout and
+    // Photoshop export agree on where the visible product ends. This avoids
+    // reserving blank white/transparent source padding between item and name.
+    // PSDs are measured from their Photoshop preview at export; use document
+    // dimensions as a safe import-time fallback without changing the source.
+    let visibleWidth = info.width, visibleHeight = info.height, visibleMode = "full";
+    if (!PHOTOSHOP.has(ext)) {
+        try {
+            const bounds = await visibleBounds(resolved);
+            visibleWidth = bounds.width;
+            visibleHeight = bounds.height;
+            visibleMode = bounds.mode;
+        } catch (_) { /* A difficult codec must not break the entire import. */ }
+    }
     return { path: resolved, name: path.basename(resolved), extension: ext,
-        width: info.width, height: info.height, bytes: stat.size, mtimeMs: stat.mtimeMs,
+        width: info.width, height: info.height, visibleWidth, visibleHeight, visibleMode,
+        bytes: stat.size, mtimeMs: stat.mtimeMs,
         isPhotoshop: PHOTOSHOP.has(ext) };
 }
 async function inspectBatch(paths) {

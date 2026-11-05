@@ -1,0 +1,21 @@
+BrandForge v1.7.32 — COMPLETE SOURCE PROJECT (not a patch, not a Windows EXE)
+
+1. CLOSE BrandForge and Photoshop; back up the current source folder.
+2. Extract the ZIP. At the extracted root you should see package.json, package-lock.json, src, test, and VERIFY_BRANDFORGE_ROOT.cmd.
+3. Either use the extracted folder as your new source directory, OR copy its contents into your original folder, merging src and test and replacing changed files.
+   Expected Windows target: D:\gulliver-image-workflow\gulliver-image-workflow
+4. Run VERIFY_BRANDFORGE_ROOT.cmd. Confirm src\main\main.js exists.
+5. If your dependencies are not installed yet, use npm ci in that project directory (requires access to Node/npm packages).
+6. Start using your usual launcher (for source launches: npm start). To use a portable EXE, rebuild the Windows app from this new source.
+7. Test a dual-item Line Up image, a white-padded short item, and Cut Image portrait/landscape in real Photoshop before deploying broadly.
+
+INCLUDED
+- Combine: Optional Single, dual-item LEFT / RIGHT names, text cleanup, dynamic close captions, no repeated incomplete-field layout requests.
+- Slider: Maximize Cut Image on 600x550 with the existing 50px white bottom; output count remains flexible.
+- Other modules preserved from v1.7.31.
+
+TEST RESULTS
+- npm run validate: PASS
+- Windows Photoshop COM / JSX: NOT LIVE-TESTED HERE
+
+IMPORTANT: Copy the complete ZIP contents, not only its src subfolder; partial replacements can break Electron startup. Keep a backup of previous project and sources.

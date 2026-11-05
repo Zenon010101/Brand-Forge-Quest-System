@@ -3,8 +3,8 @@
 // Loaded before Combine's existing app.js, but executed from wireCleanup()
 // after app.js creates its shared api and state objects. Cleanup is independent
 // of the Rakuten downloader; user explicitly starts every scan/save.
-const cleanupState = { items: new Map(), active: null, busy: false, drawing: false,
-    drawStart: null, drawPointerId: null, sequence: 0 };
+const cleanupState = { items: new Map(), active: null, busy: false, tool: "inspect", drawing: false,
+    drawStart: null, drawPointerId: null, activeStroke: null, sequence: 0 };
 const cleanupEl = name => document.getElementById(name);
 const cleanupFilename = file => String(file || "").split(/[\\/]/).pop();
 
@@ -14,7 +14,42 @@ function cleanupSelectedAreas(item) {
     return cleanupRegions(item).filter(area => item.approved.has(area.id))
         .map(area => ({ x: area.x, y: area.y, width: area.width, height: area.height }));
 }
-function cleanupSignature(item) { return JSON.stringify({ engine: cleanupEl("cleanupRestore").value, areas: cleanupSelectedAreas(item) }); }
+function cleanupPayload(item) {
+    return { filePath: item.path, areas: cleanupSelectedAreas(item),
+        strokes: (item.strokes || []).map(s => ({ mode: s.mode, size: s.size, points: s.points })),
+        engine: cleanupEl("cleanupRestore").value,
+        feather: Number(cleanupEl("cleanupFeather").value) };
+}
+function cleanupSignature(item) {
+    const { filePath, ...selection } = cleanupPayload(item);
+    return JSON.stringify(selection);
+}
+function cleanupSnapshot(item) {
+    return { approved: [...item.approved], manual: item.manual.map(x => ({ ...x })),
+        strokes: item.strokes.map(s => ({ mode: s.mode, size: s.size, points: s.points.map(p => [...p]) })) };
+}
+function cleanupRemember(item) {
+    if (!item) return;
+    item.past.push(cleanupSnapshot(item));
+    if (item.past.length > 35) item.past.shift();
+    item.future = [];
+}
+function cleanupRestoreSnapshot(item, snap) {
+    item.approved = new Set(snap.approved);
+    item.manual = snap.manual.map(x => ({ ...x }));
+    item.strokes = snap.strokes.map(s => ({ mode: s.mode, size: s.size, points: s.points.map(p => [...p]) }));
+    cleanupInvalidate(item);
+}
+function cleanupHistory(direction) {
+    const item = cleanupCurrent();
+    if (!item || cleanupState.busy || state.busy) return;
+    const source = direction === "undo" ? item.past : item.future;
+    const destination = direction === "undo" ? item.future : item.past;
+    if (!source.length) return;
+    destination.push(cleanupSnapshot(item));
+    cleanupRestoreSnapshot(item, source.pop());
+    cleanupRender();
+}
 function cleanupInvalidate(item) {
     if (!item) return;
     item.preview = null; item.previewSignature = ""; item.view = "before";
@@ -29,20 +64,29 @@ function refreshCleanupButtons() {
     const item = cleanupCurrent(), isOff = cleanupEl("cleanupMode").value === "off";
     const hasScan = !!item?.scan;
     const areas = item ? cleanupSelectedAreas(item) : [];
+    const hasBrush = !!item?.strokes?.some(s => s.mode === "add");
+    const canEdit = !locked && !isOff && hasScan;
     cleanupEl("cleanupChoose").disabled = locked;
     cleanupEl("cleanupFromDownloads").disabled = locked || !(rak.download?.images || []).some(i => i.status === "downloaded");
     cleanupEl("cleanupMode").disabled = locked;
     cleanupEl("cleanupRestore").disabled = locked;
-    cleanupEl("cleanupSelectSuggested").disabled = locked || isOff || !hasScan;
-    cleanupEl("cleanupClearSelections").disabled = locked || isOff || !hasScan;
-    cleanupEl("cleanupManual").disabled = locked || isOff || !hasScan;
-    cleanupEl("cleanupPreview").disabled = locked || isOff || !hasScan || !areas.length;
+    cleanupEl("cleanupFeather").disabled = locked;
+    cleanupEl("cleanupBrushSize").disabled = locked || !hasScan;
+    cleanupEl("cleanupSelectSuggested").disabled = !canEdit;
+    cleanupEl("cleanupClearSelections").disabled = !canEdit;
+    for (const id of ["cleanupManual", "cleanupBrush", "cleanupEraser"]) cleanupEl(id).disabled = !canEdit;
+    cleanupEl("cleanupUndo").disabled = !canEdit || !item?.past?.length;
+    cleanupEl("cleanupRedo").disabled = !canEdit || !item?.future?.length;
+    cleanupEl("cleanupPreview").disabled = !canEdit || (!areas.length && !hasBrush);
     cleanupEl("cleanupBefore").disabled = locked || !hasScan;
     cleanupEl("cleanupAfter").disabled = locked || !item?.preview;
-    cleanupEl("cleanupSave").disabled = locked || isOff || !item?.preview || !areas.length || item.previewSignature !== cleanupSignature(item);
+    cleanupEl("cleanupSave").disabled = locked || isOff || !item?.preview || (!areas.length && !hasBrush) || item.previewSignature !== cleanupSignature(item);
     cleanupEl("cleanupTarget").disabled = locked;
     cleanupEl("cleanupReuseCaption").disabled = locked;
-    cleanupEl("cleanupManual").classList.toggle("active", cleanupState.drawing);
+    for (const [id, tool] of [["cleanupManual", "rectangle"], ["cleanupBrush", "brush"], ["cleanupEraser", "eraser"]]) {
+        cleanupEl(id).classList.toggle("active", cleanupState.tool === tool);
+    }
+    cleanupEl("cleanupBrushSizeValue").textContent = `${cleanupEl("cleanupBrushSize").value}px`;
 }
 function cleanupRenderQueue() {
     const root = cleanupEl("cleanupQueue"); root.replaceChildren();
@@ -87,6 +131,7 @@ function cleanupRenderAreas() {
             const del = document.createElement("button"); del.type = "button"; del.className = "minor"; del.textContent = "Remove";
             del.disabled = cleanupState.busy || state.busy;
             del.addEventListener("click", () => {
+                cleanupRemember(item);
                 item.manual = item.manual.filter(a => a.id !== area.id);
                 item.approved.delete(area.id); cleanupInvalidate(item); cleanupRender();
             });
@@ -94,6 +139,44 @@ function cleanupRenderAreas() {
         }
         root.appendChild(row);
     }
+}
+function cleanupRenderMask(item) {
+    const canvas = cleanupEl("cleanupMask");
+    if (!item?.scan || item.view === "after" || cleanupEl("cleanupMode").value === "off") {
+        canvas.width = 1; canvas.height = 1; return;
+    }
+    const { width, height } = item.scan;
+    const factor = Math.min(1, 850 / Math.max(width, height));
+    const cw = Math.max(1, Math.round(width * factor));
+    const ch = Math.max(1, Math.round(height * factor));
+    if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.fillStyle = "rgba(57, 206, 145, .38)";
+    for (const area of cleanupRegions(item)) {
+        if (!item.approved.has(area.id)) continue;
+        // Mirror backend's small OCR/rectangle padding so mask preview matches.
+        const pad = Math.max(1, Math.min(8, Math.round(Math.min(area.height * .10, 6))));
+        ctx.fillRect((area.x - pad) * factor, (area.y - pad) * factor,
+            (area.width + 2 * pad) * factor, (area.height + 2 * pad) * factor);
+    }
+    for (const stroke of [...(item.strokes || []), ...(cleanupState.activeStroke ? [cleanupState.activeStroke] : [])]) {
+        if (!stroke.points.length) continue;
+        ctx.globalCompositeOperation = stroke.mode === "erase" ? "destination-out" : "source-over";
+        // Destination-out must be opaque: translucent erase leaves a ghost mask.
+        ctx.strokeStyle = stroke.mode === "erase" ? "rgba(0,0,0,1)" : "rgba(57, 206, 145, .38)";
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.lineWidth = stroke.size * factor;
+        ctx.lineCap = "round"; ctx.lineJoin = "round";
+        ctx.beginPath();
+        const first = stroke.points[0];
+        ctx.moveTo(first[0] * factor, first[1] * factor);
+        for (const pt of stroke.points.slice(1)) ctx.lineTo(pt[0] * factor, pt[1] * factor);
+        if (stroke.points.length > 1) ctx.stroke();
+        ctx.beginPath(); ctx.arc(first[0] * factor, first[1] * factor,
+            stroke.size * factor / 2, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
 }
 function cleanupRenderImage() {
     const item = cleanupCurrent(); const stage = cleanupEl("cleanupStage");
@@ -119,9 +202,11 @@ function cleanupRenderImage() {
             overlay.appendChild(button);
         }
     }
+    cleanupRenderMask(item);
     cleanupEl("cleanupBefore").classList.toggle("active", !after);
     cleanupEl("cleanupAfter").classList.toggle("active", after);
-    stage.classList.toggle("drawing", cleanupState.drawing);
+    stage.classList.toggle("drawing", cleanupState.tool === "rectangle");
+    stage.classList.toggle("painting", cleanupState.tool === "brush" || cleanupState.tool === "eraser");
 }
 function cleanupRender() {
     cleanupRenderQueue(); cleanupRenderAreas(); cleanupRenderImage();
@@ -129,20 +214,26 @@ function cleanupRender() {
     cleanupEl("cleanupEngine").textContent = item?.scan
         ? `${cleanupFilename(item.path)} · ${item.scan.width} x ${item.scan.height} · ${item.scan.engine}${item.scan.warning ? ` · ${item.scan.warning}` : ""}`
         : "OCR uses Tesseract when installed, otherwise Windows OCR. If OCR misses text, draw manual boxes.";
-    cleanupEl("cleanupInstructions").textContent = cleanupState.drawing
-        ? "Drawing mode is on. Drag over the text in the original preview to create a removal area. Click Draw Text Area again to finish."
-        : item?.preview ? `Preview ready · ${(item.preview.methods || []).join(", ")}${item.preview.warnings?.length ? ` · WARNING: ${item.preview.warnings.join(" ")}` : ""}. Check the image before saving.`
-        : "Approve only existing color names/captions. Keep logos, embroidery, labels, prints, and product details unchecked. Preview before saving.";
+    cleanupEl("cleanupInstructions").textContent = cleanupState.tool === "rectangle"
+        ? "Rectangle: drag closely around existing text. The green overlay is the selection, not an edit to the photo."
+        : cleanupState.tool === "brush"
+        ? "Brush Select / Restore: paint only the text or repaint selection accidentally erased. Adjust brush size as needed."
+        : cleanupState.tool === "eraser"
+        ? "Eraser: paint over GREEN SELECTION to protect product pixels. This erases the mask, not the image."
+        : item?.preview ? `Preview ready · ${(item.preview.methods || []).join(", ")}${item.preview.warnings?.length ? ` · WARNING: ${item.preview.warnings.join(" ")}` : ""}. Compare before/after before saving.`
+        : "Approve captions, then refine the green selection with Brush or Eraser. Clean Fill changes selected pixels only; logos and product details should stay outside the mask.";
     refreshCleanupButtons();
 }
 function cleanupToggleArea(id, checked) {
     const item = cleanupCurrent(); if (!item || cleanupState.busy) return;
+    if (item.approved.has(id) === checked) return;
+    cleanupRemember(item);
     if (checked) item.approved.add(id); else item.approved.delete(id);
     cleanupInvalidate(item); cleanupRender();
 }
 async function cleanupActivate(file) {
     if (cleanupState.busy || state.busy) return;
-    cleanupState.active = file; cleanupState.drawing = false;
+    cleanupState.active = file; cleanupState.tool = "inspect"; cleanupState.drawing = false; cleanupState.activeStroke = null;
     const item = cleanupCurrent(); if (!item) return;
     cleanupRender();
     if (item.scan) return;
@@ -151,7 +242,7 @@ async function cleanupActivate(file) {
     try {
         const scan = await api.scanCleanup(file);
         item.scan = scan;
-        item.approved.clear(); item.manual = []; cleanupInvalidate(item);
+        item.approved.clear(); item.manual = []; item.strokes = []; item.past = []; item.future = []; cleanupInvalidate(item);
         if (cleanupEl("cleanupMode").value === "auto") {
             for (const area of scan.regions) if (area.suggested) item.approved.add(area.id);
         }
@@ -168,7 +259,7 @@ async function cleanupAccept(result) {
     }
     for (const file of incoming) {
         if (!cleanupState.items.has(file.path)) cleanupState.items.set(file.path,
-            { ...file, scan: null, manual: [], approved: new Set(), preview: null, previewSignature: "", saved: null, view: "before" });
+            { ...file, scan: null, manual: [], approved: new Set(), strokes: [], past: [], future: [], preview: null, previewSignature: "", saved: null, view: "before" });
     }
     const bad = result.failed?.length || 0;
     cleanupMessage(`Loaded ${incoming.length} image(s) for optional text cleanup.${bad ? ` ${bad} file(s) skipped.` : ""}`);
@@ -188,24 +279,27 @@ async function cleanupUseDownloads() {
 function cleanupSetMode(mode) {
     const item = cleanupCurrent();
     if (item?.scan && mode === "auto") {
+        cleanupRemember(item);
         for (const area of item.scan.regions) if (area.suggested) item.approved.add(area.id);
         cleanupInvalidate(item);
     }
-    if (mode === "off") cleanupState.drawing = false;
+    if (mode === "off") { cleanupState.drawing = false; cleanupState.tool = "inspect"; cleanupState.activeStroke = null; }
     cleanupRender();
 }
 function cleanupSetView(view) {
     const item = cleanupCurrent(); if (!item?.scan) return;
     if (view === "after" && !item.preview) return;
-    item.view = view; cleanupState.drawing = false; cleanupRender();
+    item.view = view; cleanupState.drawing = false; cleanupState.tool = "inspect"; cleanupState.activeStroke = null; cleanupRender();
 }
 async function cleanupPreviewSelected() {
     const item = cleanupCurrent(); if (!item?.scan || cleanupState.busy || state.busy) return;
-    const areas = cleanupSelectedAreas(item); if (!areas.length) return cleanupMessage("Select at least one text area.", true);
+    const payload = cleanupPayload(item);
+    if (!payload.areas.length && !payload.strokes.some(s => s.mode === "add")) return cleanupMessage("Select at least one text area.", true);
+    if (payload.strokes.length && payload.engine !== "clean") return cleanupMessage("Brush/Eraser selections require Clean Fill. Change the removal method to Clean Fill.", true);
     const signature = cleanupSignature(item);
     cleanupState.busy = true; cleanupMessage("Reconstructing the selected background areas for QC preview..."); cleanupRender();
     try {
-        const preview = await api.previewCleanup({ filePath: item.path, areas, engine: cleanupEl("cleanupRestore").value });
+        const preview = await api.previewCleanup(payload);
         item.preview = preview; item.previewSignature = signature; item.view = "after";
         cleanupMessage(preview.warnings?.length ? `QC REQUIRED: ${preview.warnings.join(" ")}` :
             "Cleaned preview ready. Compare Original / Cleaned, then save only if product details remain correct.", !!preview.warnings?.length);
@@ -215,10 +309,11 @@ async function cleanupPreviewSelected() {
 async function cleanupSaveSelected() {
     const item = cleanupCurrent(); if (!item?.preview || cleanupState.busy || state.busy) return;
     if (item.previewSignature !== cleanupSignature(item)) return cleanupMessage("Text regions changed. Preview again before saving.", true);
-    const areas = cleanupSelectedAreas(item);
+    const payload = cleanupPayload(item);
+    if (payload.strokes.length && payload.engine !== "clean") return cleanupMessage("Brush/Eraser selections require Clean Fill.", true);
     cleanupState.busy = true; cleanupMessage("Saving a new cleaned PNG while preserving the original image..."); cleanupRender();
     try {
-        const saved = await api.saveCleanup({ filePath: item.path, areas, engine: cleanupEl("cleanupRestore").value });
+        const saved = await api.saveCleanup(payload);
         const target = cleanupEl("cleanupTarget").value;
         item.saved = saved.path;
         await addImages(target, saved.imported);
@@ -273,49 +368,114 @@ function cleanupEndDraw(event) {
     const width = Math.round(Math.abs(start.x - end.x) * item.scan.width);
     const height = Math.round(Math.abs(start.y - end.y) * item.scan.height);
     if (width < 4 || height < 4) return cleanupMessage("Manual area is too small. Drag a larger rectangle around the text.", true);
+    cleanupRemember(item);
     const id = `manual-${Date.now()}-${item.manual.length}`;
     item.manual.push({ id, text: `Manual area ${item.manual.length + 1}`, x, y, width, height,
         suggested: false, confidence: null });
     item.approved.add(id); cleanupInvalidate(item); cleanupRender();
-    cleanupMessage("Manual area added. Preview removal, then verify the product details.");
+    cleanupMessage("Manual area added. Use Eraser to subtract any product pixels from the green selection.");
+}
+function cleanupSetTool(tool) {
+    const item = cleanupCurrent(); if (!item?.scan || cleanupState.busy || state.busy) return;
+    cleanupState.tool = cleanupState.tool === tool ? "inspect" : tool;
+    cleanupState.drawing = cleanupState.tool === "rectangle";
+    cleanupState.drawStart = null; cleanupState.activeStroke = null;
+    if (cleanupState.tool !== "inspect") {
+        item.view = "before";
+        if (["brush", "eraser"].includes(tool) && cleanupEl("cleanupRestore").value !== "clean") {
+            cleanupEl("cleanupRestore").value = "clean";
+            cleanupInvalidate(item);
+            cleanupMessage("Switched to Clean Fill because Photoshop Content-Aware cannot honor precise eraser masks.");
+        }
+    }
+    cleanupEl("cleanupDraw").hidden = true;
+    cleanupRender();
+}
+function cleanupBrushPoint(event, stage, item) {
+    const p = cleanupDrawPoint(event, stage);
+    return [Math.min(item.scan.width - 1, p.x * item.scan.width),
+        Math.min(item.scan.height - 1, p.y * item.scan.height)];
+}
+function cleanupStageStart(event, stage) {
+    const item = cleanupCurrent();
+    if (!item?.scan || cleanupState.busy || state.busy || cleanupEl("cleanupMode").value === "off") return;
+    if (!(["rectangle", "brush", "eraser"].includes(cleanupState.tool))) return;
+    if (event.button !== 0) return;
+    event.preventDefault();
+    cleanupState.drawPointerId = event.pointerId;
+    stage.setPointerCapture(event.pointerId);
+    if (cleanupState.tool === "rectangle") {
+        cleanupState.drawStart = cleanupDrawPoint(event, stage);
+        cleanupUpdateDraft(cleanupState.drawStart);
+    } else {
+        const sizeInImagePixels = Math.min(600, Math.max(2, Number(cleanupEl("cleanupBrushSize").value)
+            * item.scan.width / Math.max(1, stage.getBoundingClientRect().width)));
+        cleanupState.activeStroke = { mode: cleanupState.tool === "brush" ? "add" : "erase",
+            size: Math.round(sizeInImagePixels * 10) / 10, points: [cleanupBrushPoint(event, stage, item)] };
+        cleanupRenderMask(item);
+    }
+}
+function cleanupStageMove(event, stage) {
+    if (event.pointerId !== cleanupState.drawPointerId) return;
+    if (cleanupState.drawStart) return cleanupUpdateDraft(cleanupDrawPoint(event, stage));
+    const stroke = cleanupState.activeStroke, item = cleanupCurrent();
+    if (!stroke || !item?.scan) return;
+    const p = cleanupBrushPoint(event, stage, item);
+    const last = stroke.points[stroke.points.length - 1];
+    if (Math.hypot(p[0] - last[0], p[1] - last[1]) > Math.max(1.5, stroke.size * 0.12)) {
+        if (stroke.points.length < 1800) stroke.points.push(p);
+        cleanupRenderMask(item);
+    }
+}
+function cleanupStageFinish(event, stage) {
+    if (event.pointerId !== cleanupState.drawPointerId) return;
+    if (cleanupState.drawStart) return cleanupEndDraw(event);
+    const item = cleanupCurrent(), stroke = cleanupState.activeStroke;
+    cleanupState.drawPointerId = null; cleanupState.activeStroke = null;
+    if (!item?.scan || !stroke) return;
+    cleanupRemember(item);
+    item.strokes.push(stroke);
+    cleanupInvalidate(item); cleanupRender();
+    cleanupMessage(stroke.mode === "erase"
+        ? "Selection mask refined: green pixels removed; original image untouched. Preview again."
+        : "Selection mask expanded. Preview to remove just the marked text pixels.");
 }
 function wireCleanup() {
     cleanupEl("cleanupChoose").addEventListener("click", cleanupPick);
     cleanupEl("cleanupFromDownloads").addEventListener("click", cleanupUseDownloads);
     cleanupEl("cleanupMode").addEventListener("change", event => cleanupSetMode(event.target.value));
     cleanupEl("cleanupRestore").addEventListener("change", () => { cleanupInvalidate(cleanupCurrent()); cleanupRender(); });
+    cleanupEl("cleanupFeather").addEventListener("change", () => { cleanupInvalidate(cleanupCurrent()); cleanupRender(); });
+    cleanupEl("cleanupBrushSize").addEventListener("input", () => refreshCleanupButtons());
     cleanupEl("cleanupBefore").addEventListener("click", () => cleanupSetView("before"));
     cleanupEl("cleanupAfter").addEventListener("click", () => cleanupSetView("after"));
     cleanupEl("cleanupSelectSuggested").addEventListener("click", () => {
         const item = cleanupCurrent(); if (!item?.scan) return;
+        cleanupRemember(item);
         for (const box of item.scan.regions) if (box.suggested) item.approved.add(box.id);
         cleanupInvalidate(item); cleanupRender();
     });
     cleanupEl("cleanupClearSelections").addEventListener("click", () => {
         const item = cleanupCurrent(); if (!item) return;
-        item.approved.clear(); cleanupInvalidate(item); cleanupRender();
+        cleanupRemember(item);
+        item.approved.clear(); item.strokes = []; cleanupInvalidate(item); cleanupRender();
     });
-    cleanupEl("cleanupManual").addEventListener("click", () => {
-        const item = cleanupCurrent(); if (!item?.scan) return;
-        cleanupState.drawing = !cleanupState.drawing;
-        if (cleanupState.drawing) item.view = "before";
-        cleanupRender();
-    });
-    const stage = cleanupEl("cleanupStage");
-    stage.addEventListener("pointerdown", event => {
-        if (!cleanupState.drawing || cleanupState.busy || state.busy || !cleanupCurrent()?.scan) return;
-        event.preventDefault(); cleanupState.drawStart = cleanupDrawPoint(event, stage);
-        cleanupState.drawPointerId = event.pointerId; stage.setPointerCapture(event.pointerId);
-        cleanupUpdateDraft(cleanupState.drawStart);
-    });
-    stage.addEventListener("pointermove", event => {
-        if (cleanupState.drawStart && event.pointerId === cleanupState.drawPointerId) cleanupUpdateDraft(cleanupDrawPoint(event, stage));
-    });
-    stage.addEventListener("pointerup", cleanupEndDraw);
-    stage.addEventListener("pointercancel", () => {
-        cleanupState.drawStart = null; cleanupState.drawPointerId = null; cleanupEl("cleanupDraw").hidden = true;
-    });
+    cleanupEl("cleanupManual").addEventListener("click", () => cleanupSetTool("rectangle"));
+    cleanupEl("cleanupBrush").addEventListener("click", () => cleanupSetTool("brush"));
+    cleanupEl("cleanupEraser").addEventListener("click", () => cleanupSetTool("eraser"));
+    cleanupEl("cleanupUndo").addEventListener("click", () => cleanupHistory("undo"));
+    cleanupEl("cleanupRedo").addEventListener("click", () => cleanupHistory("redo"));
     cleanupEl("cleanupPreview").addEventListener("click", cleanupPreviewSelected);
     cleanupEl("cleanupSave").addEventListener("click", cleanupSaveSelected);
+    const stage = cleanupEl("cleanupStage");
+    stage.addEventListener("pointerdown", event => cleanupStageStart(event, stage));
+    stage.addEventListener("pointermove", event => cleanupStageMove(event, stage));
+    stage.addEventListener("pointerup", event => cleanupStageFinish(event, stage));
+    stage.addEventListener("pointercancel", () => {
+        cleanupState.drawStart = null; cleanupState.drawPointerId = null;
+        cleanupState.activeStroke = null;
+        cleanupEl("cleanupDraw").hidden = true;
+        cleanupRenderMask(cleanupCurrent());
+    });
     cleanupRender();
 }

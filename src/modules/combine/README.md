@@ -1,4 +1,4 @@
-# BrandForge Combine Generator (v1.7.29)
+# BrandForge Combine Generator (v1.7.33)
 
 This is a standalone Electron/Photoshop module. The uploaded `!COMBINE_TEMPLATE.psd`
 is retained in `template/COMBINE_TEMPLATE_REFERENCE.psd` as a read-only geometric
@@ -209,3 +209,38 @@ Tests: `npm run test:combine`, `npm run test:combine-cleanup`, and
 `npm run validate`. Optional browser QA: `python test/combineDualRowBrowser.py`
 (requires Playwright/Chromium only for QA, not to run BrandForge). Photoshop
 JSX/PSD export still needs verification on the Windows workstation.
+
+## v1.7.32 — Close captions and dual-name input guard
+
+Raster images are measured for visible product bounds at import. Regular Line Up
+rows expand only as tall as the largest fitted product in the pair, with both
+products bottom-aligned and their text boxes placed 6px beneath visible pixels.
+Dual-item rows use the visible full-width composition ratio instead of an
+unnecessary minimum blank height. Photoshop placement now honors the layout's
+actual x/y offsets, including bottom-aligned products. The source file and its
+full original PSD Smart Object remain unchanged. Unsupported PSD measurement
+uses the source document dimensions as an import-time fallback.
+
+The UI checks for LEFT and RIGHT names locally before requesting the layout:
+while a new dual-item name is blank, it displays an inline message and disables
+Generate, instead of repeatedly logging exceptions from Electron.
+
+## v1.7.33 — Precision text-only eraser
+
+The cleanup panel now supports Brush Select/Restore and Eraser that edit a
+**selection mask**, not the original image. Users can also undo/redo mask edits,
+adjust the brush diameter and use 0–3px inner-edge feather. Approved OCR boxes
+and manual rectangles remain available and can be refined with the eraser.
+
+**Clean Fill** is the default: locally interpolates nearby unselected source
+pixels into *selected pixels only*; it never copies nearby textured products or
+invents a product detail. Eraser holes are excluded from background sampling,
+because they may themselves contain text or protected product pixels.
+Content-Aware Fill is available only for rectangle selections (without brush
+or eraser edits); attempts to use it with a precise mask are blocked to prevent
+Photoshop from accidentally editing excluded product pixels.
+
+**Safety:** Original images stay unchanged; new versions are saved inside
+`COMBINE_CLEANED`. Preview approval is invalidated when the mask, feather, or
+engine changes. Complex backgrounds still require manual QC; no automated tool
+can guarantee perfect preservation when unwanted text overlaps a product.

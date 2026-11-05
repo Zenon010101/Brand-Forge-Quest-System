@@ -1,0 +1,23 @@
+BrandForge v1.7.33 — Combine precision text cleanup
+
+ADDED
+- Brush Select / Restore + Eraser edit a pixel-precise GREEN MASK.
+- Undo/Redo, brush size adjustment, inner-edge feather (0–3 px, default 0).
+- Clean Fill becomes default; pixels OUTSIDE the selected mask remain identical.
+- Eraser holes cannot be copied into background samples; original product pixels
+  protected by the eraser remain unchanged.
+- Photoshop Content-Aware is optional for untouched rectangle masks only;
+  with Brush/Eraser edits the app requires Clean Fill to prevent masked-out
+  product details from being overwritten.
+- Mandatory preview-before-save after changing the selection or cleanup method.
+
+PRESERVED
+- User-approved OCR/manual text selection and editable 28 px color labels.
+- Optional Single, regular and dual-item Line Up, dynamic close caption spacing.
+- Rakuten download-only importer, downloaded original bytes unchanged.
+- Slider Cut Image maximize / 50 px white bottom; no fixed 19 image limit.
+- All other BrandForge generators, profiles, EXP, history and output workflows.
+
+TEST STATUS
+- Automated Node tests and Chromium UI QA are available under test/.
+- Photoshop Windows COM/JSX not exercised by automated Linux checks.

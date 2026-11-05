@@ -38,8 +38,9 @@
                 Number(dest.placedHeight) / b.h);
             layer.resize(100 * factor, 100 * factor, AnchorPosition.TOPLEFT);
             b = box(layer);
-            layer.translate(px(Number(dest.slotX) + (Number(dest.slotWidth) - b.w) / 2 - b.x),
-                px(Number(dest.slotY) + (Number(dest.slotHeight) - b.h) / 2 - b.y));
+            // Match the planner's actual visible-item placement, including
+            // bottom-aligned regular Line Up rows with close captions.
+            layer.translate(px(Number(dest.x) - b.x), px(Number(dest.y) - b.y));
         }
         layer.visible = !hidden;
         return layer;

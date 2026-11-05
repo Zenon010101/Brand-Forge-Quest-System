@@ -387,12 +387,29 @@ function refreshButtons() {
     el("generate").textContent = state.busy ? "Generating Combine..." : "Generate Combine";
     el("openOutput").disabled = !state.lastOutput || state.busy;
 }
+function missingLineupName() {
+    for (let i = 0; i < state.lineup.length; i++) {
+        const item = state.lineup[i];
+        if (!String(item.colorName || "").trim()) {
+            return `Line Up image ${i + 1}: enter the ${item.rowMode === "dual" ? "LEFT" : "color"} name.`;
+        }
+        if (item.rowMode === "dual" && !String(item.colorNameRight || "").trim()) {
+            return `Line Up image ${i + 1}: enter the RIGHT color name (2 variants in this image).`;
+        }
+    }
+    return null;
+}
 function requestLayout() {
     const seq = ++planSeq;
     if (!allEntries().length) {
         state.layout = null; state.error = "Add at least one image to Single, Line Up, or Details.";
         showPlan(); return;
     }
+    // An unfinished field is normal while typing. Do not send it to the
+    // Electron IPC handler repeatedly, which previously logged the same
+    // 'Every Line Up variation needs a color name' exception on each keystroke.
+    const missing = missingLineupName();
+    if (missing) { state.layout = null; state.error = missing; showPlan(); return; }
     api.layout(payload()).then(layout => {
         if (seq !== planSeq) return;
         state.layout = layout; state.error = null; showPlan();
