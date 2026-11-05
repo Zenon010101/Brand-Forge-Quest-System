@@ -1,0 +1,48 @@
+BRANDFORGE 1.7.34 - MERGED INTO YOUR UPLOADED "updated 1.33.zip"
+==============================================================
+
+BASE: user-supplied updated 1.33.zip (not replaced by the generic v1.7.34 project)
+MERGED: Amazon Batch Workspace Hide Completed/Assigned feature from v1.7.34.
+
+NEW / UPDATED FEATURE
+- Mark Done & Next for Amazon product groups
+- Hide Completed IDs (manual completion flag, not based on 8 images)
+- Hide Assigned Images, with Show All for future sharing/reuse
+- Reopen completed ID when making changes
+- Existing group assignments and image order stay intact
+- Hide is UI-only: completed IDs remain included when generating outputs
+
+PRESERVED SPECIFICALLY FROM YOUR UPLOADED ZIP
+- src/modules/slider/renderer/app.js
+- src/modules/slider/renderer/index.html
+- All Combine, Amazon Photoshop, Slider processing, Colorbox, LP, Remove BG modules
+- INSTALL_COMBINE_PATCH.txt and PATCH_FILE_SHA256.txt are retained from your old source;
+  those two files refer to the earlier Combine patch, not to this merged release.
+
+AMAZON APPLICATION CODE ADDED/REPLACED
+  src/modules/amazon/renderer/batchWorkspace.js
+  src/modules/amazon/renderer/index.html
+  src/modules/amazon/renderer/style.css
+  src/modules/amazon/shared/batchVisibility.js (new)
+
+SUPPORTING FILES MERGED
+  package.json
+  package-lock.json
+  test/amazonBatchVisibility.js (new)
+  test/amazonBatchVisibilityBrowser.py (new)
+  README.md
+  UPGRADE_v1.7.34.txt
+  INSTALL_FULL_PROJECT_v1.7.34.txt
+  PROJECT_CHECKSUMS.txt (regenerated from this merged copy)
+
+INSTALLATION
+1. Back up the entire current BrandForge project.
+2. Extract the ZIP into a temporary folder.
+3. Copy and MERGE the contents of the extracted folder into your original project
+   root next to package.json; replace individual files, don't replace the entire
+   src directory if Windows asks to move/delete directories.
+4. Run VERIFY_BRANDFORGE_ROOT.cmd, then launch BrandForge as usual.
+5. For developer verification: npm run validate.
+
+NOTE: This is complete SOURCE, not a compiled EXE. On Windows, an EXE must be rebuilt.
+      The Python test script is optional QA only, not required to run BrandForge.

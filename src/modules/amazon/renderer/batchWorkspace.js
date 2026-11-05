@@ -11,8 +11,9 @@
     const formatFilters = window.BrandForgeImageFilters;
     const selectionOrder = window.BrandForgeSelectionOrder;
     const sharingEditor = window.BrandForgeBatchSharingEditor;
+    const visibility = window.BrandForgeBatchVisibility;
     const $ = id => document.getElementById(id);
-    if (!api || !sharing || !formatFilters || !selectionOrder || !sharingEditor) return;
+    if (!api || !sharing || !formatFilters || !selectionOrder || !sharingEditor || !visibility) return;
 
     const folderTab = $("folderModeTab");
     const batchTab = $("batchModeTab");
@@ -40,6 +41,9 @@
     let mode = "batch";
     let editingShareUid = null;
     let shareModalReturnFocus = null;
+    // Presentation-only preferences: assignments and image files are never removed by filtering.
+    let hideCompletedIds = true;
+    let hideAssignedImages = true;
 
     const acceptedFilePath = file => {
         try { return api.getPathForFile(file) || ""; }
@@ -53,7 +57,7 @@
         return n;
     };
     const group = () => groups.find(g => g.uid === activeUid) || null;
-    const assigned = () => new Set(groups.flatMap(g => g.files.map(norm)));
+    const assigned = () => visibility.usedImageKeys(groups);
     const totalIds = () => groups.reduce((sum, g) => sum + 1 + g.sharedIds.length, 0);
 
     function setMode(value) {
@@ -90,11 +94,42 @@
     }
 
     function newGroup(id = "") {
-        const item = { uid: nextUid++, id, files: [], sharedIds: [] };
+        const item = { uid: nextUid++, id, files: [], sharedIds: [], done: false };
         groups.push(item);
         activeUid = item.uid;
         renderAll();
         return item;
+    }
+    function markDoneAndNext() {
+        if (isBusy || scanningFolder) return;
+        const item = group();
+        if (!item) return;
+        if (item.done) {
+            item.done = false;
+            renderAll();
+            status(`Reopened ${item.id || "Product Group"}`, "The group is pending again; its image assignments were preserved.");
+            return;
+        }
+        const invalid = sharing.validId(item.id.trim());
+        if (invalid || !item.files.length) {
+            status("Product not ready", invalid || "Assign at least one image before marking this ID done.", true);
+            return;
+        }
+        const completedName = item.id.trim();
+        item.done = true;
+        activeUid = visibility.nextPendingUid(groups, item.uid);
+        selectedPool.clear();
+        renderAll();
+        if (activeUid !== null) {
+            const next = groupList.querySelector(`[data-group-uid="${activeUid}"]`);
+            if (next && typeof next.scrollIntoView === "function") next.scrollIntoView({ block: "nearest" });
+        }
+        status(`${completedName} marked done`, activeUid === null
+            ? "All Product IDs are complete. Click Show All to review or reopen them."
+            : `Moved to next pending ID: ${group()?.id || "(unnamed)"}. Assignments remain available for Generate Amazon.`);
+    }
+    function reopenOnEdit(item) {
+        if (item && item.done) item.done = false;
     }
     // Deleting a virtual group never touches the imported files on disk or
     // the image library. Confirm when this group has work attached to it.
@@ -170,6 +205,7 @@
         if (!item) return;
         const result = sharingEditor.preview(groups, item.uid, $("batchShareIdsInput").value);
         if (!result.ok) { refreshBatchShareValidation(); return; }
+        if (item.sharedIds.join("\n") !== result.ids.join("\n")) reopenOnEdit(item);
         item.sharedIds = [...result.ids];
         closeBatchShareModal();
         renderAll();
@@ -179,14 +215,26 @@
                 : `Sharing saved. Assign the source images before Generate Amazon.`);
     }
     function renderGroupList() {
+        const oldScroll = groupList.scrollTop;
         groupList.replaceChildren();
+        $("batchCompletionCount").textContent = `${visibility.completedCount(groups)} / ${groups.length} done`;
+        $("batchMarkDoneBtn").disabled = isBusy || scanningFolder || !group();
+        $("batchMarkDoneBtn").textContent = group()?.done ? "Reopen Selected" : "Mark Done & Next";
+        $("batchShowAllBtn").disabled = isBusy || (!hideCompletedIds && !hideAssignedImages);
         if (!groups.length) {
             groupList.append(el("div", "empty-state", "Add Product IDs, then assign up to eight images to each."));
             return;
         }
-        groups.forEach((item, index) => {
-            const row = el("div", "batch-group-entry");
+        const visible = visibility.visibleGroups(groups, hideCompletedIds);
+        if (!visible.length) {
+            groupList.append(el("div", "empty-state", "All Product IDs are marked done. Click Show All to review or reopen them."));
+            return;
+        }
+        visible.forEach(item => {
+            const index = groups.indexOf(item);
+            const row = el("div", `batch-group-entry${item.done ? " is-done" : ""}`);
             const button = el("button", `batch-group-card${item.uid === activeUid ? " active" : ""}`);
+            button.dataset.groupUid = String(item.uid);
             button.type = "button";
             button.setAttribute("aria-pressed", String(item.uid === activeUid));
             button.setAttribute("aria-label", `Select product group ${item.id || "unnamed"}`);
@@ -194,6 +242,7 @@
             const body = el("span", "batch-group-details");
             body.append(el("strong", "", item.id || "(enter Product ID)"));
             body.append(el("small", "", `${item.files.length}/8 images · ${item.sharedIds.length} shared ID(s)`));
+            if (item.done) body.append(el("small", "batch-group-done-badge", "✓ Done · image order retained"));
             if (item.sharedIds.length) body.append(el("small", "batch-share-names", `Linked: ${item.sharedIds.slice(0, 2).join(", ")}${item.sharedIds.length > 2 ? " …" : ""}`));
             button.append(body);
             button.addEventListener("click", () => {
@@ -237,6 +286,7 @@
             row.append(remove);
             groupList.append(row);
         });
+        groupList.scrollTop = oldScroll;
     }
     function renderEditor() {
         const item = group();
@@ -308,8 +358,12 @@
         $("batchSelectionPreview").textContent = picked.length
             ? `PICK ORDER → ${pickedNames.join("  →  ")} · Add Selected preserves this exact order (1 = Main + Colorbox).`
             : "Click images in the order you want: 1 = Main + Colorbox, then 2–8. Filters don't change your picks.";
-        const shown = [...pool.values()].filter(file => formatFilters.matchesFile(file, $("batchLibraryFilter").value)).length;
+        const matching = [...pool.values()].filter(file => formatFilters.matchesFile(file, $("batchLibraryFilter").value));
+        const shown = visibility.visibleImages(matching, groups, {
+            hideAssigned: hideAssignedImages, pickedKeys: picked, matchesFile: () => true
+        }).length;
         $("batchPoolCount").textContent = `${shown} of ${pool.size} image(s) visible · ${picked.length}/8 selected in click order`;
+        $("batchLibraryVisibilityCount").textContent = `${shown} shown${hideAssignedImages ? " · assigned hidden" : ""}`;
         $("batchAssignBtn").disabled = isBusy || !picked.length;
         $("batchClearSelectionBtn").disabled = isBusy || !picked.length;
         for (const tile of imagePool.querySelectorAll(".batch-pool-tile")) {
@@ -329,10 +383,16 @@
         // or the user's selection sequence across multiple filter changes.
         const previousScroll = imagePool.scrollTop;
         imagePool.replaceChildren();
-        const visible = [...pool.values()].filter(file => formatFilters.matchesFile(file, $("batchLibraryFilter").value));
+        const matching = [...pool.values()].filter(file => formatFilters.matchesFile(file, $("batchLibraryFilter").value));
+        const visible = visibility.visibleImages(matching, groups, {
+            hideAssigned: hideAssignedImages,
+            pickedKeys: selectedPool.values()
+        });
         if (!visible.length) {
             imagePool.append(el("div", "empty-state", pool.size
-                ? "No images match this file type. Switch Show file type to view other imported formats."
+                ? (matching.length && hideAssignedImages
+                    ? "All matching images are assigned. Uncheck Hide assigned images to reuse or review them."
+                    : "No images match this file type. Switch Show file type to view other imported formats.")
                 : "Paste an image-folder path and click Scan Images, or drag images in from File Explorer."));
             updatePoolSelection();
             return;
@@ -408,6 +468,7 @@
             remove.disabled = isBusy;
             remove.addEventListener("click", () => {
                 item.files.splice(index, 1);
+                reopenOnEdit(item);
                 renderAll();
             });
             row.append(remove);
@@ -439,6 +500,7 @@
         if (!item || isBusy || start < 0 || end < 0 || start >= item.files.length || end >= item.files.length || start === end) return;
         const [filePath] = item.files.splice(start, 1);
         item.files.splice(end, 0, filePath);
+        reopenOnEdit(item);
         renderAll();
         showPreview(filePath);
     }
@@ -448,7 +510,7 @@
         })) }];
         const plan = sharing.buildSharingPlan(virtual);
         const missing = groups.filter(g => !g.files.length || !g.id.trim()).length;
-        $("batchTotals").textContent = `${groups.length} source sets · ${groups.reduce((s,g)=>s+g.files.length,0)} assigned images · ${totalIds()} total IDs · ${plan.jpgCount} JPGs`;
+        $("batchTotals").textContent = `${groups.length} source sets · ${visibility.completedCount(groups)} done · ${groups.reduce((s,g)=>s+g.files.length,0)} assigned images · ${totalIds()} total IDs · ${plan.jpgCount} JPGs`;
         generate.disabled = isBusy || scanningFolder || !groups.length || missing > 0 || !outputFolder || !$("batchPsdName").value.trim() || !plan.ok;
         if (!isBusy && !plan.ok) {
             $("batchStatus").textContent = "Check product IDs / image assignments";
@@ -472,6 +534,7 @@
             if (Number.isInteger(at)) item.files.splice(at + count++, 0, p);
             else { item.files.push(p); count++; }
         }
+        if (count) reopenOnEdit(item);
         const skipped = paths.filter(p => pool.has(norm(p)) && !item.files.some(x => norm(x) === norm(p))).length;
         if (!count && paths.length) status("Nothing new assigned", "Each group allows up to eight distinct images.", true);
         else if (count) status(`${count} image(s) added`, skipped
@@ -587,6 +650,24 @@
     $("batchScanFormat").value = "all";
     $("batchLibraryFilter").value = "all";
     $("batchLibraryFilter").addEventListener("change", renderPool);
+    $("batchHideCompletedIds").addEventListener("change", event => {
+        hideCompletedIds = event.target.checked;
+        if (hideCompletedIds && group()?.done) activeUid = visibility.nextPendingUid(groups, activeUid);
+        renderAll();
+    });
+    $("batchHideAssignedImages").addEventListener("change", event => {
+        hideAssignedImages = event.target.checked;
+        renderPool();
+        renderGroupList();
+    });
+    $("batchShowAllBtn").addEventListener("click", () => {
+        hideCompletedIds = false;
+        hideAssignedImages = false;
+        $("batchHideCompletedIds").checked = false;
+        $("batchHideAssignedImages").checked = false;
+        renderAll();
+    });
+    $("batchMarkDoneBtn").addEventListener("click", markDoneAndNext);
 
     async function scanImageLocation() {
         if (isBusy || scanningFolder) return;
@@ -657,21 +738,25 @@
         const existing = new Set(groups.map(g => sharing.idKey(g.id)));
         const rejected = [];
         let count = 0;
+        let firstAddedUid = null;
         ids.forEach(id => {
             const issue = sharing.validId(id);
             if (issue || existing.has(sharing.idKey(id))) { rejected.push(`${id}: ${issue || "duplicate ID"}`); return; }
-            groups.push({ uid: nextUid++, id, files: [], sharedIds: [] });
-            activeUid = groups[groups.length - 1].uid;
+            const item = { uid: nextUid++, id, files: [], sharedIds: [], done: false };
+            groups.push(item);
+            if (firstAddedUid === null) firstAddedUid = item.uid;
             existing.add(sharing.idKey(id));
             count++;
         });
         $("batchBulkIds").value = "";
+        if (firstAddedUid !== null) activeUid = firstAddedUid;
         renderAll();
         status(`${count} product ID(s) created`, rejected.length ? rejected.slice(0, 2).join(" · ") : "Assign images to each product. No source folders are needed.", Boolean(rejected.length));
     });
     $("batchActiveId").addEventListener("input", event => {
         const item = group();
         if (!item) return;
+        if (item.id !== event.target.value) reopenOnEdit(item);
         item.id = event.target.value;
         renderGroupList();
         renderSummary();
@@ -679,7 +764,9 @@
     $("batchSharedIds").addEventListener("input", event => {
         const item = group();
         if (!item) return;
-        item.sharedIds = sharing.parseSharedIds(event.target.value);
+        const next = sharing.parseSharedIds(event.target.value);
+        if (item.sharedIds.join("\n") !== next.join("\n")) reopenOnEdit(item);
+        item.sharedIds = next;
         renderGroupList();
         renderSummary();
     });

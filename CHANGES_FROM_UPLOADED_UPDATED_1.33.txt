@@ -1,0 +1,42 @@
+BrandForge 1.7.34 Amazon workspace UI merge - Change report
+
+User-provided baseline: updated 1.33.zip (version 1.7.33)
+Final package version: 1.7.34
+
+CHANGED APPLICATION FILES
+- src/modules/amazon/renderer/batchWorkspace.js
+  Manual Mark Done, next unfinished ID selection, ID and image filters,
+  reopening, progress UI, and non-destructive handling of assigned images.
+- src/modules/amazon/renderer/index.html
+  Added visibility controls, Mark Done button, script include.
+- src/modules/amazon/renderer/style.css
+  Styling for filters, counters, completion state.
+NEW APPLICATION FILE
+- src/modules/amazon/shared/batchVisibility.js
+  Pure helpers for completed IDs, used image keys, visibility and next ID.
+
+ADDITIONAL PROJECT CHANGES
+- package.json, package-lock.json: v1.7.34 and test commands
+- test/amazonBatchVisibility.js: new regression tests
+- test/amazonBatchVisibilityBrowser.py: optional browser testing
+- README.md and v1.7.34 install/upgrade instructions
+- PROJECT_CHECKSUMS.txt updated for this exact merged source
+
+USER CUSTOM CHANGES PROTECTED AND LEFT BYTE-FOR-BYTE IDENTICAL
+- src/modules/slider/renderer/app.js
+- src/modules/slider/renderer/index.html
+
+No modifications to Photoshop JSX, processing engines, Combine, source images,
+Amazon generation or sharing backend. The previous custom patch documentation
+is preserved and still refers to the previous release.
+
+Verification performed:
+- npm run validate: PASSED
+- node --check on the modified app source: PASSED
+- Archive integrity: verified at packaging.
+- Windows Electron / Photoshop actual execution: not tested in this container.
+
+Install: Backup your current BrandForge project. Extract the full-project ZIP
+and merge the files into the project root next to package.json (do not delete
+the existing folders). Run VERIFY_BRANDFORGE_ROOT.cmd on Windows and start normally.
+This is source code, not a compiled portable EXE.

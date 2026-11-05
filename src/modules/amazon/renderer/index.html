@@ -255,6 +255,12 @@
                             <button type="button" id="batchAddGroupBtn" class="secondary batch-control">+ Blank Group</button>
                         </div>
                     </div>
+                    <div class="batch-visibility-toolbar" aria-label="Product ID visibility">
+                        <label class="batch-visibility-check"><input type="checkbox" id="batchHideCompletedIds" checked> Hide completed IDs</label>
+                        <span id="batchCompletionCount" class="batch-visibility-count" aria-live="polite">0 / 0 done</span>
+                        <button type="button" id="batchMarkDoneBtn" class="batch-mark-done" disabled>Mark Done &amp; Next</button>
+                        <button type="button" id="batchShowAllBtn" class="mini-btn ghost" title="Show all Product IDs and imported images">Show All</button>
+                    </div>
                     <div class="batch-group-list" id="batchGroupList"><div class="empty-state">Add Product IDs to begin.</div></div>
                     <div class="batch-padded batch-edit-group">
                         <label for="batchActiveId">Selected Product ID</label>
@@ -277,6 +283,10 @@
                         <div class="batch-library-filter">
                             <label for="batchLibraryFilter">Show file type</label>
                             <select id="batchLibraryFilter" aria-label="Filter images visible in library"></select>
+                        </div>
+                        <div class="batch-visibility-toolbar batch-visibility-toolbar-pool">
+                            <label class="batch-visibility-check"><input type="checkbox" id="batchHideAssignedImages" checked> Hide assigned images</label>
+                            <span id="batchLibraryVisibilityCount" class="batch-visibility-count">0 available</span>
                         </div>
                         <div class="batch-row">
                             <button type="button" id="batchAssignBtn" class="secondary batch-control">Add Selected in Pick Order</button>
@@ -371,6 +381,7 @@
     <script src="../shared/batchSharingEditor.js"></script>
     <script src="../shared/imageFilters.js"></script>
     <script src="../shared/selectionOrder.js"></script>
+    <script src="../shared/batchVisibility.js"></script>
     <script src="../../project-location/renderer/projectLink.js"></script>
     <script src="app.js"></script>
     <script src="batchWorkspace.js"></script>

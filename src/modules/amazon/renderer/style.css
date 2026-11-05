@@ -1002,3 +1002,18 @@ body { overflow-y: auto; }
   .batch-group-share { min-width:42px; font-size:9px; }
   .batch-group-delete { min-width:42px; font-size:9px; }
 }
+
+/* v1.7.34: Non-destructive ID / image visibility in Amazon Batch Workspace. */
+.batch-visibility-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:7px; padding:9px 10px; background:#121b22; border-top:1px solid var(--border-soft); border-bottom:1px solid var(--border-soft); }
+.batch-visibility-check { display:inline-flex; align-items:center; gap:6px; color:#d5e4eb; font-weight:700; font-size:10px; white-space:nowrap; cursor:pointer; }
+.batch-visibility-check input { width:14px; height:14px; margin:0; accent-color:#69c991; }
+.batch-visibility-count { margin-left:auto; font-size:10px; color:#9fbac7; white-space:nowrap; }
+.batch-visibility-toolbar .mini-btn { padding:5px 9px; font-size:10px; }
+.batch-mark-done { border:1px solid #62b582; background:#1d5634; color:#f0fff3; border-radius:7px; padding:6px 10px; font-size:10px; font-weight:800; cursor:pointer; }
+.batch-mark-done:hover:not(:disabled) { background:#287649; }
+.batch-mark-done:disabled { opacity:.48; cursor:not-allowed; }
+.batch-visibility-toolbar button:focus-visible, .batch-visibility-check input:focus-visible { outline:2px solid #a4e4c1; outline-offset:2px; }
+.batch-visibility-toolbar-pool { padding:7px 0 2px; border:0; background:transparent; }
+.batch-group-entry.is-done .batch-group-card { border-color:#527961; background:#17251b; }
+.batch-group-done-badge { font-size:9px; font-weight:850; color:#aaf0bd; }
+.batch-group-card .batch-group-done-badge { display:inline-block; margin-top:3px; }

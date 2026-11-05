@@ -1,0 +1,44 @@
+BrandForge v1.7.34 - COMPLETE ELECTRON SOURCE PROJECT (not a patch or EXE)
+
+INSTALL
+1. Close BrandForge. Back up the original source directory.
+2. Extract this ZIP. Confirm package.json and src/main/main.js are at the extraction root.
+3. Copy all extracted contents into:
+   D:\gulliver-image-workflow\gulliver-image-workflow
+   MERGE folders, REPLACE matching files. Do not replace only the src folder.
+4. Run VERIFY_BRANDFORGE_ROOT.cmd.
+5. If needed, run npm ci to install project dependencies, then npm start.
+   Rebuild your portable EXE if you run a packaged version instead of the source.
+
+WHAT CHANGED - AMAZON BATCH WORKSPACE (FOLDERLESS)
+- Hide completed IDs is enabled by default.
+- Hide assigned images is enabled by default. Picked images stay visible until cleared.
+- After assigning 1-8 images to an ID, click Mark Done & Next.
+- The current ID is marked done, hidden if the filter is checked, and the next
+  unfinished ID is automatically selected. Image filenames, order and shared IDs
+  are untouched.
+- Show All turns off both filters so finished IDs/images can be reviewed or reused.
+- Select a completed ID and click Reopen Selected to make it pending again.
+- Editing a finished group's images, image order, product ID or sharing settings
+  automatically sets it back to pending.
+- Newly pasted IDs select the FIRST newly added ID, making top-to-bottom
+  assignment easier than selecting the last ID immediately.
+- No automatic 8/8 completion: Mark Done works for 1-8 assigned images and a
+  valid Product ID. This is a manual progress marker, not a Generate requirement.
+
+SAFETY / LIMITATIONS
+- Filters only change what is visible. All groups (including hidden complete
+  ones) remain in the Amazon Generate payload. Share Images is unaffected.
+- Completion markers and imported batches are in application memory, like the
+  existing Batch Workspace. This update does not add persistent drafts: closing
+  the app clears the in-progress batch.
+- Existing originals are never deleted or renamed by hiding, marking done,
+  showing all, or reopening groups.
+- Other BrandForge modules are unchanged (Combine v1.7.33, Slider v1.7.32,
+  Amazon processing engine, Photoshop and Colorbox workflows).
+
+VERIFICATION
+- npm run validate: PASSED with the added Amazon visibility regression test.
+- UI click tests: python test/amazonBatchVisibilityBrowser.py PASSED with a
+  simulated Electron API and mock images. Python is only for developer QA.
+- Actual Windows Electron + Photoshop generation must be verified locally.

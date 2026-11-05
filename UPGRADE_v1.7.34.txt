@@ -1,0 +1,29 @@
+BrandForge v1.7.34 - Amazon Batch Workspace Hide Completed / Assigned
+
+UI only; NO changes to Photoshop JSX, Amazon image processing, Colorbox,
+file naming, sharing, image pick order, folder scanning or Combine.
+
+- Product groups gain a separate manual completion flag (done: true/false).
+- New default-enabled filters: Hide completed IDs and Hide assigned images.
+- Completed groups are hidden but kept in memory and in the generation payload.
+- Library hides images assigned to ANY group, not files on disk. Images already
+  selected in click order stay visible until the picks are cleared.
+- Show All disables both filters; reselect a completed group to reopen it.
+- Mark Done & Next automatically selects and scrolls to the next pending group,
+  wrapping if necessary. An empty/invalid group cannot be marked complete.
+- Editing a completed group automatically reopens it.
+- A multi-ID paste selects the first newly added group rather than the last.
+- Completion is independent of image count (1-8 allowed).
+- No persistent autosave is introduced in this release.
+
+Files changed or added:
+  src/modules/amazon/shared/batchVisibility.js (new)
+  src/modules/amazon/renderer/batchWorkspace.js
+  src/modules/amazon/renderer/index.html
+  src/modules/amazon/renderer/style.css
+  test/amazonBatchVisibility.js (new)
+  test/amazonBatchVisibilityBrowser.py (new; developer QA only)
+  package.json and package-lock.json (version/test script)
+
+Test: npm run validate and (optional) python test/amazonBatchVisibilityBrowser.py
+Read INSTALL_FULL_PROJECT_v1.7.34.txt before copying into your source project.

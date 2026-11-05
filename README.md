@@ -1,3 +1,31 @@
+# BrandForge v1.7.34 - Amazon Hide Completed / Assigned
+
+**Complete Electron source project** (not an EXE). This release adds optional
+visibility filters to the existing Amazon Batch Workspace and does not change
+its image processing or Photoshop implementation.
+
+**New Amazon workflow:** Both **Hide completed IDs** and **Hide assigned images**
+start enabled. Assign 1-8 images to a Product ID and click **Mark Done & Next**.
+The completed ID is hidden from the list while the app selects the next pending
+ID, reducing repeated scrolling. The library hides images already assigned to
+any Product ID; use **Show All** or uncheck the library filter to reuse them.
+A selected image is never hidden just because a filter changed mid-pick.
+
+**No files or assignments are deleted.** Share Images, Colorbox, image order,
+the eight-image maximum, and all other modules remain unchanged. A completed
+ID can be reopened and edited; modifying a finished image set resets it to
+pending. This is a manual progress flag, not an 8/8 requirement or persistent
+draft system. All in-progress groups are cleared on app restart as before.
+
+**Verification:** `npm run validate` and the optional browser interaction test
+`python test/amazonBatchVisibilityBrowser.py`. Actual Windows Photoshop
+execution must still be checked on your machine.
+
+Read `INSTALL_FULL_PROJECT_v1.7.34.txt` for installation steps and
+`UPGRADE_v1.7.34.txt` for the changed-file inventory.
+
+---
+
 # BrandForge v1.7.33 — Precision Combine Text Cleanup
 
 **Complete Electron source project**, including all features and fixes from
