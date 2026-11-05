@@ -1,9 +1,9 @@
 {
   "name": "image-workflow-studio",
-  "version": "1.7.34",
+  "version": "1.7.35",
   "private": true,
   "type": "commonjs",
-  "description": "BrandForge Amazon Batch Workspace: non-destructive Hide Completed IDs, Hide Assigned Images, and Mark Done & Next; retains Combine Precision Eraser and Slider improvements.",
+  "description": "BrandForge Combine Line Up: portrait single-variant products keep proportional full-column size alongside dual rows; includes Amazon Hide Completed/Assigned and existing modules.",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",

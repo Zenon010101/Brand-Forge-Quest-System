@@ -107,7 +107,7 @@ function makeRow(entry, section, i) {
     const title = document.createElement("strong"); title.textContent = entry.name;
     const meta = document.createElement("small");
     meta.textContent = section === "single" ? "Top section · 600 x 600" : section === "lineup"
-        ? (entry.rowMode === "dual" ? `Image ${i + 1} · full row · 2 × 28 px labels` : `Variation ${i + 1} · half row · 28 px name`)
+        ? (entry.rowMode === "dual" ? `Image ${i + 1} · full row · 2 × 28 px labels` : `Variation ${i + 1} · 1 column · proportional height · 28 px name`)
         : `Detail ${i + 1} · box 293 x 293`;
     copy.append(title, meta);
     if (section === "lineup") {

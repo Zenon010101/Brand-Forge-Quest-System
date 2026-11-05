@@ -8,7 +8,7 @@ const path = require("path");
 const DIM = Object.freeze({
     width: 600, single: 600, singleGap: 15,
     margin: 3, cell: 293, columnGap: 8, rowGap: 7,
-    dualWidth: 594, dualMaxHeight: 1600,
+    dualWidth: 594, dualMaxHeight: 1600, lineupPortraitMaxHeight: 594,
     labelGap: 6, labelSize: 28, labelLine: 36,
     detailsGap: 30, detailsHeadingSize: 28,
     detailsHeadingHeight: 36, detailsHeadingGap: 16,
@@ -91,11 +91,14 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
     function appendNormalRow(items) {
         if (!items.length) return;
         const labels = items.map(({ item }) => wrapColorName(item.colorName));
-        // Product height is measured from the actual visible item (not the
-        // source's white/transparent borders). Each product stays within a
-        // 293px column, but short products no longer reserve a 293px-tall
-        // invisible image area above the editable caption.
-        const measured = items.map(({ item }) => fitInside(item, 0, 0, DIM.cell, DIM.cell));
+        // Each single-variant product keeps its 293px COLUMN width, but is
+        // NOT constrained to a 293px-square image box. Tall products such as
+        // coats can use the same vertical scale as the adjacent 594px-wide
+        // two-variant rows, without distortion, cropping, or extra whitespace.
+        // The actual visible bounds (not source white/alpha borders) determine
+        // the product height; the 28px text remains directly underneath.
+        const measured = items.map(({ item }) =>
+            fitInside(item, 0, 0, DIM.cell, DIM.lineupPortraitMaxHeight));
         const imageHeight = Math.max(...measured.map(item => item.placedHeight));
         const labelHeight = Math.max(...labels.map(lines => lines.length)) * DIM.labelLine;
         const labelTop = y + imageHeight + DIM.labelGap;

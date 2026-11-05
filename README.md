@@ -1,3 +1,34 @@
+# BrandForge v1.7.35 - Combine Single-Variant Line Up Image Sizing
+
+Complete Electron/Photoshop source project, based on the user's merged v1.7.34 project (`updated 1.33.zip` plus Amazon Hide Completed/Assigned). Keeps the user's customized Slider renderer files intact.
+
+## Fixed: single-variant lineup images look smaller than dual-variant images
+
+The prior Combine planner forced every regular one-variant Line Up image into a **293 x 293 px** square, even for portrait clothing. Adjacent dual-item image rows can display almost twice the product height. This caused one-color coats in mixed row layouts (for example CHN-96) to look much smaller.
+
+**New behavior:** regular one-variant Line Up images still occupy one **293 px column**, but may use up to **594 px of visible height**, maintaining the original aspect ratio without cropping, stretching, or resizing the original source file. Captions remain editable 28 px Photoshop text layers, 6 px below the visible image bottom. Two regular images still share a row when adjacent; rows with a dual-item source still take one full-width row with separate LEFT and RIGHT color labels. Details remain 293 x 293 px. The prior image order and optional Single behavior are unchanged.
+
+The adjustment is made in the Combine layout planner and displayed in the existing Combine preview. Photoshop's existing image preparation and Smart Object placement honor the resulting dimensions. The images imported/downloaded by BrandForge are not modified.
+
+## Files modified from user merged v1.7.34 baseline
+
+- `src/modules/combine/main/planner.js` - permit taller regular Line Up product slots, using uniform aspect-ratio-preserving fit.
+- `src/modules/combine/renderer/app.js` - clarify the 1-variant mode label.
+- `test/combine.js` and `test/combineSpacing.js` - regression tests for mixed dual/solo Line Up source heights and PSD preparation.
+- `package.json` and `package-lock.json` - version bump.
+- `README.md`, `INSTALL_FULL_PROJECT_v1.7.35.txt` - usage notes.
+
+## Installation
+
+1. Close BrandForge. Back up the current project folder.
+2. Extract this full project ZIP. Copy extracted contents into `D:\gulliver-image-workflow\gulliver-image-workflow`, merging folders and replacing matching files.
+3. Run `VERIFY_BRANDFORGE_ROOT.cmd`, then `npm run validate` and `npm start` from the project root.
+4. In Combine, assign one single-variant portrait image between two dual-item rows and check it in the full layout preview, then generate PSD/JPEG using Windows Photoshop for final verification.
+
+**Important:** This ZIP contains complete source, not an EXE. Actual Windows Photoshop COM/JSX execution cannot be validated in this Linux environment; check it on your workstation.
+
+---
+
 # BrandForge v1.7.34 - Amazon Hide Completed / Assigned
 
 **Complete Electron source project** (not an EXE). This release adds optional

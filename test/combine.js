@@ -40,12 +40,21 @@ async function testLayouts() {
     assert.equal(layout.details[6].slotX, 3);
     assert.equal(layout.height, layout.details[6].slotY + DIM.cell + DIM.margin);
     assert(layout.detailsHeader.y >= layout.lineup[4].labelY + layout.lineup[4].labelHeight + DIM.detailsGap);
-    // A detail image must fit *inside* its designated cell without clipping.
-    for(const p of [...layout.lineup, ...layout.details]) {
+    // Detail boxes remain fixed 293px squares. Single-variant Line Up images
+    // keep the same column width but may exceed 293px vertically if tall.
+    for(const p of layout.details) {
         assert(p.placedWidth <= 293 && p.placedHeight <= 293);
         assert(p.x >= p.slotX && p.y >= p.slotY);
         assert(p.x + p.placedWidth <= p.slotX + 293);
         assert(p.y + p.placedHeight <= p.slotY + 293);
+    }
+    for(const p of layout.lineup) {
+        const maxWidth=p.rowMode==="dual"?DIM.dualWidth:DIM.cell;
+        const maxHeight=p.rowMode==="dual"?DIM.dualMaxHeight:DIM.lineupPortraitMaxHeight;
+        assert(p.placedWidth<=maxWidth && p.placedHeight<=maxHeight);
+        assert(p.x >= p.slotX && p.y >= p.slotY);
+        assert(p.x+p.placedWidth<=p.slotX+p.slotWidth);
+        assert(p.y+p.placedHeight<=p.slotY+p.slotHeight);
     }
     assert.deepEqual(layout.lineup.map(x => x.colorName), ["Black", "Navy", "Beige", "White", "Red"]);
     assert.equal(layout.jpegCount, 1);
@@ -70,6 +79,24 @@ async function testLayouts() {
     assert.equal(fullRow.lineup[0].labels[1].x,304);
     assert.equal(fullRow.lineup[0].labels[0].y,fullRow.lineup[0].labels[1].y);
     assert.equal(fullRow.height,594 + DIM.labelGap + DIM.labelLine);
+    // Regression: a lone portrait source between full-width two-item images
+    // must NOT be squeezed into the old 293x293 square. It stays in one
+    // 293px-wide column, grows vertically in proportion, and retains 1 label.
+    const portrait={...part("one-coat", 260, 475),colorName:"Chocolate"};
+    const mixedPortrait=buildCombineLayout({single:null,lineup:[duo,portrait,duo],details:[],outputName:"PORTRAIT_WITH_DUAL"});
+    const lone=mixedPortrait.lineup[1];
+    assert.equal(mixedPortrait.lineupRowCount,3);
+    assert.deepEqual(mixedPortrait.lineupRows.map(row=>row.kind),["dual","regular","dual"]);
+    assert.equal(DIM.lineupPortraitMaxHeight,594);
+    assert.equal(lone.slotWidth,DIM.cell);
+    assert(lone.placedHeight>DIM.cell,`Single-variant portrait was shrunk: ${lone.placedHeight}`);
+    assert(lone.placedHeight<=DIM.lineupPortraitMaxHeight);
+    assert(lone.placedWidth<=DIM.cell);
+    assert(Math.abs(lone.placedWidth/lone.placedHeight-260/475)<.005,"Keep original coat aspect ratio");
+    assert.equal(lone.labels.length,1);
+    assert.equal(lone.labelY,lone.y+lone.placedHeight+DIM.labelGap);
+    assert.equal(mixedPortrait.lineup[2].slotY,
+        mixedPortrait.lineupRows[1].top+mixedPortrait.lineupRows[1].rowHeight+DIM.rowGap);
     // Multiple two-product images stack vertically, one image per row.
     const duos = Array.from({length:3}, (_,i) => ({...part("dual"+i),rowMode:"dual",
         colorName:"Left "+i,colorNameRight:"Right "+i}));

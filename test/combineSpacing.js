@@ -58,6 +58,31 @@ async function run() {
       assert.equal(entry.labelY-(prepared.y+prepared.placedHeight),DIM.labelGap);
     }
     assert(pair.height<335,"Dynamic Line Up rows should not keep unnecessary vertical space");
+    // A tall, single-product Line Up source must not be scaled down merely
+    // because it has one editable caption rather than two. A 500x900 portrait
+    // now takes a 293px column with a taller-than-square image box.
+    const tallProduct=path.join(dir,"portrait-coat.png");
+    const productStamp=await sharp({create:{width:480,height:840,channels:4,background:"#667388"}}).png().toBuffer();
+    await sharp({create:{width:620,height:1040,channels:4,background:"#ffffff"}})
+      .composite([{input:productStamp,left:70,top:60}]).png().toFile(tallProduct);
+    const tallResult=await inspectBatch([tallProduct]);
+    const coat=tallResult.images[0];
+    const withCoat=buildCombineLayout({single:null,lineup:[
+      {...a,rowMode:"dual",colorName:"White",colorNameRight:"Beige"},
+      {...coat,colorName:"Brown"},
+      {...a,rowMode:"dual",colorName:"Navy",colorNameRight:"Black"}
+    ],details:[a],outputName:"COAT_SINGLE_ROW"});
+    const one=withCoat.lineup[1];
+    assert.equal(withCoat.lineupRows[1].kind,"regular");
+    assert(one.placedHeight>DIM.cell,"Tall single-product coat should not be capped at 293px");
+    assert(one.placedHeight<=DIM.lineupPortraitMaxHeight);
+    assert(one.placedWidth<=DIM.cell);
+    assert.equal(one.labelY-one.y-one.placedHeight,DIM.labelGap);
+    const preparedCoat=await preparedEntry(one,7,dir,new Map());
+    assert(preparedCoat.placedHeight>DIM.cell,"Actual Photoshop source preparation must retain the taller product scale");
+    assert.equal(one.labelY-(preparedCoat.y+preparedCoat.placedHeight),DIM.labelGap);
+    assert.equal(withCoat.details[0].slotWidth,DIM.cell,"Details sizing must remain unchanged");
+    assert.equal(withCoat.details[0].slotHeight,DIM.cell);
     // UI guard: typing a blank RIGHT caption must not invoke the IPC layout.
     const app=fs.readFileSync(path.join(__dirname,"../src/modules/combine/renderer/app.js"),"utf8");
     const code=extractFunction(app,"missingLineupName")+"\n"+extractFunction(app,"requestLayout");

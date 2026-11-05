@@ -1,0 +1,19 @@
+BrandForge v1.7.35 - Combine Single-Item Line Up Size Fix
+
+BASE: BrandForge_Updated_1.33_MERGED_Amazon_v1.7.34_FULL_PROJECT.zip
+
+CHANGED APP FILES:
+- src/modules/combine/main/planner.js: single-variant images retain up to 594 px of portrait height while staying within a 293px column, without cropping or stretching; editable 28px captions remain close below.
+- src/modules/combine/renderer/app.js: clarify the one-column proportional sizing label.
+
+CHANGED TESTS:
+- test/combine.js: checks lone portrait between two dual-item rows.
+- test/combineSpacing.js: checks staged raster size and label gap for tall images.
+
+SUPPORTING FILES:
+- package.json / package-lock.json: v1.7.35
+- README.md / PROJECT_CHECKSUMS.txt / INSTALL_FULL_PROJECT_v1.7.35.txt / UPGRADE_v1.7.35.txt
+
+ALL OTHER MODULE APPLICATION FILES UNCHANGED, including Amazon and your customized Slider.
+
+INSTALL: backup current project, merge extracted full source ZIP into project root, run npm run validate then npm start.

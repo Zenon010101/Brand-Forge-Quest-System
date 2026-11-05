@@ -1,0 +1,18 @@
+BrandForge v1.7.35 - Complete Source Project
+
+BASE: your merged v1.7.34 project with custom Slider app.js and index.html.
+CHANGES: Combine 1-variant portrait images now retain proportional column-width scale; no 293px height restriction.
+
+INSTALL:
+1. Close BrandForge; back up your project folder.
+2. Extract the full ZIP and merge all files into D:\gulliver-image-workflow\gulliver-image-workflow.
+3. Replace existing matching files. Do not delete your own node_modules or unrelated data folders.
+4. Run VERIFY_BRANDFORGE_ROOT.cmd (on Windows).
+5. In VS Code terminal at the project root run: npm run validate
+6. Launch: npm start
+7. Verify a mixed dual-item / solo portrait Line Up sequence with Photoshop PSD/JPEG generation.
+
+MODIFIED APPLICATION FILES:
+- src/modules/combine/main/planner.js
+- src/modules/combine/renderer/app.js
+All other application source files are preserved from your baseline.
