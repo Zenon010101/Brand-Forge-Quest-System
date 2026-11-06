@@ -1,0 +1,36 @@
+BrandForge v1.7.36 - Automatic Caption Cleanup After Rakuten Download
+
+BASE: BrandForge v1.7.35 full project (including your customized Slider,
+Amazon Hide Completed, Combine dual rows, proportional solo Line Up, and precision eraser).
+
+NEW: Combine -> Rakuten Slider Downloader has automatic safe text cleanup ON by default.
+The downloader always saves ORIGINAL images as numbered files in the item folder.
+After each successful original download, offline OCR scans for short captions.
+Only confidently detected captions on uniform light backgrounds are cleaned
+using Clean Fill. Successful new PNGs are saved in COMBINE_CLEANED.
+Unsupported, uncertain, and overlapping text is flagged for manual review
+rather than edited. The existing Remove Existing Image Text brush/eraser panel
+can be used for anything that needs manual correction.
+
+No changes to Amazon, Slider, Photoshop JSX, image assignment or Combine output sizing.
+No automatic assignment to Single / Line Up / Details (preserves manual import).
+No new npm dependencies or Python needed at runtime.
+OCR requires Tesseract (eng/jpn for best results) or supported Windows OCR.
+
+INSTALL:
+1. Close BrandForge and back up the current full project folder.
+2. Extract this full ZIP and merge its contents into
+   D:\gulliver-image-workflow\gulliver-image-workflow.
+3. Replace matching files. Do not delete node_modules or your own data.
+4. In the project directory run: npm run validate
+5. Launch with: npm start
+6. Open Combine -> Rakuten Slider Downloader. Auto Clean is enabled by default.
+7. Download any Rakuten slider, open the output folder, inspect original files
+   and COMBINE_CLEANED PNGs, and review any skipped captions.
+8. To disable automatic cleanup for a download, uncheck Auto Clean first.
+
+TESTED: node syntax, full npm validate suite, browser UI auto-on/off,
+original/cleaned preview toggle, synthetic OCR + pixel protection tests;
+manual test on a dual coat-color reference image with Tesseract succeeded.
+NOT VERIFIED: Windows native OCR, Photoshop COM/JSX execution, live Rakuten
+website access, or every possible caption and background.

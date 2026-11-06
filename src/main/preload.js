@@ -122,9 +122,9 @@ contextBridge.exposeInMainWorld("combineApp", {
     saveCleanup: data => ipcRenderer.invoke("combine:cleanup-save", data),
     scanRakuten: data => ipcRenderer.invoke("combine:rakuten-scan", data),
     chooseRakutenFolder: () => ipcRenderer.invoke("combine:rakuten-choose-folder"),
-    downloadRakuten: folder => ipcRenderer.invoke("combine:rakuten-download", folder),
+    downloadRakuten: (folder, options = {}) => ipcRenderer.invoke("combine:rakuten-download", {folder,autoClean:options.autoClean === true}),
     openRakutenFolder: () => ipcRenderer.invoke("combine:rakuten-open-folder"),
-    previewRakuten: index => ipcRenderer.invoke("combine:rakuten-preview", index),
+    previewRakuten: (index, options = {}) => ipcRenderer.invoke("combine:rakuten-preview", {index,original:options.original === true}),
     onRakutenProgress: callback => {
         const handler = (_event, data) => callback(data);
         ipcRenderer.on("combine:rakuten-progress", handler);

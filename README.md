@@ -1,3 +1,15 @@
+# BrandForge v1.7.36 - Auto-Clean Captions After Downloading Rakuten Slides
+
+Combine's Rakuten Slider Downloader now offers **Automatically remove safe color captions after downloading**, ON by default. Each original slide is saved byte-for-byte, in website order, exactly as before. The downloader then runs existing local OCR + **Clean Fill** on short detected captions surrounded by a uniform light background; cleaned PNGs are versioned in `COMBINE_CLEANED` under the product folder. When OCR joins two separate left/right color names into one line, the system attempts to detect the gap and recognize each half separately (it does not erase the full combined width).
+
+**Safety:** Only high-confidence, simple caption regions are auto-edited. Text overlapping a product, complex texture, unknown language, unsupported image formats, or an unavailable OCR engine is **left unchanged and flagged for review**. The original can always be opened in the existing manual Brush/Eraser text cleanup tool. Use **Show original thumbnails** in the downloader to compare originals with auto-cleaned previews. No Photoshop Content-Aware, network AI, new npm dependency, or Python runtime is required; locally installed Tesseract (preferably English + Japanese language packs) or supported Windows OCR is used. Full automatic accuracy is not guaranteed.
+
+**No auto-classification:** Downloading does not add files to Single, Line Up or Details. Import the cleaned PNGs manually when ready. The slide manifest records original paths, cleaned paths, names, and review warnings. Previous Amazon, Slider and Combine generation behavior is unchanged.
+
+Verified with `npm run validate`, optional browser UI test, and a local Tesseract run on an earlier dual-coat Line Up sample. Real Windows OCR, Photoshop and live Rakuten downloads must still be checked on the user's PC. See `INSTALL_FULL_PROJECT_v1.7.36.txt`.
+
+---
+
 # BrandForge v1.7.35 - Combine Single-Variant Line Up Image Sizing
 
 Complete Electron/Photoshop source project, based on the user's merged v1.7.34 project (`updated 1.33.zip` plus Amazon Hide Completed/Assigned). Keeps the user's customized Slider renderer files intact.

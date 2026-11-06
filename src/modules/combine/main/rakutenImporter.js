@@ -325,7 +325,8 @@ class RakutenImporter {
         return this.scanned;
     }
 
-    async download(parentFolder, progress=()=>{}) {
+    async download(parentFolder, progress=()=>{}, { autoClean = false, autoCleaner = null } = {}) {
+        if (autoClean && typeof autoCleaner !== "function") throw new Error("An automatic text-cleanup processor is required.");
         if (!this.scanned) throw new Error("Scan the Rakuten iframe first.");
         const root = await fs.promises.realpath(parentFolder);
         if (!(await fs.promises.stat(root)).isDirectory()) throw new Error("Choose an existing download folder.");
@@ -343,8 +344,22 @@ class RakutenImporter {
                 const temporary = `${destination}.partial`;
                 try { await fs.promises.writeFile(temporary, res.buffer, {flag:"wx"}); await fs.promises.rename(temporary,destination); }
                 finally { await fs.promises.rm(temporary,{force:true}).catch(()=>{}); }
-                records.push({ ...item, path:destination, width:metadata.width, height:metadata.height, bytes:res.buffer.length, status:"downloaded" });
-                progress({done:records.length, total:this.scanned.images.length, name:item.name, status:"downloaded"});
+                // Download succeeds independently of OCR or text cleanup.
+                // A cleanup failure must never discard/recompress the original.
+                const record={ ...item, path:destination, width:metadata.width, height:metadata.height,
+                    bytes:res.buffer.length, status:"downloaded" };
+                if (autoClean) {
+                    progress({done:records.length,total:this.scanned.images.length,name:item.name,status:"cleaning"});
+                    try {
+                        const cleaned=await autoCleaner(destination,item);
+                        record.cleanup=cleaned || {status:"needs-review",warning:"No cleanup result returned."};
+                    } catch (error) {
+                        record.cleanup={status:"needs-review",removedCount:0,warning:`Cleanup error: ${error.message}`};
+                    }
+                }
+                records.push(record);
+                progress({done:records.length, total:this.scanned.images.length, name:item.name,
+                    status:autoClean ? (record.cleanup.status || "needs-review") : "downloaded"});
             } catch (error) {
                 records.push({...item, path:null, status:"failed", error:error.message });
                 progress({done:records.length,total:this.scanned.images.length,name:item.name,status:"failed",error:error.message});
@@ -352,9 +367,10 @@ class RakutenImporter {
         }
         const manifest = { sourcePage:this.scanned.sourcePage, sliderPage:this.scanned.sliderPage,
             detectedUsing:this.scanned.method, downloadedAt:new Date().toISOString(),
-            outputMode:"download-only", imageOrder:"website", images:records };
+            outputMode:autoClean ? "download-with-optional-caption-cleanup" : "download-only", imageOrder:"website",
+            originalsPreserved:true, autoCleanupEnabled:Boolean(autoClean), images:records };
         await fs.promises.writeFile(path.join(batchFolder,"slider_manifest.json"),JSON.stringify(manifest,null,2));
-        this.downloaded = {folder:batchFolder, images:records, sourcePage:this.scanned.sourcePage};
+        this.downloaded = {folder:batchFolder, images:records, sourcePage:this.scanned.sourcePage, autoCleanupEnabled:Boolean(autoClean)};
         return this.downloaded;
     }
 

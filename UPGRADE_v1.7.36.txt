@@ -1,0 +1,33 @@
+BrandForge v1.7.35 -> v1.7.36
+
+MAIN FEATURE:
+- Combine Rakuten Downloader: automatic caption cleanup after each download.
+- Checkbox ON by default. Original image bytes never altered.
+- Cleaned results: separate COMBINE_CLEANED PNGs beside the originals.
+- Labels detected as side-by-side merged OCR lines are rescanned in halves.
+- Only confidently identified short captions on uniform/light backgrounds
+  are automatically removed. Hard regions remain unchanged for manual review.
+- Status and OCR caption names saved in slider_manifest.json; source order kept.
+- Show original thumbnails checkbox for immediate before/after comparison.
+- No automatic Line Up/Details classification or addition.
+
+CHANGED APP FILES:
+- src/modules/combine/main/autoCaptionCleanup.js (new)
+- src/modules/combine/main/rakutenImporter.js
+- src/modules/combine/main/register.js
+- src/modules/combine/renderer/app.js
+- src/modules/combine/renderer/index.html
+- src/main/preload.js
+
+CHANGED SUPPORT FILES:
+- package.json, package-lock.json
+- test/rakutenAutoCaptionCleanup.js (new)
+- test/rakutenAutoCleanupBrowser.py (optional UI QA, new)
+- README.md, src/modules/combine/README.md, PROJECT_CHECKSUMS.txt
+- INSTALL_FULL_PROJECT_v1.7.36.txt, UPGRADE_v1.7.36.txt
+
+No source modifications to Amazon, Slider, Combine planner, Photoshop workers,
+or image-processing modules outside the downloader/cleanup integration.
+
+TESTS: npm run validate; optional python3 test/rakutenAutoCleanupBrowser.py
+(on a QA workstation with Playwright and Chromium, NOT needed by BrandForge).

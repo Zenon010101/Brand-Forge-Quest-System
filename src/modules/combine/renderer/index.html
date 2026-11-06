@@ -14,8 +14,8 @@
   <div class="workgrid">
     <aside class="editor">
       <section class="panel section rakuten-panel" id="rakutenPanel">
-        <div class="panel-head"><div><span class="step">WEB</span><h2>Rakuten Slider Downloader</h2></div><span class="tag">Download only</span></div>
-        <p class="tip">Paste a Rakuten product item URL or its slider iframe URL. The scanner checks normal, encoded, and nested Rakuten GOLD iframes. Download only slider images in original website order. Files stay unchanged and go into one numbered product folder. No classification or Combine upload is required.</p>
+        <div class="panel-head"><div><span class="step">WEB</span><h2>Rakuten Slider Downloader</h2></div><span class="tag">Originals safe</span></div>
+        <p class="tip">Paste a Rakuten product URL or slider iframe URL. Original slides are downloaded in website order and never modified. Automatic caption cleanup saves separate PNG copies under COMBINE_CLEANED; images with uncertain text remain for manual review. No automatic section assignment.</p>
         <label class="field-label" for="rakutenUrl">Rakuten Product / Slider URL</label>
         <input class="field" id="rakutenUrl" placeholder="https://item.rakuten.co.jp/glv/lvh-97/" spellcheck="false" />
         <details class="html-override"><summary>Advanced: Paste slider HTML if the page blocks scanning</summary>
@@ -23,14 +23,16 @@
         </details>
         <label class="field-label" for="rakutenFolder">Save inside this parent folder (optional)</label>
         <div class="output-location"><span id="rakutenFolder">Windows Downloads (default)</span><button type="button" id="rakutenChooseFolder" class="minor">Choose Folder</button></div>
+        <label class="cleanup-pref rakuten-pref"><input type="checkbox" id="rakutenAutoCleanup" checked> Automatically remove safe color captions after downloading (Clean Fill · no Photoshop). Original files remain untouched.</label>
+        <label class="cleanup-pref rakuten-pref"><input type="checkbox" id="rakutenPreviewOriginals"> Show original thumbnails instead of cleaned previews</label>
         <div class="section-tools"><button type="button" id="rakutenDownload" class="action">Download Slider Images</button><button type="button" id="rakutenOpenFolder" class="minor" disabled>Open Download Folder</button></div>
         <span id="rakutenScanInfo" class="scan-info">Paste URL and click Download</span>
         <div id="rakutenSlideList" class="rakuten-list"><p class="empty">Downloaded slide files will appear here in order.</p></div>
-        <p id="rakutenStatus" class="tip">Only slider images are downloaded. Single, Line Up and Details can be assigned later using the normal Combine uploads.</p>
+        <p id="rakutenStatus" class="tip">Automatic cleanup is ON. It removes only OCR captions on clearly uniform light backgrounds. Review skipped or uncertain images in Remove Existing Image Text below.</p>
       </section>
       <section class="panel section cleanup-panel" id="cleanupPanel">
         <div class="panel-head"><div><span class="step">CLEAN</span><h2>Remove Existing Image Text</h2></div><span class="tag">Optional · originals safe</span></div>
-        <p class="tip">Detect embedded English/Japanese captions on downloaded JPG/PNG images, choose only the text that should disappear, then inspect the reconstructed background. Logos and product details must remain untouched. Nothing is removed automatically from downloaded files.</p>
+        <p class="tip">Detect embedded English/Japanese captions on downloaded JPG/PNG images, choose only the text that should disappear, then inspect the reconstructed background. Logos and product details must remain untouched. Downloaded originals are never changed. Auto-cleaned copies appear in COMBINE_CLEANED; use this panel to review skipped text or refine a result.</p>
         <div class="section-tools"><button type="button" id="cleanupFromDownloads" class="action">Use Downloaded Slides</button><button type="button" id="cleanupChoose" class="minor">Choose Images</button></div>
         <div id="cleanupQueue" class="cleanup-queue"><p class="empty">Select downloaded slides or choose local images to clean.</p></div>
         <label class="field-label" for="cleanupMode">Detection / selection mode</label>

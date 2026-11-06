@@ -244,3 +244,27 @@ Photoshop from accidentally editing excluded product pixels.
 `COMBINE_CLEANED`. Preview approval is invalidated when the mask, feather, or
 engine changes. Complex backgrounds still require manual QC; no automated tool
 can guarantee perfect preservation when unwanted text overlaps a product.
+
+
+## v1.7.36 — Rakuten Auto-Clean After Download
+
+Downloader checkbox **Automatically remove safe color captions** defaults to ON.
+Originals remain directly in the numbered product folder, byte-for-byte unchanged.
+For each slide, the downloader calls local Tesseract / Windows OCR and attempts
+Clean Fill only for short, strongly detected caption regions on clearly uniform
+light backgrounds. Generated cleaned PNGs live inside `COMBINE_CLEANED`;
+`slider_manifest.json` records `autoCleanupEnabled` and each image's `cleanup`
+status (`cleaned`, `partial`, `no-caption`, or `needs-review`), clean path,
+detected color-name text, and relevant warnings. One uncertain image never
+prevents remaining originals from downloading.
+
+When OCR merges two side-by-side color labels, a large-gap check triggers
+additional OCR passes on each image half to avoid erasing the full row between
+the two labels. Images without a confident, safe caption are not modified.
+All images still require visual review for missed text or artifacts, and the
+existing manual Brush/Eraser cleanup tools remain available. The downloader
+is still separate from Combine PSD/JPEG generation: no automatic grouping,
+classification or image import. This does not require Python to run.
+
+Tests: `npm run test:rakuten-auto-clean` and `npm run validate`.
+Optional UI QA: `python3 test/rakutenAutoCleanupBrowser.py`.

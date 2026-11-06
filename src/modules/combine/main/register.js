@@ -8,6 +8,7 @@ const rakutenImporter = new RakutenImporter();
 const sharp = require("sharp");
 const { TextCleanupService } = require("./textCleanup");
 const textCleanup = new TextCleanupService();
+const { autoCleanDownloadedImage } = require("./autoCaptionCleanup");
 
 const FILTERS = [{ name: "Photoshop and image files", extensions: ["jpg", "jpeg", "png", "webp", "tif", "tiff", "bmp", "gif", "psd", "psb", "avif", "heic", "heif", "tga", "svg", "jp2", "exr", "hdr"] },
     { name: "All files", extensions: ["*"] }];
@@ -54,11 +55,14 @@ ipcMain.handle("combine:rakuten-choose-folder", async () => {
         properties:["openDirectory"],defaultPath:app.getPath("downloads")});
     return result.canceled ? null : result.filePaths[0];
 });
-ipcMain.handle("combine:rakuten-download", (event, target) =>
-    rakutenImporter.download(target || app.getPath("downloads"), update => {
+ipcMain.handle("combine:rakuten-download", (event, request) => {
+    const target = typeof request === "string" ? request : request?.folder;
+    const autoClean = typeof request === "string" ? false : request?.autoClean === true;
+    return rakutenImporter.download(target || app.getPath("downloads"), update => {
         try { event.senderFrame.send("combine:rakuten-progress", update); }
         catch (_) { /* final response is authoritative */ }
-    }));
+    }, {autoClean, autoCleaner:file => autoCleanDownloadedImage(file,textCleanup)});
+});
 ipcMain.handle("combine:rakuten-open-folder", async () => {
     const destination = rakutenImporter.downloaded?.folder;
     if (!destination) throw new Error("Download slider images first.");
@@ -66,10 +70,13 @@ ipcMain.handle("combine:rakuten-open-folder", async () => {
     if (error) throw new Error(`Could not open the downloaded folder: ${error}`);
     return { ok:true, folder:destination };
 });
-ipcMain.handle("combine:rakuten-preview", async (_event, index) => {
+ipcMain.handle("combine:rakuten-preview", async (_event, request) => {
+    const index = typeof request === "object" ? request.index : request;
+    const original = typeof request === "object" && request.original === true;
     const item = rakutenImporter.downloaded?.images.find(x => x.index === Number(index));
     if (!item?.path) return null;
-    const image = await sharp(item.path).resize({width:400,height:400,fit:"inside",withoutEnlargement:true}).png().toBuffer();
+    const source = !original && item.cleanup?.cleanedPath ? item.cleanup.cleanedPath : item.path;
+    const image = await sharp(source).resize({width:400,height:400,fit:"inside",withoutEnlargement:true}).png().toBuffer();
     return "data:image/png;base64,"+image.toString("base64");
 });
 // Non-destructive caption cleanup is user-triggered. Downloaded originals remain

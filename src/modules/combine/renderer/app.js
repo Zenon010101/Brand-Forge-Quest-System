@@ -3,7 +3,7 @@ const api = window.combineApp;
 const el = id => document.getElementById(id);
 const state = { single: null, lineup: [], details: [], selected: null, view: "full",
     outputFolder: null, lastOutput: null, busy: false, layout: null, error: null };
-// Rakuten download-only workspace, independent of Combine PSD generation.
+// Rakuten download + optional conservative caption-cleanup workspace; still independent of Combine PSD generation.
 const rak = { scan:null, download:null, folder:null, previews:new Map(), previewPending:new Set(), busy:false };
 const thumbs = new Map();
 const pending = new Set();
@@ -283,7 +283,7 @@ function rakPreview(index) {
     const row = rak.download.images.find(item=>item.index===index);
     if (!row?.path) return;
     rak.previewPending.add(index);
-    api.previewRakuten(index).then(src => { if (src) rak.previews.set(index,src); })
+    api.previewRakuten(index, {original:el("rakutenPreviewOriginals").checked}).then(src => { if (src) rak.previews.set(index,src); })
         .catch(()=>{}).finally(()=>{ rak.previewPending.delete(index); renderRakuten(); });
 }
 function renderRakuten() {
@@ -291,6 +291,8 @@ function renderRakuten() {
     const rows=rak.download?.images || rak.scan?.images || [];
     el("rakutenDownload").disabled=rak.busy||state.busy;
     el("rakutenChooseFolder").disabled=rak.busy||state.busy;
+    el("rakutenAutoCleanup").disabled=rak.busy||state.busy;
+    el("rakutenPreviewOriginals").disabled=rak.busy||state.busy;
     el("rakutenOpenFolder").disabled=rak.busy||state.busy||!rak.download?.folder;
     el("rakutenFolder").textContent=rak.folder||"Windows Downloads (default)";
     el("rakutenScanInfo").textContent=rak.busy?"Processing...":!rak.scan?"Paste URL and click Download":
@@ -308,8 +310,14 @@ function renderRakuten() {
         thumb.src=rak.previews.get(slide.index)||slide.url;row.appendChild(thumb);
         const info=document.createElement("div");info.className="slide-copy";
         const name=document.createElement("strong");name.textContent=slide.name;
-        const status=document.createElement("small");status.textContent=slide.status==="failed"?`Failed: ${slide.error}`:
-            slide.status==="downloaded"?`${slide.width} x ${slide.height} · Original saved`:
+        const status=document.createElement("small");
+        const clean=slide.cleanup;
+        const cleanLabel=clean?.status==="cleaned"?` · Cleaned ${clean.removedCount} caption(s)`:clean?.status==="partial"?
+            ` · Cleaned ${clean.removedCount}, some need review`:clean?.status==="needs-review"?
+            ` · Text cleanup needs review${clean.warning ? ": " + clean.warning : ""}`:clean?.status==="no-caption"?
+            " · No safe caption detected": "";
+        status.textContent=slide.status==="failed"?`Failed: ${slide.error}`:
+            slide.status==="downloaded"?`${slide.width} x ${slide.height} · Original saved${cleanLabel}`:
             "Detected in slider";
         info.append(name,status);row.appendChild(info);container.appendChild(row);
         if (rak.download && slide.status==="downloaded")rakPreview(slide.index);
@@ -330,16 +338,22 @@ async function rakDownload() {
         rak.scan=await api.scanRakuten({url,html:el("rakutenHtml").value.trim()});
         renderRakuten();
         rakNote(`Found ${rak.scan.images.length} slider image(s). Downloading originals...`);
-        const result=await api.downloadRakuten(rak.folder||null);
+        const autoClean=el("rakutenAutoCleanup").checked;
+        const result=await api.downloadRakuten(rak.folder||null,{autoClean});
         rak.download=result;
         const saved=result.images.filter(x=>x.status==="downloaded").length;
         const failed=result.images.length-saved;
-        rakNote(`Downloaded ${saved}/${result.images.length} image(s) to ${result.folder}.${failed?` ${failed} failed; see individual statuses.`:""} No categorization was applied.`,failed>0);
+        const cleaned=result.images.filter(x=>["cleaned","partial"].includes(x.cleanup?.status)).length;
+        const review=result.images.filter(x=>x.cleanup?.status==="needs-review"||x.cleanup?.status==="partial").length;
+        rakNote(`Downloaded ${saved}/${result.images.length} original(s) to ${result.folder}.`+
+            (autoClean ? ` Cleaned ${cleaned} slide(s) into COMBINE_CLEANED; ${review} need review. OCR may miss captions; inspect the results.` : " Automatic cleanup was off.")+
+            (failed ? ` ${failed} download(s) failed.` : "")+" No automatic Combine assignment.", failed>0||review>0);
     } catch(error){rakNote(error.message||String(error),true);}
     finally{rakSetBusy(false);}
 }
 function wireRakuten() {
     el("rakutenChooseFolder").addEventListener("click",rakChooseFolder);
+    el("rakutenPreviewOriginals").addEventListener("change",()=>{rak.previews.clear();renderRakuten();});
     el("rakutenDownload").addEventListener("click",rakDownload);
     el("rakutenOpenFolder").addEventListener("click",async()=>{
         try {await api.openRakutenFolder();}
