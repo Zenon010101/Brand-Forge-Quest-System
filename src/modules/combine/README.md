@@ -1,3 +1,46 @@
+# v1.7.38 — Recover selected OCR text and auto-fill Line Up names
+
+**New flow:** Choose the image → approve OCR caption boxes or draw a Rectangle /
+Brush Select over printed text → **Preview Text Removal**. BrandForge reads
+text from the ORIGINAL selected pixels *before* applying Clean Fill. It reuses
+matching OCR boxes from the initial scan; when a manual rectangle or brush
+selection was missed, it rescans that selected region (English/Japanese when
+OCR language packs are available). Unselected logos and product text are not
+used to populate color names.
+
+A **Captured text — review before adding** panel shows editable recovered
+names. Original leading list numbers such as `1.` and `2.` are removed from
+the suggested color name. For one detected caption, a normal Line Up name is
+filled. For two spatially distinct captions, the system maps them to either
+**LEFT/RIGHT** or **TOP/BOTTOM**, preserving the latter's original Y positions.
+Users can override the arrangement and edit the name(s) before saving. Ambiguous
+two-caption layouts require an explicit arrangement choice. If OCR misses the
+selected area, cleanup still works and the name stays blank for manual input;
+BrandForge does not invent a color name from `_textclean.png`.
+
+Click **Save Clean Copy + Add to Combine** to fill the Line Up entry's existing
+28px editable Photoshop text fields. The cleaned PNG lives under `COMBINE_CLEANED`;
+originals remain byte-for-byte untouched. If the image is added to Single or
+Details instead, its recovered text appears as an editable **note**, not an
+unrequested text layer in the output PSD. Auto-cleaned Rakuten slides imported
+later from `slider_manifest.json` now reuse single-caption suggestions too.
+
+No Python runtime, network OCR service, or new npm runtime dependency is needed.
+Tesseract/Windows OCR language support is still required for recognition;
+real Japanese OCR and Photoshop output need Windows workstation testing.
+
+Test: `npm run test:combine-caption-capture`, `npm run test:combine-vertical`,
+`npm run validate`. Optional browser QA: `python test/combineCapturedNamesBrowser.py`
+(Playwright/Chromium is only a developer test dependency).
+
+---
+
+# Combine vertical naming update (v1.7.37)
+
+One source image containing two vertically stacked products is supported as **one full-width Line Up block** with **TOP and BOTTOM** editable 28px labels. Choose the vertical mode from that image's row-mode selector; names are independent. Caption Y offsets are percentages of the original canvas, and can be adjusted under the names. Unlike normal rows, vertical image preparation preserves the full white/alpha canvas (including cleared caption positions), so label distances match the original layout. Approved OCR captions in top/bottom positions can auto-populate names and Y offsets. Use `TOP :: BOTTOM` for bulk naming. Horizontal dual and regular modes are unchanged.
+
+---
+
 # BrandForge Combine Generator (v1.7.33)
 
 This is a standalone Electron/Photoshop module. The uploaded `!COMBINE_TEMPLATE.psd`

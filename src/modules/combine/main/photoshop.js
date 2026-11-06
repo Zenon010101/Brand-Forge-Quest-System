@@ -31,7 +31,12 @@ async function rasterizePsdSources(files, folder) {
 
 async function preparedEntry(entry, index, folder, psdPreviewMap) {
     const source = psdPreviewMap.get(entry.path.toLowerCase()) || entry.path;
-    const bounds = await visibleBounds(source);
+    // Unlike ordinary variations, vertical Line Up captions live BETWEEN
+    // and BELOW products within the original source canvas. Trimming the
+    // white areas would destroy their recorded Y positions and spacing.
+    const bounds = entry.preserveCanvas ? { left:0, top:0,
+        width:Number(entry.width), height:Number(entry.height), mode:"full" }
+        : await visibleBounds(source);
     const fitted = fitInside({ ...entry, visibleWidth: bounds.width, visibleHeight: bounds.height },
         entry.slotX, entry.slotY, entry.slotWidth, entry.slotHeight);
     const output = path.join(folder, `placed_${String(index).padStart(3, "0")}.png`);
@@ -44,7 +49,7 @@ async function preparedEntry(entry, index, folder, psdPreviewMap) {
         .png({ compressionLevel: 6 }).toFile(output);
     const resultSize = await sharp(output).metadata();
     const placedWidth = resultSize.width, placedHeight = resultSize.height;
-    return { ...fitted, placedWidth, placedHeight,
+    const placed = { ...fitted, placedWidth, placedHeight,
         x: fitted.slotX + Math.floor((fitted.slotWidth - placedWidth) / 2),
         y: fitted.slotY + (fitted.verticalAlign === "bottom"
             ? fitted.slotHeight - placedHeight
@@ -52,6 +57,14 @@ async function preparedEntry(entry, index, folder, psdPreviewMap) {
         input: output.replace(/\\/g, "/"),
         originalPsd: entry.isPhotoshop ? entry.path.replace(/\\/g, "/") : null,
         visibleMode: bounds.mode };
+    if (entry.rowMode === "vertical" && Array.isArray(entry.labels)) {
+        const captionWidth = Math.max(1, placedWidth - 12);
+        placed.labels = entry.labels.map(label => ({ ...label,
+            x: placed.x + Math.max(0, Math.round((placedWidth - captionWidth) / 2)),
+            y: placed.y + Math.round(placedHeight * label.positionRatio),
+            width: captionWidth }));
+    }
+    return placed;
 }
 
 async function createCombineFiles(layout, folder, progress = () => {}) {
@@ -91,13 +104,13 @@ async function createCombineFiles(layout, folder, progress = () => {}) {
     return { psdPath: docFile, jpegParts };
 }
 
-async function previewImage(entry, maxEdge = 800) {
+async function previewImage(entry, maxEdge = 800, { preserveCanvas = false } = {}) {
     const limit = Math.max(180, Math.min(1400, Number(maxEdge) || 800));
     const folder = await fs.promises.mkdtemp(path.join(os.tmpdir(), "brandforge-combine-preview-"));
     try {
         const map = await rasterizePsdSources([entry.path], folder);
         const file = map.get(entry.path.toLowerCase()) || entry.path;
-        const bbox = await visibleBounds(file);
+        const bbox = preserveCanvas ? {left:0,top:0,width:entry.width,height:entry.height} : await visibleBounds(file);
         const png = await sharp(file, { animated: false, limitInputPixels: 400000000 }).rotate()
             .extract({ left: bbox.left, top: bbox.top, width: bbox.width, height: bbox.height })
             .resize({ width: limit, height: limit, fit: "inside", withoutEnlargement: true })

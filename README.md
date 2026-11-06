@@ -1,3 +1,31 @@
+## v1.7.38 — Combine selected-caption auto-fill
+
+After marking embedded caption text with an OCR box, Rectangle, or Brush Select,
+**Preview Text Removal** now reads the selected original pixels before erasing
+them and shows editable recovered text. **Save Clean Copy + Add to Combine**
+automatically fills Line Up names (Single / LEFT-RIGHT / TOP-BOTTOM) while
+keeping their 28px PSD text layers editable. Original caption Y positions are
+preserved for vertical layouts. OCR failures do not block cleaning; review and
+manually correct names when needed. Single/Details retain recovered text as
+non-exported editable notes. The downloader still preserves originals and
+does not auto-assign images into Combine. No new runtime dependencies.
+
+---
+
+# BrandForge v1.7.37 - Combine Dual Vertical TOP/BOTTOM Line Up
+
+**New Line Up mode:** choose **2 variants - vertical (TOP / BOTTOM)** for a single downloaded image containing two products stacked vertically. The complete source image remains one full-width block. Use independent 28px editable color names for the top and bottom item; the names are placed **within the source image's original caption positions**, not as two labels underneath it. The default positions are 44% and 92.5% of source height, and each can be adjusted in the per-image controls. One Line Up image is one full-width vertical row.
+
+**Existing horizontal workflow unchanged:** single-item images remain two per row (293px columns, proportional height); horizontal dual images remain one full row with LEFT/RIGHT editable 28px names. Other Combine, Amazon, Slider, LP, background removal, and Rakuten downloader rules remain intact.
+
+**OCR position reuse:** In Combine Text Cleanup, if exactly two approved OCR captions are clearly separated top/bottom, **Save Clean Copy + Add to Combine** now assigns TOP/BOTTOM names and the detected original Y positions automatically. Similarly, if you import an already auto-cleaned PNG from the Rakuten downloader's `COMBINE_CLEANED` folder, Combine can retrieve its safe caption positions from the accompanying `slider_manifest.json`, when that file is present. You can override both names and Y positions. OCR can miss text: manually select vertical mode and adjust percentages if detection is inconclusive. The original images are never overwritten. Auto-downloading remains download-only, without auto-classification.
+
+**Bulk naming:** `TOP NAME :: BOTTOM NAME` (vertical) vs. `LEFT NAME | RIGHT NAME` (horizontal). A new 'All -> Vertical (T/B)' button is provided alongside the prior batch mode buttons.
+
+**QA:** `npm run check`, `npm run test:combine-vertical`, `npm run validate`, and optional browser `python3 test/combineVerticalBrowser.py`. Actual Windows Photoshop COM/JSX and live Rakuten OCR still need local validation. See `INSTALL_FULL_PROJECT_v1.7.37.txt`.
+
+---
+
 # BrandForge v1.7.36 - Auto-Clean Captions After Downloading Rakuten Slides
 
 Combine's Rakuten Slider Downloader now offers **Automatically remove safe color captions after downloading**, ON by default. Each original slide is saved byte-for-byte, in website order, exactly as before. The downloader then runs existing local OCR + **Clean Fill** on short detected captions surrounded by a uniform light background; cleaned PNGs are versioned in `COMBINE_CLEANED` under the product folder. When OCR joins two separate left/right color names into one line, the system attempts to detect the gap and recognize each half separately (it does not erase the full combined width).

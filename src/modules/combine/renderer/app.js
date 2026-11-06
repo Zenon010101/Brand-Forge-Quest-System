@@ -6,6 +6,7 @@ const state = { single: null, lineup: [], details: [], selected: null, view: "fu
 // Rakuten download + optional conservative caption-cleanup workspace; still independent of Combine PSD generation.
 const rak = { scan:null, download:null, folder:null, previews:new Map(), previewPending:new Set(), busy:false };
 const thumbs = new Map();
+const thumbKey = entry => `${entry.path}${entry.rowMode === "vertical" ? "::full-canvas" : ""}`;
 const pending = new Set();
 const queue = [];
 let activePreviews = 0;
@@ -32,20 +33,23 @@ function setActivePreview(entry) {
     renderQueues(); updateTabs(); showSelected();
 }
 function scheduleThumb(file, edge = 400) {
-    if (!file || thumbs.has(file.path) || pending.has(file.path)) return;
-    pending.add(file.path);
-    queue.push({ file, edge });
+    if (!file) return;
+    const key = thumbKey(file);
+    if (thumbs.has(key) || pending.has(key)) return;
+    pending.add(key);
+    queue.push({ file, edge, key });
     pumpThumbnails();
 }
 function pumpThumbnails() {
     while (activePreviews < 2 && queue.length) {
-        const { file, edge } = queue.shift();
+        const { file, edge, key } = queue.shift();
         activePreviews++;
-        api.preview({ filePath: file.path, maxEdge: edge }).then(result => {
-            if (result?.dataUrl) thumbs.set(file.path, result.dataUrl);
+        api.preview({ filePath: file.path, maxEdge: edge,
+            preserveCanvas: file.rowMode === "vertical" }).then(result => {
+            if (result?.dataUrl) thumbs.set(key, result.dataUrl);
         }).catch(() => { /* unsupported preview retains placeholder; generation validates actual image */ })
             .finally(() => {
-                activePreviews--; pending.delete(file.path);
+                activePreviews--; pending.delete(key);
                 renderThumbnailsOnly();
                 if (state.view === "full" && state.layout) drawFullPreview();
                 if (state.view === "selected" && file.path === state.selected) showSelected();
@@ -55,7 +59,7 @@ function pumpThumbnails() {
 }
 function renderThumbnailsOnly() {
     document.querySelectorAll("[data-thumb-path]").forEach(img => {
-        const src = thumbs.get(img.dataset.thumbPath);
+        const src = thumbs.get(img.dataset.thumbKey || img.dataset.thumbPath);
         if (src && img.tagName === "IMG") img.src = src;
     });
 }
@@ -65,10 +69,8 @@ function makeButton(label, title, callback, className) {
     b.textContent = label; b.title = title; b.addEventListener("click", event => { event.stopPropagation(); callback(); });
     b.disabled = state.busy; return b;
 }
-// One source image can contain either one product/color or two side-by-side
-// products/colors. Users can switch modes, or paste LEFT | RIGHT into either
-// the first name field or the bulk input. A delimiter alone is never enough
-// to switch modes; both names must be present.
+// Two-product images can be HORIZONTAL (LEFT | RIGHT) or VERTICAL
+// (TOP :: BOTTOM). Both source images remain intact with two editable names.
 function parseDualColorNames(raw) {
     const value = String(raw || "");
     const pivot = value.search(/[|｜]/);
@@ -77,14 +79,27 @@ function parseDualColorNames(raw) {
     const right = value.slice(pivot + 1).trim();
     return left && right ? { left, right } : null;
 }
+function parseVerticalColorNames(raw) {
+    const value = String(raw || "");
+    const match = value.match(/::|：：/);
+    if (!match) return null;
+    const top = value.slice(0, match.index).trim();
+    const bottom = value.slice(match.index + match[0].length).trim();
+    return top && bottom ? { top, bottom } : null;
+}
 function changeLineupVariantCount(entry, mode, focusRight = false) {
-    entry.rowMode = mode === "dual" ? "dual" : "single";
+    entry.rowMode = ["dual", "vertical"].includes(mode) ? mode : "single";
     renderQueues(); requestLayout();
-    if (focusRight && entry.rowMode === "dual") {
+    if (focusRight && entry.rowMode !== "single") {
         const currentRow = Array.from(document.querySelectorAll('#lineupItems .file-item'))
             .find(row => row.dataset.filePath === entry.path);
         currentRow?.querySelector('[data-color-side="right"]')?.focus();
     }
+}
+function applyVerticalNames(entry, names) {
+    entry.colorName = names.top;
+    entry.colorNameRight = names.bottom;
+    changeLineupVariantCount(entry, "vertical", true);
 }
 function applyDualNames(entry, names) {
     entry.colorName = names.left;
@@ -101,46 +116,68 @@ function makeRow(entry, section, i) {
     const count = document.createElement("span"); count.className = "number"; count.textContent = i + 1;
     row.appendChild(count);
     const photo = document.createElement("img"); photo.className = "thumb"; photo.alt = ""; photo.dataset.thumbPath = entry.path;
-    photo.src = thumbs.get(entry.path) || "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='48'%20height='48'%3E%3Crect%20width='48'%20height='48'%20fill='%231b2329'/%3E%3Cpath%20d='M13%2013h22v22H13z'%20fill='none'%20stroke='%23778690'/%3E%3C/svg%3E";
+    photo.dataset.thumbKey = thumbKey(entry);
+    photo.src = thumbs.get(thumbKey(entry)) || "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='48'%20height='48'%3E%3Crect%20width='48'%20height='48'%20fill='%231b2329'/%3E%3Cpath%20d='M13%2013h22v22H13z'%20fill='none'%20stroke='%23778690'/%3E%3C/svg%3E";
     row.appendChild(photo);
     const copy = document.createElement("div"); copy.className = "file-copy";
     const title = document.createElement("strong"); title.textContent = entry.name;
     const meta = document.createElement("small");
     meta.textContent = section === "single" ? "Top section · 600 x 600" : section === "lineup"
-        ? (entry.rowMode === "dual" ? `Image ${i + 1} · full row · 2 × 28 px labels` : `Variation ${i + 1} · 1 column · proportional height · 28 px name`)
+        ? (entry.rowMode === "vertical" ? `Image ${i+1} · full row · TOP / BOTTOM · original caption spacing`
+            : entry.rowMode === "dual" ? `Image ${i + 1} · full row · LEFT / RIGHT · 2 × 28 px labels`
+            : `Variation ${i + 1} · 1 column · proportional height · 28 px name`)
         : `Detail ${i + 1} · box 293 x 293`;
     copy.append(title, meta);
+    if (section !== "lineup" && entry.recoveredCaptions?.length) {
+        // Single/Details do not have generated 28px name layers. Preserve the
+        // removed text as an editable note instead of silently losing it.
+        const noteField = document.createElement("label");
+        noteField.className = "combine-recovered-note";
+        const label = document.createElement("span");
+        label.textContent = "Recovered removed text (editable note; not printed on PSD)";
+        const input = document.createElement("textarea");
+        input.value = entry.recoveredCaptions.join("\n");
+        input.disabled = state.busy;
+        input.addEventListener("click", event => event.stopPropagation());
+        input.addEventListener("input", event => {
+            entry.recoveredCaptions = event.target.value.split(/\r?\n/).map(v => v.trim()).filter(Boolean);
+        });
+        noteField.append(label, input);
+        copy.appendChild(noteField);
+    }
     if (section === "lineup") {
         const modeRow = document.createElement("div"); modeRow.className = "lineup-mode-row";
         const modeTitle = document.createElement("label"); modeTitle.className = "lineup-mode-label";
         const caption = document.createElement("span"); caption.textContent = "Variants in this image";
         const mode = document.createElement("select"); mode.className = "lineup-mode";
-        for (const [value, title] of [["single", "1 variant / 1 color name"], ["dual", "2 variants / 2 color names (full row)"]]) {
+        for (const [value, title] of [["single", "1 variant / 1 color name"],
+            ["dual", "2 variants — horizontal (LEFT / RIGHT)"],
+            ["vertical", "2 variants — vertical (TOP / BOTTOM)"]]) {
             const option = document.createElement("option"); option.value = value; option.textContent = title;
             mode.appendChild(option);
         }
-        mode.value = entry.rowMode === "dual" ? "dual" : "single";
+        mode.value = ["dual", "vertical"].includes(entry.rowMode) ? entry.rowMode : "single";
         mode.disabled = state.busy;
         mode.addEventListener("click", event => event.stopPropagation());
         mode.addEventListener("change", event => {
-            changeLineupVariantCount(entry, event.target.value, event.target.value === "dual");
+            changeLineupVariantCount(entry, event.target.value, event.target.value !== "single");
         });
         modeTitle.append(caption, mode);
         modeRow.appendChild(modeTitle);
         const quick = document.createElement("button"); quick.type = "button";
         quick.className = "lineup-add-variant";
-        quick.textContent = mode.value === "dual" ? "− Use 1 color only" : "+ Add 2nd color name";
-        quick.title = mode.value === "dual" ? "Change this image back to one variant" : "Show a separate RIGHT color-name field";
+        quick.textContent = mode.value !== "single" ? "− Use 1 color only" : "+ Add 2nd color name";
+        quick.title = mode.value !== "single" ? "Change this image back to one variant" : "Show a separate second color-name field";
         quick.disabled = state.busy;
         quick.addEventListener("click", event => {
             event.stopPropagation();
-            const next = entry.rowMode === "dual" ? "single" : "dual";
+            const next = entry.rowMode !== "single" ? "single" : "dual";
             changeLineupVariantCount(entry, next, next === "dual");
         });
         modeRow.appendChild(quick);
         copy.appendChild(modeRow);
         const names = document.createElement("div");
-        names.className = `lineup-name-fields${mode.value === "dual" ? " is-dual" : ""}`;
+        names.className = `lineup-name-fields${mode.value !== "single" ? " is-dual" : ""}`;
         function colorField(side, title, placeholder, value, onInput) {
             const field = document.createElement("label"); field.className = "lineup-color-field";
             const heading = document.createElement("span"); heading.textContent = title;
@@ -154,26 +191,58 @@ function makeRow(entry, section, i) {
             names.appendChild(field);
             return input;
         }
-        const left = colorField("left", mode.value === "dual" ? "Color 1 — LEFT" : "Color name",
-            mode.value === "dual" ? "LEFT color name (required)" : "Enter color name (or paste LEFT | RIGHT)",
+        const isVertical = mode.value === "vertical";
+        const isDual = mode.value !== "single";
+        const left = colorField("left", isVertical ? "Color 1 — TOP" : isDual ? "Color 1 — LEFT" : "Color name",
+            isVertical ? "TOP color name (required)" : isDual ? "LEFT color name (required)" : "Enter name; paste LEFT | RIGHT or TOP :: BOTTOM",
             entry.colorName, value => { entry.colorName = value; });
         // Pasting two names also enables the second field automatically. This
         // works even when the original image was imported in 1-variant mode.
         left.addEventListener("paste", event => {
-            const names = parseDualColorNames(event.clipboardData?.getData("text/plain"));
-            if (!names) return;
+            const value = event.clipboardData?.getData("text/plain");
+            const vertical = parseVerticalColorNames(value);
+            const horizontal = parseDualColorNames(value);
+            if (!vertical && !horizontal) return;
             event.preventDefault(); event.stopPropagation();
-            applyDualNames(entry, names);
+            if (vertical) applyVerticalNames(entry, vertical);
+            else applyDualNames(entry, horizontal);
         });
         left.addEventListener("change", () => {
-            const names = parseDualColorNames(left.value);
-            if (names) applyDualNames(entry, names);
+            const vertical = parseVerticalColorNames(left.value);
+            const horizontal = parseDualColorNames(left.value);
+            if (vertical) applyVerticalNames(entry, vertical);
+            else if (horizontal) applyDualNames(entry, horizontal);
         });
-        if (mode.value === "dual") {
-            colorField("right", "Color 2 — RIGHT", "RIGHT color name (required)",
+        if (isDual) {
+            colorField("right", isVertical ? "Color 2 — BOTTOM" : "Color 2 — RIGHT",
+                isVertical ? "BOTTOM color name (required)" : "RIGHT color name (required)",
                 entry.colorNameRight, value => { entry.colorNameRight = value; });
         }
         copy.appendChild(names);
+        if (isVertical) {
+            const positions = document.createElement("div"); positions.className = "lineup-vertical-positions";
+            const caption = document.createElement("p"); caption.textContent =
+                "Text position (% of original image height). Use the original erased caption positions; preview before generating.";
+            positions.appendChild(caption);
+            for (const [side, title, key, fallback] of [
+                ["top", "TOP text Y (%)", "captionTopY", 0.44],
+                ["bottom", "BOTTOM text Y (%)", "captionBottomY", 0.925]
+            ]) {
+                const field = document.createElement("label"); field.textContent = title;
+                const input = document.createElement("input"); input.type = "number";
+                input.dataset.captionPosition = side; input.min = side === "top" ? "5" : "15";
+                input.max = side === "top" ? "85" : "99"; input.step = "0.5";
+                input.value = (100 * (entry[key] ?? fallback)).toFixed(1).replace(/\.0$/, "");
+                input.disabled = state.busy;
+                input.addEventListener("click", event => event.stopPropagation());
+                input.addEventListener("input", () => {
+                    if (input.value !== "") entry[key] = Number(input.value) / 100;
+                    requestLayout();
+                });
+                field.appendChild(input); positions.appendChild(field);
+            }
+            copy.appendChild(positions);
+        }
     }
     copy.addEventListener("click", () => setActivePreview(entry));
     row.appendChild(copy);
@@ -204,7 +273,7 @@ function makeRow(entry, section, i) {
 function estimateLineupRows(items) {
     let rows = 0, pending = 0;
     for (const item of items) {
-        if (item.rowMode === "dual") {
+        if (item.rowMode === "dual" || item.rowMode === "vertical") {
             if (pending) { rows++; pending = 0; }
             rows++;
         } else {
@@ -217,7 +286,8 @@ function setAllLineupModes(mode) {
     if (state.busy) return;
     state.lineup.forEach(item => { item.rowMode = mode; });
     renderQueues(); requestLayout();
-    note(mode === "dual" ? "Each Line Up source image now takes one full row. Enter LEFT and RIGHT color names."
+    note(mode === "vertical" ? "Each Line Up source image now has TOP and BOTTOM color names at original caption positions."
+        : mode === "dual" ? "Each Line Up source image now takes one full row. Enter LEFT and RIGHT color names."
         : "Regular Line Up mode restored: two separate images per row.");
 }
 function renderQueues() {
@@ -265,8 +335,15 @@ async function addImages(section, result) {
         for (const item of incoming) {
             if (exists.has(item.path.toLowerCase())) continue;
             exists.add(item.path.toLowerCase());
-            state[section].push(section === "lineup" ? { ...item, rowMode: "single",
-                colorName: suggestColorName(item), colorNameRight: "" } : item);
+            state[section].push(section === "lineup" ? { ...item,
+                rowMode: item.suggestedLineup?.mode || "single",
+                // A cleanup attempt with unreadable OCR explicitly supplies
+                // an empty name; never guess a color from *_textclean.png.
+                colorName: item.suggestedLineup && Object.prototype.hasOwnProperty.call(item.suggestedLineup, "first")
+                    ? item.suggestedLineup.first : suggestColorName(item),
+                colorNameRight: item.suggestedLineup?.second || "",
+                captionTopY: item.suggestedLineup?.topY,
+                captionBottomY: item.suggestedLineup?.bottomY } : item);
         }
     }
     const failed = (result.failed || []).length;
@@ -379,8 +456,10 @@ async function dropImages(section, event) {
 }
 function payload() {
     return { singlePath: state.single?.path || null,
-        lineup: state.lineup.map(item => ({ path: item.path, rowMode: item.rowMode === "dual" ? "dual" : "single",
-            colorName: item.colorName || "", colorNameRight: item.colorNameRight || "" })),
+        lineup: state.lineup.map(item => ({ path: item.path,
+            rowMode: ["dual", "vertical"].includes(item.rowMode) ? item.rowMode : "single",
+            colorName: item.colorName || "", colorNameRight: item.colorNameRight || "",
+            captionTopY: item.captionTopY, captionBottomY: item.captionBottomY })),
         details: state.details.map(item => item.path),
         outputName: el("outputName").value.trim(), existingAction: el("saveAction").value };
 }
@@ -390,12 +469,13 @@ function updateTabs() {
 }
 function refreshButtons() {
     el("removeSingle").disabled = !state.single || state.busy;
-    for (const id of ["chooseSingle", "chooseLineup", "chooseDetails", "clearLineup", "clearDetails", "applyColors", "setAllDual", "setAllNormal", "chooseOutput", "reset", "saveAction", "outputName"]) {
+    for (const id of ["chooseSingle", "chooseLineup", "chooseDetails", "clearLineup", "clearDetails", "applyColors", "setAllDual", "setAllVertical", "setAllNormal", "chooseOutput", "reset", "saveAction", "outputName"]) {
         el(id).disabled = state.busy;
     }
     el("bulkColorNames").disabled = state.busy || !state.lineup.length;
     el("applyColors").disabled = state.busy || !state.lineup.length;
     el("setAllDual").disabled = state.busy || !state.lineup.length;
+    el("setAllVertical").disabled = state.busy || !state.lineup.length;
     el("setAllNormal").disabled = state.busy || !state.lineup.length;
     el("generate").disabled = state.busy || !state.layout || !state.outputFolder || !!state.error;
     el("generate").textContent = state.busy ? "Generating Combine..." : "Generate Combine";
@@ -405,10 +485,10 @@ function missingLineupName() {
     for (let i = 0; i < state.lineup.length; i++) {
         const item = state.lineup[i];
         if (!String(item.colorName || "").trim()) {
-            return `Line Up image ${i + 1}: enter the ${item.rowMode === "dual" ? "LEFT" : "color"} name.`;
+            return `Line Up image ${i + 1}: enter the ${item.rowMode === "vertical" ? "TOP" : item.rowMode === "dual" ? "LEFT" : "color"} name.`;
         }
-        if (item.rowMode === "dual" && !String(item.colorNameRight || "").trim()) {
-            return `Line Up image ${i + 1}: enter the RIGHT color name (2 variants in this image).`;
+        if (["dual", "vertical"].includes(item.rowMode) && !String(item.colorNameRight || "").trim()) {
+            return `Line Up image ${i + 1}: enter the ${item.rowMode === "vertical" ? "BOTTOM" : "RIGHT"} color name (2 variants in this image).`;
         }
     }
     return null;
@@ -463,11 +543,12 @@ function drawFullPreview() {
     target.style.width = `${Math.round(600 * scale)}px`;
     target.style.height = `${Math.round(layout.height * scale)}px`;
     for (const section of [...(layout.single ? [layout.single] : []), ...layout.lineup, ...layout.details]) {
-        const data = thumbs.get(section.path);
+        const originalEntry = allEntries().find(item => item.path === section.path) || section;
+        const data = thumbs.get(thumbKey(originalEntry));
         const layer = document.createElement(data ? "img" : "div");
         layer.className = data ? "composition-image" : "preview-placeholder";
         if (data) { layer.src = data; layer.alt = section.name || "Product image"; }
-        else { layer.textContent = "▣"; const entry = allEntries().find(i => i.path === section.path); if (entry) scheduleThumb(entry, 500); }
+        else { layer.textContent = "▣"; if (originalEntry) scheduleThumb(originalEntry, 500); }
         position(layer, section.x, section.y, section.placedWidth, section.placedHeight, scale);
         target.appendChild(layer);
     }
@@ -501,8 +582,8 @@ async function showSelected() {
     el("previewEmpty").hidden = true;
     el("currentSelection").textContent = item.name;
     img.hidden = false;
-    if (!thumbs.has(item.path)) scheduleThumb(item, 1000);
-    if (thumbs.has(item.path)) img.src = thumbs.get(item.path);
+    if (!thumbs.has(thumbKey(item))) scheduleThumb(item, 1000);
+    if (thumbs.has(thumbKey(item))) img.src = thumbs.get(thumbKey(item));
     else img.removeAttribute("src");
     if (seq !== previewSeq) return;
 }
@@ -537,14 +618,20 @@ function wire() {
     el("clearLineup").addEventListener("click", () => { state.lineup = []; renderQueues(); requestLayout(); });
     el("clearDetails").addEventListener("click", () => { state.details = []; renderQueues(); requestLayout(); });
     el("setAllDual").addEventListener("click", () => setAllLineupModes("dual"));
+    el("setAllVertical").addEventListener("click", () => setAllLineupModes("vertical"));
     el("setAllNormal").addEventListener("click", () => setAllLineupModes("single"));
     el("applyColors").addEventListener("click", () => {
         const names = el("bulkColorNames").value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
         if (!names.length) return note("Paste one color name per line.", true);
         names.forEach((value, i) => {
             const entry = state.lineup[i]; if (!entry) return;
+            const vertical = parseVerticalColorNames(value);
             const pair = parseDualColorNames(value);
-            if (pair) {
+            if (vertical) {
+                entry.rowMode = "vertical";
+                entry.colorName = vertical.top;
+                entry.colorNameRight = vertical.bottom;
+            } else if (pair) {
                 // Automatically enable dual/full-row mode on LEFT | RIGHT input.
                 entry.rowMode = "dual";
                 entry.colorName = pair.left;
@@ -553,7 +640,7 @@ function wire() {
                 entry.colorName = value;
             }
         });
-        renderQueues(); requestLayout(); note(`Applied names to ${Math.min(names.length, state.lineup.length)} Line Up image(s). LEFT | RIGHT automatically creates 2-variant full-width rows.`);
+        renderQueues(); requestLayout(); note(`Applied names to ${Math.min(names.length, state.lineup.length)} Line Up image(s). LEFT | RIGHT = horizontal; TOP :: BOTTOM = vertical.`);
     });
     for (const zone of document.querySelectorAll(".drop-zone")) {
         const section = zone.dataset.section;

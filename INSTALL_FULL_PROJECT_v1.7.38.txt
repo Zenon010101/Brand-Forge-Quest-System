@@ -1,0 +1,17 @@
+BrandForge v1.7.38 — Full Source Install
+=======================================
+1. Back up D:\gulliver-image-workflow\gulliver-image-workflow.
+2. Extract this FULL PROJECT ZIP into that project root. Merge folders and
+   replace matching files. Do not delete node_modules, local profiles or
+   other personal workspace content.
+3. Verify package.json and src\main\main.js exist in that root.
+4. In the VS Code terminal run:
+      npm run check
+      npm run test:combine-caption-capture
+      npm run validate
+      npm start
+5. To regenerate a portable EXE if required: npm run build:portable.
+
+The ZIP is source code, not a prebuilt EXE. Real Windows OCR / Photoshop
+execution requires local verification. Existing original image files are never
+modified by this Combine text-cleanup feature.

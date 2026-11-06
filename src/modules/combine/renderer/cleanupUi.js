@@ -53,6 +53,7 @@ function cleanupHistory(direction) {
 function cleanupInvalidate(item) {
     if (!item) return;
     item.preview = null; item.previewSignature = ""; item.view = "before";
+    item.capturedCaptions = []; item.captionFields = { first: "", second: "" };
 }
 function cleanupMessage(message, error = false) {
     cleanupEl("cleanupStatus").textContent = message;
@@ -208,6 +209,43 @@ function cleanupRenderImage() {
     stage.classList.toggle("drawing", cleanupState.tool === "rectangle");
     stage.classList.toggle("painting", cleanupState.tool === "brush" || cleanupState.tool === "eraser");
 }
+function cleanupSuggest(item) {
+    const positions = item?.capturedCaptions || [];
+    const mode = item?.captionMode || "auto";
+    const helper = window.BrandForgeCaptionLayout;
+    const suggestion = helper?.capturedCaptionSuggestion(positions, item?.scan?.width, item?.scan?.height, mode) || null;
+    const first = (item?.captionFields?.first || "").trim();
+    const second = (item?.captionFields?.second || "").trim();
+    if (!first && !second) return null;
+    return { ...(suggestion || {}), mode: suggestion?.mode || (mode === "auto" ? "single" : mode),
+        first, second };
+}
+function cleanupRenderCaptured() {
+    const item = cleanupCurrent();
+    const panel = cleanupEl("cleanupRecovered");
+    if (!panel) return;
+    const show = !!item?.preview && item.previewSignature === cleanupSignature(item);
+    panel.hidden = !show;
+    if (!show) return;
+    const suggested = window.BrandForgeCaptionLayout?.capturedCaptionSuggestion(
+        item.capturedCaptions || [], item.scan.width, item.scan.height, item.captionMode || "auto");
+    const mode = item.captionMode === "auto" ? (suggested?.mode || "single") : item.captionMode;
+    cleanupEl("cleanupCaptionMode").value = item.captionMode || "auto";
+    cleanupEl("cleanupCaptionFirstLabel").textContent = mode === "vertical" ? "TOP color name" :
+        mode === "dual" ? "LEFT color name" : "Color name";
+    cleanupEl("cleanupCaptionSecondLabel").textContent = mode === "vertical" ? "BOTTOM color name" : "RIGHT color name";
+    cleanupEl("cleanupCaptionSecondField").hidden = mode === "single" && !(item.captionFields?.second || "");
+    cleanupEl("cleanupCaptionFirst").value = item.captionFields?.first || "";
+    cleanupEl("cleanupCaptionSecond").value = item.captionFields?.second || "";
+    const warnings = [...(item.preview.captionWarnings || [])];
+    if (suggested?.review && (item.captionMode || "auto") === "auto") {
+        warnings.push("Two captions were found but their arrangement is uncertain. Select LEFT/RIGHT or TOP/BOTTOM before adding.");
+    }
+    if ((item.capturedCaptions || []).length > 2) warnings.push("More than two captions detected. Only the first two fields are placed into a Line Up row; review the names.");
+    if (cleanupEl("cleanupTarget").value !== "lineup") warnings.push("Single/Details save the recovered text as an editable note; only Line Up has generated 28px caption layers.");
+    cleanupEl("cleanupCaptionWarning").textContent = warnings.join(" ") ||
+        "OCR text is editable. Adjust the fields before saving; your original image will remain unchanged.";
+}
 function cleanupRender() {
     cleanupRenderQueue(); cleanupRenderAreas(); cleanupRenderImage();
     const item = cleanupCurrent();
@@ -222,6 +260,7 @@ function cleanupRender() {
         ? "Eraser: paint over GREEN SELECTION to protect product pixels. This erases the mask, not the image."
         : item?.preview ? `Preview ready · ${(item.preview.methods || []).join(", ")}${item.preview.warnings?.length ? ` · WARNING: ${item.preview.warnings.join(" ")}` : ""}. Compare before/after before saving.`
         : "Approve captions, then refine the green selection with Brush or Eraser. Clean Fill changes selected pixels only; logos and product details should stay outside the mask.";
+    cleanupRenderCaptured();
     refreshCleanupButtons();
 }
 function cleanupToggleArea(id, checked) {
@@ -299,10 +338,21 @@ async function cleanupPreviewSelected() {
     const signature = cleanupSignature(item);
     cleanupState.busy = true; cleanupMessage("Reconstructing the selected background areas for QC preview..."); cleanupRender();
     try {
-        const preview = await api.previewCleanup(payload);
+        // Capture from the ORIGINAL selected pixels before filling the erased
+        // region. Includes manual rectangles and Brush Select, not only OCR
+        // boxes clicked during the first full-image scan.
+        const preview = await api.previewCleanup({ ...payload, captureText: true });
         item.preview = preview; item.previewSignature = signature; item.view = "after";
-        cleanupMessage(preview.warnings?.length ? `QC REQUIRED: ${preview.warnings.join(" ")}` :
-            "Cleaned preview ready. Compare Original / Cleaned, then save only if product details remain correct.", !!preview.warnings?.length);
+        const approvedOcr = (item.scan?.regions || []).filter(box =>
+            item.approved.has(box.id) && box.text?.trim());
+        item.capturedCaptions = Array.isArray(preview.captions) ? preview.captions : approvedOcr;
+        item.captionMode = "auto";
+        const suggestion = window.BrandForgeCaptionLayout?.capturedCaptionSuggestion(
+            item.capturedCaptions, item.scan.width, item.scan.height, "auto");
+        item.captionFields = { first: suggestion?.first || "", second: suggestion?.second || "" };
+        const warnings = [...(preview.warnings || []), ...(preview.captionWarnings || [])];
+        cleanupMessage(warnings.length ? `QC REQUIRED: ${warnings.join(" ")}` :
+            "Cleaned preview ready. Original text was captured and will fill the selected Combine fields. Review before saving.", !!warnings.length);
     } catch(error) { cleanupInvalidate(item); cleanupMessage(error.message || String(error), true); }
     finally { cleanupState.busy = false; cleanupRender(); }
 }
@@ -311,36 +361,37 @@ async function cleanupSaveSelected() {
     if (item.previewSignature !== cleanupSignature(item)) return cleanupMessage("Text regions changed. Preview again before saving.", true);
     const payload = cleanupPayload(item);
     if (payload.strokes.length && payload.engine !== "clean") return cleanupMessage("Brush/Eraser selections require Clean Fill.", true);
+    const pendingNames = cleanupSuggest(item);
+    if (cleanupEl("cleanupTarget").value === "lineup" && cleanupEl("cleanupReuseCaption").checked &&
+        pendingNames?.review && item.captionMode === "auto" && pendingNames.first && pendingNames.second) {
+        return cleanupMessage("Two names were captured, but their arrangement is unclear. Choose LEFT/RIGHT or TOP/BOTTOM before saving.", true);
+    }
+    if (cleanupEl("cleanupTarget").value === "lineup" && cleanupEl("cleanupReuseCaption").checked &&
+        [pendingNames?.first, pendingNames?.second].some(name => String(name || "").length > 120)) {
+        return cleanupMessage("Line Up color names must be 120 characters or fewer. Shorten the recovered OCR name before saving.", true);
+    }
     cleanupState.busy = true; cleanupMessage("Saving a new cleaned PNG while preserving the original image..."); cleanupRender();
     try {
         const saved = await api.saveCleanup(payload);
         const target = cleanupEl("cleanupTarget").value;
         item.saved = saved.path;
-        await addImages(target, saved.imported);
-        if (target === "lineup" && cleanupEl("cleanupReuseCaption").checked) {
-            // Approved OCR captions are placed by their ORIGINAL image columns,
-            // not by OCR emission order. Two different columns automatically
-            // turn the newly cleaned image into a full-width dual-item row.
-            // Product logos and other unapproved OCR areas cannot become names.
-            const approvedOcr = (item.scan?.regions || []).filter(box =>
-                item.approved.has(box.id) && box.text?.trim());
-            const width = item.scan?.width || 0;
-            const left = approvedOcr.filter(box => box.x + box.width / 2 < width / 2)
-                .sort((a,b) => a.y - b.y || a.x - b.x).map(box => box.text.trim()).join(" ").trim();
-            const right = approvedOcr.filter(box => box.x + box.width / 2 >= width / 2)
-                .sort((a,b) => a.y - b.y || a.x - b.x).map(box => box.text.trim()).join(" ").trim();
-            const newLine = state.lineup.find(entry => entry.path === saved.path);
-            if (newLine && left && right) {
-                newLine.rowMode = "dual";
-                newLine.colorName = left;
-                newLine.colorNameRight = right;
-                renderQueues(); requestLayout();
-            } else if (newLine && approvedOcr.length === 1) {
-                newLine.colorName = approvedOcr[0].text.trim();
-                renderQueues(); requestLayout();
+        // Fill before addImages() so the normal existing queue renderer can
+        // display the names immediately. The user can still edit every field.
+        const suggestion = cleanupEl("cleanupReuseCaption").checked ? cleanupSuggest(item) : null;
+        if (saved.imported?.images?.length) {
+            const imported = saved.imported.images.find(entry => entry.path === saved.path) || saved.imported.images[0];
+            if (target === "lineup" && cleanupEl("cleanupReuseCaption").checked) {
+                // No OCR result is not a license to derive a color name from
+                // the cleaned filename. Leave the input blank for user review.
+                imported.suggestedLineup = suggestion || { mode: "single", first: "", second: "" };
+            }
+            const names = [item.captionFields?.first, item.captionFields?.second].filter(name => String(name || "").trim());
+            if (target !== "lineup" && names.length && cleanupEl("cleanupReuseCaption").checked) {
+                imported.recoveredCaptions = names;
             }
         }
-        cleanupMessage(`Saved ${cleanupFilename(saved.path)} in COMBINE_CLEANED and added it to ${target === "lineup" ? "Line Up" : target === "single" ? "Single" : "Details"}. Original unchanged.`);
+        await addImages(target, saved.imported);
+        cleanupMessage(`Saved ${cleanupFilename(saved.path)} in COMBINE_CLEANED and added it to ${target === "lineup" ? "Line Up" : target === "single" ? "Single" : "Details"}.${suggestion && target === "lineup" ? " Color name fields filled automatically; review/edit them as needed." : ""} Original unchanged.`);
     } catch(error) { cleanupMessage(error.message || String(error), true); }
     finally { cleanupState.busy = false; cleanupRender(); }
 }
@@ -465,6 +516,18 @@ function wireCleanup() {
     cleanupEl("cleanupEraser").addEventListener("click", () => cleanupSetTool("eraser"));
     cleanupEl("cleanupUndo").addEventListener("click", () => cleanupHistory("undo"));
     cleanupEl("cleanupRedo").addEventListener("click", () => cleanupHistory("redo"));
+    cleanupEl("cleanupCaptionMode").addEventListener("change", event => {
+        const item = cleanupCurrent(); if (!item || cleanupState.busy) return;
+        item.captionMode = event.target.value; cleanupRenderCaptured();
+    });
+    for (const [id, side] of [["cleanupCaptionFirst", "first"], ["cleanupCaptionSecond", "second"]]) {
+        cleanupEl(id).addEventListener("input", event => {
+            const item = cleanupCurrent(); if (item?.preview && !cleanupState.busy) {
+                item.captionFields[side] = event.target.value;
+            }
+        });
+    }
+    cleanupEl("cleanupTarget").addEventListener("change", cleanupRenderCaptured);
     cleanupEl("cleanupPreview").addEventListener("click", cleanupPreviewSelected);
     cleanupEl("cleanupSave").addEventListener("click", cleanupSaveSelected);
     const stage = cleanupEl("cleanupStage");

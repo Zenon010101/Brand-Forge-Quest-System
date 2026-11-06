@@ -13,6 +13,7 @@ const { inspectOne } = require("./assets");
 const { recognize } = require("../../landing-page/main/ocr");
 const { photoshopContentAware } = require("./inpaintPhotoshop");
 const { normalizeStrokes, createSelectionMask, cleanFillPixels } = require("./maskCleanup");
+const { captureSelectedCaptions } = require("./selectedCaptionOcr");
 
 const RASTER = new Set([".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".webp", ".tif", ".tiff", ".bmp", ".gif", ".avif"]);
 const MAX_PIXELS = 32_000_000;
@@ -285,16 +286,28 @@ class TextCleanupService {
                 return box;
             }).filter(box => box.text && Number.isFinite(box.x) && Number.isFinite(box.y) &&
                 Number.isFinite(box.width) && Number.isFinite(box.height) && box.x < entry.width && box.y < entry.height);
+            entry.lastScanRegions = regions;
             return { filePath: entry.path, width: entry.width, height: entry.height,
                 previewDataUrl: await imagePreview(entry.path, 850), regions,
                 engine: results.engine || "Unavailable", warning: results.warning || "" };
         } finally { await fs.promises.rm(working, { recursive: true, force: true }).catch(() => {}); }
     }
-    async preview({ filePath, areas = [], engine = "clean", strokes = [], feather = 0 }) {
+    async preview({ filePath, areas = [], engine = "clean", strokes = [], feather = 0, captureText = false }) {
         const entry = await this.getFile(filePath);
+        const normalizedStrokes = normalizeStrokes(strokes, entry.width, entry.height);
+        const normalizedAreas = normalizeAreas(areas, entry.width, entry.height,
+            normalizedStrokes.some(s => s.mode === "add"));
+        // Capture selected text from the ORIGINAL before any reconstruction.
+        // A failed or missing OCR engine must never prevent image cleanup.
+        const extracted = captureText ? await captureSelectedCaptions({
+            filePath: entry.path, width: entry.width, height: entry.height,
+            areas: normalizedAreas, strokes: normalizedStrokes,
+            scanRegions: entry.lastScanRegions || [], ocr: this.ocr
+        }).catch(error => ({ captions: [], warnings: [`Selected text OCR unavailable: ${error.message}`] })) : null;
         const result = await renderCleanPng(entry.path, areas, engine, strokes, feather);
         return { previewDataUrl: await imagePreview(result.png, 850),
-            width: result.width, height: result.height, methods: result.methods, warnings: result.warnings };
+            width: result.width, height: result.height, methods: result.methods, warnings: result.warnings,
+            ...(extracted ? { captions: extracted.captions, captionWarnings: extracted.warnings } : {}) };
     }
     async save({ filePath, areas = [], engine = "clean", strokes = [], feather = 0 }) {
         if (this.busy) throw new Error("Text cleanup is already saving an image.");

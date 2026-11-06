@@ -60,3 +60,20 @@
 .cleanup-precision-settings output{font-size:10px;color:var(--green)}
 .cleanup-precision-settings input[type=range]{width:100%;accent-color:var(--green)}
 .cleanup-precision-settings select{padding:7px;font-size:10px}
+
+/* Vertical Line Up: each name is positioned at its original source-image Y. */
+.lineup-vertical-positions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;padding:9px;background:#1c2930;border:1px solid #49606c;border-radius:7px}
+.lineup-vertical-positions p{grid-column:1/-1;color:#acbfc9;font-size:10px;line-height:1.45;margin:0 0 2px}
+.lineup-vertical-positions label{display:flex;flex-direction:column;gap:4px;font-size:10px;font-weight:600;color:#d8e0e3}
+.lineup-vertical-positions input{width:100%;min-width:0;border:1px solid #526370;border-radius:5px;padding:6px;background:#10171c;color:#fff}
+/* v1.7.38: recovered OCR names are editable before the cleaned copy is added. */
+.cleanup-recovered{margin-top:12px;padding:12px;border:1px solid #5e806f;border-radius:9px;background:#1b2c2a;display:flex;flex-direction:column;gap:8px}
+.cleanup-recovered>strong{font-size:13px;color:#bfecd4}
+.cleanup-recovered .tip{margin:0}
+.cleanup-recovered>label{font-size:11px;color:var(--muted)}
+.cleanup-recovered-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
+.cleanup-recovered-fields label{min-width:0;display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)}
+.cleanup-recovered-fields .field{min-width:0;width:100%;box-sizing:border-box}
+#cleanupCaptionWarning{color:#e8c58f;white-space:normal;overflow-wrap:anywhere}
+.combine-recovered-note{margin-top:8px;display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)}
+.combine-recovered-note textarea{max-width:100%;box-sizing:border-box;min-height:42px;resize:vertical}

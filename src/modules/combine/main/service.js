@@ -6,6 +6,7 @@ const path = require("path");
 const { inspectBatch, inspectOne } = require("./assets");
 const { buildCombineLayout } = require("./planner");
 const { previewImage, createCombineFiles } = require("./photoshop");
+const { capturedCaptionSuggestion } = require("../shared/captionLayout");
 const { publishCombine, familyRegex } = require("./publish");
 
 class CombineService {
@@ -25,11 +26,29 @@ class CombineService {
         const result = await inspectBatch(paths || []);
         let added = 0;
         for (const file of result.images) {
+            // Downloaded cleaned images can inherit caption names and exact
+            // original positions from Rakuten's own local manifest. Never alter
+            // source images or require a sidecar on ordinary manual uploads.
+            file.suggestedLineup = await this.getDownloadedCaptionSuggestion(file);
             if (this.images.has(file.path.toLowerCase())) continue;
             this.images.set(file.path.toLowerCase(), file);
             added++;
         }
         return { ...result, added, state: this.getState() };
+    }
+    async getDownloadedCaptionSuggestion(file) {
+        if (path.basename(path.dirname(file.path)).toUpperCase() !== "COMBINE_CLEANED") return null;
+        const manifestPath = path.join(path.dirname(path.dirname(file.path)), "slider_manifest.json");
+        try {
+            const stat = await fs.promises.stat(manifestPath);
+            if (!stat.isFile() || stat.size > 2_000_000) return null;
+            const manifest = JSON.parse(await fs.promises.readFile(manifestPath, "utf8"));
+            const entry = (manifest.images || []).find(item => item.cleanup?.cleanedPath &&
+                path.resolve(item.cleanup.cleanedPath).toLowerCase() === file.path.toLowerCase());
+            if (!entry) return null;
+            return capturedCaptionSuggestion(entry.cleanup?.captions,
+                entry.width || file.width, entry.height || file.height);
+        } catch (_) { return null; }
     }
     reset() {
         if (this.busy) throw new Error("Combine generation is in progress.");
@@ -55,7 +74,8 @@ class CombineService {
             if (!item || typeof item !== "object") throw new Error("Invalid Line Up image entry.");
             return { ...resolve(item.path), colorName: String(item.colorName || "").trim(),
                 rowMode: item.rowMode == null ? "single" : item.rowMode,
-                colorNameRight: String(item.colorNameRight || "").trim() };
+                colorNameRight: String(item.colorNameRight || "").trim(),
+                captionTopY: item.captionTopY, captionBottomY: item.captionBottomY };
         });
         const details = (payload.details || []).map(p => resolve(typeof p === "string" ? p : p?.path));
         for (const group of [lineup, details]) {
@@ -70,7 +90,7 @@ class CombineService {
     async preview(payload) {
         const entry = this.getImage(payload?.filePath);
         return { filePath: entry.path, width: entry.width, height: entry.height,
-            dataUrl: await this.previewer(entry, payload?.maxEdge || 800) };
+            dataUrl: await this.previewer(entry, payload?.maxEdge || 800, { preserveCanvas: payload?.preserveCanvas === true }) };
     }
     async generate(payload, progress = () => {}) {
         if (this.busy) throw new Error("Combine Generator is already processing.");

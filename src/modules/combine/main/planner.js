@@ -1,6 +1,7 @@
 "use strict";
 
 const path = require("path");
+const { verticalPositions } = require("../shared/captionLayout");
 
 // Geometry measured from !COMBINE_TEMPLATE.psd (600 x 1998).
 // Only the original Detail boxes are fixed by the template. Line Up spacing
@@ -150,12 +151,54 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
         lineupRows.push(row);
         y += row.rowHeight + DIM.rowGap;
     }
+    // A vertically stacked source image also occupies ONE full-width block,
+    // but its editable TOP and BOTTOM labels sit IN the original blank caption
+    // areas, not both appended after the second product. Preserve the entire
+    // source canvas so original text positions and image-to-caption gaps match.
+    function appendVerticalRow(item, index) {
+        const top = wrapColorName(item.colorName, 19.5);
+        const bottom = wrapColorName(item.colorNameRight, 19.5);
+        const positions = verticalPositions(item.captionTopY, item.captionBottomY);
+        const sourceWidth = Number(item.width), sourceHeight = Number(item.height);
+        if (!(sourceWidth > 0 && sourceHeight > 0)) throw new Error(`Invalid dimensions: ${item.name}`);
+        const imageHeight = Math.max(1, Math.min(DIM.dualMaxHeight,
+            Math.round(DIM.dualWidth * sourceHeight / sourceWidth)));
+        const image = fitInside({ ...item, visibleWidth: sourceWidth,
+            visibleHeight: sourceHeight, verticalAlign: "top" }, DIM.margin, y,
+            DIM.dualWidth, imageHeight);
+        const labelWidth = DIM.dualWidth - 12;
+        const labelX = DIM.margin + 6;
+        const topY = image.y + Math.round(image.placedHeight * positions.topY);
+        const bottomY = image.y + Math.round(image.placedHeight * positions.bottomY);
+        const topHeight = top.length * DIM.labelLine;
+        const bottomHeight = bottom.length * DIM.labelLine;
+        if (topY + topHeight + DIM.labelGap > bottomY) {
+            throw new Error(`TOP/BOTTOM names overlap in ${item.name}. Move their caption positions farther apart or shorten the names.`);
+        }
+        const labels = [
+            { side: "top", text: item.colorName, lines: top, x: labelX,
+                y: topY, width: labelWidth, height: topHeight, positionRatio: positions.topY },
+            { side: "bottom", text: item.colorNameRight, lines: bottom, x: labelX,
+                y: bottomY, width: labelWidth, height: bottomHeight, positionRatio: positions.bottomY }
+        ];
+        // If the printed bottom caption was very close to the source bottom,
+        // reserve only the pixels actually needed for its replacement text.
+        const rowHeight = Math.max(imageHeight, bottomY + bottomHeight - y + DIM.margin);
+        lineupRows.push({kind:"vertical", top:y, imageHeight, labelTop:topY,
+            labelHeight:bottomHeight, rowHeight, imageIndices:[index]});
+        placedLineup.push({ ...image, rowMode:"vertical", preserveCanvas:true,
+            captionTopY:positions.topY, captionBottomY:positions.bottomY,
+            colorName:item.colorName, colorNameRight:item.colorNameRight,
+            labels, labelLines:top, order:index+1 });
+        y += rowHeight + DIM.rowGap;
+    }
     lineup.forEach((item, index) => {
         const mode = item.rowMode == null ? "single" : item.rowMode;
-        if (mode !== "single" && mode !== "dual") throw new Error(`Invalid Line Up row mode for ${item.name}.`);
-        if (mode === "dual") {
+        if (!["single", "dual", "vertical"].includes(mode)) throw new Error(`Invalid Line Up row mode for ${item.name}.`);
+        if (mode === "dual" || mode === "vertical") {
             appendNormalRow(pending); pending = [];
-            appendDualRow(item, index);
+            if (mode === "vertical") appendVerticalRow(item, index);
+            else appendDualRow(item, index);
         } else {
             pending.push({ item, index });
             if (pending.length === 2) { appendNormalRow(pending); pending = []; }

@@ -36,7 +36,7 @@ with sync_playwright() as p:
     page.evaluate(mock)
     html=(root/'index.html').read_text(encoding='utf8')
     html=html.replace('<link rel="stylesheet" href="style.css">', '<style>'+(root/'style.css').read_text(encoding='utf8')+'</style>')
-    for script in ['cleanupUi.js', 'app.js']:
+    for script in ['../shared/captionLayout.js', 'cleanupUi.js', 'app.js']:
         html=html.replace('<script src="'+script+'"></script>', '<script>'+(root/script).read_text(encoding='utf8')+'</script>')
     page.set_content(html)
     page.wait_for_timeout(250)

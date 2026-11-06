@@ -1,0 +1,36 @@
+BrandForge v1.7.38 - source differences vs v1.7.37
+Changed existing files: 16; added: 6; removed: 0
+Amazon and Slider source unchanged; complete Electron startup files retained.
+
+CHANGED
+  PROJECT_CHECKSUMS.txt
+  README.md
+  package-lock.json
+  package.json
+  src/modules/combine/README.md
+  src/modules/combine/main/service.js
+  src/modules/combine/main/textCleanup.js
+  src/modules/combine/renderer/app.js
+  src/modules/combine/renderer/cleanupUi.js
+  src/modules/combine/renderer/index.html
+  src/modules/combine/renderer/style.css
+  src/modules/combine/shared/captionLayout.js
+  test/combineCleanupBrowser.py
+  test/combineDualRowBrowser.py
+  test/combinePrecisionBrowser.py
+  test/combineVerticalBrowser.py
+
+ADDED
+  CHANGED_FROM_v1.7.37.txt
+  INSTALL_FULL_PROJECT_v1.7.38.txt
+  UPGRADE_v1.7.38.txt
+  src/modules/combine/main/selectedCaptionOcr.js
+  test/combineCaptionCapture.js
+  test/combineCapturedNamesBrowser.py
+
+TESTING
+  npm run check and 10 focused JS test suites: PASS
+  Five Combine browser UI tests: PASS
+  Full npm run validate: time limit reached while running an unchanged Amazon
+  creative-frames test. No errors in earlier completed tests.
+  Actual Windows OCR and Photoshop actions still require local QC.

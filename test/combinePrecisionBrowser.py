@@ -16,7 +16,7 @@ with sync_playwright() as p:
     page.evaluate(mock)
     html=(renderer/'index.html').read_text(encoding='utf8')
     html=html.replace('<link rel="stylesheet" href="style.css">','<style>'+(renderer/'style.css').read_text(encoding='utf8')+'</style>')
-    for js in ['cleanupUi.js','app.js']:
+    for js in ['../shared/captionLayout.js','cleanupUi.js','app.js']:
         html=html.replace('<script src="'+js+'"></script>','<script>'+(renderer/js).read_text(encoding='utf8')+'</script>')
     page.set_content(html)
     assert page.locator('#cleanupRestore').input_value()=='clean'

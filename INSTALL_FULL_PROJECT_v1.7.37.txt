@@ -1,0 +1,29 @@
+BrandForge v1.7.37 - Full Source / Combine Vertical Naming
+
+BASE: v1.7.36 complete project including original user's customized Slider files.
+
+1. Close BrandForge. Make a BACKUP of your current project folder.
+2. Extract this entire ZIP, then merge all contents into:
+   D:\gulliver-image-workflow\gulliver-image-workflow
+3. Replace matching files, but do not delete your local node_modules, user data or image folders.
+4. Verify startup files with VERIFY_BRANDFORGE_ROOT.cmd.
+5. From VS Code Terminal at project root run:
+   npm run check
+   npm run test:combine-vertical
+   npm start
+   Optional full suite: npm run validate
+6. In Combine -> Line Up import the image with two products stacked top/bottom.
+7. Choose '2 variants - vertical (TOP / BOTTOM)'. Enter both names. Adjust
+   TOP text Y % and BOTTOM text Y % to exactly match the original erased captions.
+8. Generate PSD and JPEG, inspect in Photoshop. Both name layers are editable.
+
+Bulk names: TOP name :: BOTTOM name. Horizontal: LEFT name | RIGHT name.
+
+If using Remove Existing Image Text first, approve both OCR captions, preview,
+then Save Clean Copy + Add to Combine. Clear top/bottom OCR matches auto-fill
+vertical naming and capture exact source positions. Safe auto-cleaned downloads
+may carry these positions from slider_manifest.json when imported later.
+Original downloaded files stay unchanged; no auto-assignment to Combine.
+
+Source ZIP, not portable EXE. Rebuild EXE only when needed with npm run build:portable.
+Windows Photoshop/COM and live Rakuten behavior are unverified here.

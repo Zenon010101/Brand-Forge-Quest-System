@@ -1,0 +1,26 @@
+BrandForge v1.7.37 — source changes compared with v1.7.36
+No original source files removed.
+
+Added or changed files:
+- INSTALL_FULL_PROJECT_v1.7.37.txt (NEW)
+- PROJECT_CHECKSUMS.txt
+- README.md
+- UPGRADE_v1.7.37.txt (NEW)
+- package-lock.json
+- package.json
+- src/modules/combine/README.md
+- src/modules/combine/jsx/compose.jsx
+- src/modules/combine/main/photoshop.js
+- src/modules/combine/main/planner.js
+- src/modules/combine/main/service.js
+- src/modules/combine/renderer/app.js
+- src/modules/combine/renderer/cleanupUi.js
+- src/modules/combine/renderer/index.html
+- src/modules/combine/renderer/style.css
+- src/modules/combine/shared/captionLayout.js (NEW)
+- test/combineVertical.js (NEW)
+- test/combineVerticalBrowser.py (NEW)
+
+Unchanged modules confirmed: Amazon, Slider (including customized files), Remove BG, LP, Profile.
+Source contains full Electron main/preload files. ZIP is not a compiled Windows EXE.
+Windows Photoshop and live Rakuten verification remain pending.

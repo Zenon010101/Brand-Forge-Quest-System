@@ -8,7 +8,7 @@
 <body>
 <div class="workspace">
   <header class="module-head">
-    <div><p class="kicker">BRANDFORGE / IMAGE WORKFLOW STUDIO</p><h1>COMBINE Generator <span class="version">v1.7.33 · Precision Text Eraser + Clean Fill</span></h1><p>Upload by section, set the color names, drag images into order, and export a layered Photoshop Combine with JPEG.</p></div>
+    <div><p class="kicker">BRANDFORGE / IMAGE WORKFLOW STUDIO</p><h1>COMBINE Generator <span class="version">v1.7.38 · Selected Text OCR → Auto Names</span></h1><p>Upload by section, set the color names, drag images into order, and export a layered Photoshop Combine with JPEG.</p></div>
     <div class="head-stats"><strong>600 PX</strong><span>Fixed width · Dynamic height</span></div>
   </header>
   <div class="workgrid">
@@ -32,7 +32,7 @@
       </section>
       <section class="panel section cleanup-panel" id="cleanupPanel">
         <div class="panel-head"><div><span class="step">CLEAN</span><h2>Remove Existing Image Text</h2></div><span class="tag">Optional · originals safe</span></div>
-        <p class="tip">Detect embedded English/Japanese captions on downloaded JPG/PNG images, choose only the text that should disappear, then inspect the reconstructed background. Logos and product details must remain untouched. Downloaded originals are never changed. Auto-cleaned copies appear in COMBINE_CLEANED; use this panel to review skipped text or refine a result.</p>
+        <p class="tip">Detect embedded English/Japanese captions on downloaded JPG/PNG images, highlight the text with Rectangle/Brush Select, then preview the removal. The text is read from the original selection and offered as editable names automatically. Logos and product details must remain untouched. Downloaded originals are never changed. Auto-cleaned copies appear in COMBINE_CLEANED; use this panel to review skipped text or refine a result.</p>
         <div class="section-tools"><button type="button" id="cleanupFromDownloads" class="action">Use Downloaded Slides</button><button type="button" id="cleanupChoose" class="minor">Choose Images</button></div>
         <div id="cleanupQueue" class="cleanup-queue"><p class="empty">Select downloaded slides or choose local images to clean.</p></div>
         <label class="field-label" for="cleanupMode">Detection / selection mode</label>
@@ -56,7 +56,15 @@
         <div class="section-tools"><button type="button" id="cleanupPreview" class="action" disabled>Preview Text Removal</button></div>
         <label class="field-label" for="cleanupTarget">Add cleaned copy to Combine section</label>
         <select class="field" id="cleanupTarget"><option value="lineup">Line Up</option><option value="details">Details</option><option value="single">Single (replace selected Single)</option></select>
-        <label class="cleanup-pref"><input type="checkbox" id="cleanupReuseCaption" checked> Reuse approved OCR captions as editable 28px names; two captions in separate columns create one dual-item row (Line Up only)</label>
+        <label class="cleanup-pref"><input type="checkbox" id="cleanupReuseCaption" checked> Automatically fill editable Line Up color names from the text you marked for removal (OCR also reads manual rectangles and brush strokes). Notes are kept when added to Details / Single.</label>
+        <div class="cleanup-recovered" id="cleanupRecovered" hidden>
+          <strong>Captured text — review before adding</strong>
+          <p class="tip">Read from the ORIGINAL selected area before erasing. Correct OCR errors here; these names will be filled automatically after adding to Combine.</p>
+          <label for="cleanupCaptionMode">Caption arrangement</label>
+          <select id="cleanupCaptionMode" class="field"><option value="auto">Auto-detect (recommended)</option><option value="single">1 color name</option><option value="dual">2 names — LEFT / RIGHT</option><option value="vertical">2 names — TOP / BOTTOM</option></select>
+          <div class="cleanup-recovered-fields"><label><span id="cleanupCaptionFirstLabel">First color name</span><input type="text" class="field" id="cleanupCaptionFirst" maxlength="120" placeholder="OCR text (editable)"></label><label id="cleanupCaptionSecondField"><span id="cleanupCaptionSecondLabel">Second color name</span><input type="text" class="field" id="cleanupCaptionSecond" maxlength="120" placeholder="Second name (if needed)"></label></div>
+          <p class="tip" id="cleanupCaptionWarning"></p>
+        </div>
         <button type="button" class="action cleanup-save" id="cleanupSave" disabled>Save Clean Copy + Add to Combine</button>
         <p id="cleanupStatus" class="tip">Only approved regions will be edited. Saved PNGs go into a COMBINE_CLEANED folder beside the source images; output names are versioned to avoid overwriting.</p>
       </section>
@@ -68,12 +76,12 @@
       </section>
       <section class="panel section" id="sectionLineup">
         <div class="panel-head"><div><span class="step">02</span><h2>Line Up</h2></div><span class="tag" id="lineCount">0 variations</span></div>
-        <p class="tip"><strong>Optional.</strong> Regular images use 2 images per row. For an image containing two products (like two jackets side by side), click <strong>+ Add 2nd color name</strong> (or select <strong>2 variants</strong>) and fill in separate LEFT and RIGHT names. The complete image stays intact; two separate editable 28 px labels are added close beneath the visible products (without extra source-image whitespace). Enter both names before generating. Use Text Cleanup first to remove captions already printed on JPG/PNG images.</p>
+        <p class="tip"><strong>Optional.</strong> Regular images use 2 images per row. For an image containing two products (like two jackets side by side), click <strong>+ Add 2nd color name</strong> and choose <strong>Horizontal (LEFT/RIGHT)</strong> or <strong>Vertical (TOP/BOTTOM)</strong>. In Vertical mode the original full image is preserved; two separate 28px editable captions are placed at their original Y positions (adjustable below the names), not both at the bottom. Enter both names before generating. Use Text Cleanup first to remove captions already printed on JPG/PNG images.</p>
         <div class="drop-zone compact" data-section="lineup" tabindex="0"><span class="drop-icon">＋</span><strong>Drop Line Up images</strong><small>Multiple files supported</small></div>
         <div class="section-tools"><button type="button" id="chooseLineup" class="action">Add Line Up Images</button><button type="button" id="clearLineup" class="minor">Clear Line Up</button></div>
-        <div class="section-tools lineup-bulk-mode"><button type="button" id="setAllDual" class="minor">All images → 2 items / full row</button><button type="button" id="setAllNormal" class="minor">All images → 1 item / half row</button></div>
+        <div class="section-tools lineup-bulk-mode"><button type="button" id="setAllDual" class="minor">All → Horizontal (L/R)</button><button type="button" id="setAllVertical" class="minor">All → Vertical (T/B)</button><button type="button" id="setAllNormal" class="minor">All images → 1 item / half row</button></div>
         <div id="lineupItems" class="items"><p class="empty">No Line Up — this section will be skipped.</p></div>
-        <div class="bulk" id="lineupBulk"><label for="bulkColorNames">Bulk color names (one line per image; LEFT | RIGHT automatically enables 2-variant full rows)</label><textarea id="bulkColorNames" rows="3" placeholder="Off White (012) | Spugnola (110)&#10;Navy (002) | Beige (103)&#10;Black"></textarea><button type="button" class="minor" id="applyColors">Apply Names in Order</button></div>
+        <div class="bulk" id="lineupBulk"><label for="bulkColorNames">Bulk color names (one line per image; LEFT | RIGHT = horizontal, TOP :: BOTTOM = vertical)</label><textarea id="bulkColorNames" rows="3" placeholder="Off White (012) | Spugnola (110)&#10;TOP White :: BOTTOM Black&#10;Black"></textarea><button type="button" class="minor" id="applyColors">Apply Names in Order</button></div>
       </section>
       <section class="panel section" id="sectionDetails">
         <div class="panel-head"><div><span class="step">03</span><h2>Details</h2></div><span class="tag" id="detailCount">0 images</span></div>
@@ -106,6 +114,7 @@
   </div>
   <footer class="footer"><div class="footer-main"><button type="button" id="generate" class="generate" disabled>Generate Combine</button><button type="button" id="openOutput" class="minor" disabled>Open Output Folder</button><button type="button" id="reset" class="minor">Clear All</button></div><div class="status"><span id="statusText">Ready — upload source images.</span><span id="statusMeta">No output yet</span></div></footer>
 </div>
+<script src="../shared/captionLayout.js"></script>
 <script src="cleanupUi.js"></script>
 <script src="app.js"></script>
 </body></html>

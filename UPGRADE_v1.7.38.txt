@@ -1,0 +1,39 @@
+BrandForge v1.7.38 - Selected-Text OCR Auto-Fill for Combine
+============================================================
+BASE: Complete BrandForge v1.7.37 source ZIP.
+
+WHAT'S NEW
+- When Preview Text Removal is clicked, the original highlighted/brush-selected
+  text is read before any pixels are erased.
+- A new Captured text panel shows editable OCR results. Captions automatically
+  fill the existing 28px editable Line Up name fields when cleaned files are
+  saved and added to Combine.
+- Spatial auto-detection maps two captions to LEFT / RIGHT or TOP / BOTTOM.
+  Original TOP / BOTTOM caption Y positions are retained when detected.
+- OCR is performed again on a manually selected region if the initial scan
+  missed the caption. Text outside the selected mask is not imported.
+- Users may change the caption layout and fix OCR text manually.
+- Single and Details carry editable recovered-text notes without adding new
+  PSD caption layers to those sections.
+- Rakuten auto-cleaned slides with one caption now inherit the name on import.
+- Original source images remain untouched. Cleaned copies are versioned.
+
+INSTALL
+1. Back up your existing BrandForge source folder.
+2. Extract the FULL PROJECT ZIP into your project root, merging src and test.
+3. If you use only the changed-files ZIP, merge folders (do not replace the
+   entire src directory with the partial patch).
+4. From the project root run:
+      npm run check
+      npm run test:combine-caption-capture
+      npm run validate
+      npm start
+5. A packaged Windows EXE requires rebuilding from the updated source.
+
+NOTES
+- Requires OCR availability: Tesseract with English/Japanese language packs
+  or the installed Windows OCR languages. OCR quality is not guaranteed.
+- Review the cleaned result and recovered text before export, especially when
+  an image contains logos or captions printed across products.
+- Photoshop JSX execution was not run here; verify actual PSD export on Windows.
+- No Amazon, Slider, LP, Remove BG or Photoshop generation rules were changed.

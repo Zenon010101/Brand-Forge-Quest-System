@@ -1,0 +1,29 @@
+BrandForge v1.7.36 -> v1.7.37
+
+FEATURE:
+- Combine Line Up: third mode: Vertical (TOP/BOTTOM) for two vertically stacked products in one image.
+- Separate editable 28px Photoshop layers named COLOR_NAME_<N>_TOP and _BOTTOM.
+- Preserve the full source image canvas and reuse the original removed-caption Y positions where OCR is available.
+- User-adjustable TOP and BOTTOM caption Y percentages; defaults 44% / 92.5%.
+- Two approved vertical OCR captions auto-fill both names and coordinates on manual cleanup.
+- Importing auto-cleaned Rakuten PNGs can reuse positions in slider_manifest.json.
+- Bulk `TOP :: BOTTOM` and All -> Vertical controls; no change to LEFT | RIGHT.
+
+CHANGED APPLICATION FILES:
+- src/modules/combine/shared/captionLayout.js (new)
+- src/modules/combine/main/planner.js
+- src/modules/combine/main/service.js
+- src/modules/combine/main/photoshop.js
+- src/modules/combine/jsx/compose.jsx
+- src/modules/combine/renderer/app.js
+- src/modules/combine/renderer/cleanupUi.js
+- src/modules/combine/renderer/index.html
+- src/modules/combine/renderer/style.css
+
+TEST / DOCUMENTATION FILES:
+- test/combineVertical.js (new)
+- test/combineVerticalBrowser.py (optional UI test, new)
+- package.json, package-lock.json, README.md, src/modules/combine/README.md
+- INSTALL_FULL_PROJECT_v1.7.37.txt, UPGRADE_v1.7.37.txt, PROJECT_CHECKSUMS.txt
+
+NO CHANGES to Amazon, Slider, other generators, downloading rules, original images, or the 8-image Amazon limit.

@@ -119,7 +119,10 @@
                     width: variation.labelWidth, height: variation.labelHeight }];
                 for (var l = 0; l < labels.length; l++) {
                     var caption = labels[l];
-                    var suffix = labels.length === 2 ? (l === 0 ? "_LEFT" : "_RIGHT") : "";
+                    var suffix = labels.length === 2
+                        ? (variation.rowMode === "vertical"
+                            ? (l === 0 ? "_TOP" : "_BOTTOM")
+                            : (l === 0 ? "_LEFT" : "_RIGHT")) : "";
                     colorText(caption.lines.join("\r"), slot,
                         { x: caption.x, y: caption.y, width: caption.width,
                             height: caption.height }, j.geometry.labelSize,
