@@ -1,0 +1,54 @@
+BrandForge v1.7.39 - Arcade Mini Games
+========================================
+Base: BrandForge v1.7.38 (Selected Text OCR Auto-Fill)
+
+NEW:
+- New sidebar Arcade tab plus a Dashboard shortcut.
+- Snake, Color Match Rush, Memory Flip, and Block Puzzle.
+- Personal high scores by signed-in profile UUID; local arcade-scores.json file.
+- Optional Web Audio sound effects; On/Off preference saved per profile.
+- Keyboard and on-screen controls, Start/Pause/Reset, auto-pause when leaving Arcade.
+- No production EXP/achievement/history impact.
+- No internet, Photoshop, Python runtime, or new npm dependencies needed for games.
+
+EXISTING PRODUCTION FEATURES PRESERVED:
+- Amazon (including Hide Completed / Assigned Images)
+- Slider (including flexible counts, 50px bottom Cut detail)
+- Combine, OCR, vertical/horizontal lineup, selected-text auto-fill
+- LP Folder / Landing Page / Remove Background and Shadow
+- Profiles / EXP / History / Settings / Project Locations
+
+MODIFIED (existing code):
+- src/main/main.js (register Arcade IPC)
+- src/main/preload.js (minimal arcadeApp bridge)
+- src/renderer/index.html (Arcade tab, iframe, Dashboard card)
+- src/renderer/app.js (navigation + pause/profile messages)
+- package.json, package-lock.json (version/check/test scripts)
+- README.md (Arcade documentation)
+
+NEW (Arcade):
+- src/modules/arcade/main/register.js
+- src/modules/arcade/main/scoreStore.js
+- src/modules/arcade/shared/engines.js
+- src/modules/arcade/renderer/index.html
+- src/modules/arcade/renderer/style.css
+- src/modules/arcade/renderer/app.js
+- test/arcade.js
+- test/arcadeIpc.js
+- test/arcadeBrowser.py (optional development UI test)
+- test/arcadeProfileBrowser.py (optional development UI test)
+
+INSTALL:
+1. Back up the entire original project folder.
+2. Extract FULL PROJECT ZIP.
+3. Copy all contents into D:\gulliver-image-workflow\gulliver-image-workflow; merge folders.
+4. In the project root run: npm run check && npm run test:arcade && npm start
+5. If needed for a new computer, run npm install once; not required for unchanged dependencies.
+6. If using a compiled portable EXE, rebuild from updated source with npm run build:portable.
+
+HIGH SCORES:
+Saved locally in Electron userData/arcade-scores.json; they are not saved to production profiles.json.
+Scores are kept per profile and only increase when a player beats their personal best.
+Normal production files and saved PSD templates are never touched by Arcade.
+
+Note: Windows Electron runtime / portable EXE should be checked on the target PC.

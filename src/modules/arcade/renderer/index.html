@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BrandForge Arcade</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="arcade-shell">
+    <header class="arcade-header">
+      <div class="arcade-identity">
+        <div class="arcade-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <div><div class="kicker">BRANDFORGE / AFTER HOURS</div><h1>ARCADE<span class="header-dot">.</span></h1><p>Four little games. Zero production deadlines.</p></div>
+      </div>
+      <div class="arcade-tools">
+        <span class="offline-tag"><span class="online-dot"></span> OFFLINE MODE</span>
+        <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="true">Sound: On</button>
+        <div class="profile-tag"><span class="profile-circle" aria-hidden="true">P</span><div><small>PLAYING AS</small><strong id="profileName">Local profile</strong></div></div>
+      </div>
+    </header>
+
+    <nav class="game-selector" id="gameSelector" aria-label="Choose arcade game">
+      <button class="game-tile active" type="button" data-game="snake" aria-pressed="true">
+        <span class="tile-art snake-art" aria-hidden="true">▦</span><span class="tile-title">Snake</span><span class="tile-caption">Catch & grow</span><span class="tile-best">BEST <strong data-best="snake">0</strong></span>
+      </button>
+      <button class="game-tile" type="button" data-game="color" aria-pressed="false">
+        <span class="tile-art color-art" aria-hidden="true">◒</span><span class="tile-title">Color Match</span><span class="tile-caption">Find the perfect hue</span><span class="tile-best">BEST <strong data-best="color">0</strong></span>
+      </button>
+      <button class="game-tile" type="button" data-game="memory" aria-pressed="false">
+        <span class="tile-art memory-art" aria-hidden="true">▣</span><span class="tile-title">Memory Flip</span><span class="tile-caption">Match the pairs</span><span class="tile-best">BEST <strong data-best="memory">0</strong></span>
+      </button>
+      <button class="game-tile" type="button" data-game="blocks" aria-pressed="false">
+        <span class="tile-art block-art" aria-hidden="true">▟</span><span class="tile-title">Block Puzzle</span><span class="tile-caption">Stack & clear</span><span class="tile-best">BEST <strong data-best="blocks">0</strong></span>
+      </button>
+    </nav>
+
+    <section class="game-area" aria-label="Selected game">
+      <div class="game-main">
+        <div class="game-head">
+          <div><div class="kicker" id="modeLabel">01 / CLASSIC ARCADE</div><h2 id="gameTitle">Snake</h2><p id="gameDescription">Collect fruit. Don't hit a wall or your own tail.</p></div>
+          <span class="state-chip" id="gameState">READY TO PLAY</span>
+        </div>
+        <div class="playfield" id="playfield">
+          <div class="game-view" data-view="snake"><canvas id="snakeCanvas" width="400" height="400" role="img" aria-label="Snake game grid"></canvas></div>
+          <div class="game-view" data-view="color" hidden>
+            <div class="color-target"><div class="micro-label">MATCH THIS COLOR</div><div class="color-target-swatch" id="targetSwatch"></div><strong id="colorTargetText">Pick the exact match</strong></div>
+            <div class="color-grid" id="colorGrid" role="group" aria-label="Color choices"></div>
+          </div>
+          <div class="game-view" data-view="memory" hidden><div class="memory-grid" id="memoryGrid" role="group" aria-label="Memory cards"></div></div>
+          <div class="game-view" data-view="blocks" hidden><div class="blocks-area"><canvas id="blocksCanvas" width="300" height="600" role="img" aria-label="Block Puzzle game board"></canvas><div class="next-block"><div class="micro-label">NEXT</div><canvas id="nextCanvas" width="120" height="120" role="img" aria-label="Next block"></canvas></div></div></div>
+          <div class="field-message" id="fieldMessage" role="status"><strong id="fieldMessageTitle">Ready when you are</strong><span id="fieldMessageText">Press Start to begin.</span></div>
+        </div>
+        <div class="mobile-pad" id="mobilePad" hidden aria-label="Directional controls"><button data-direction="left" type="button" aria-label="Move left">◀</button><button data-direction="up" type="button" aria-label="Up or rotate">▲</button><button data-direction="down" type="button" aria-label="Move down">▼</button><button data-direction="right" type="button" aria-label="Move right">▶</button><button id="hardDropButton" type="button" hidden>DROP</button></div>
+      </div>
+      <aside class="game-side">
+        <div class="score-panel"><div class="micro-label">CURRENT SCORE</div><strong id="currentScore">0000</strong><div class="score-divider"></div><div class="record-label">PERSONAL BEST <span id="personalBest">0</span></div></div>
+        <div class="small-panel"><span class="micro-label" id="metricLabel">FRUIT EATEN</span><strong id="metricValue">0</strong><div class="metric-secondary" id="metricSecondary">20 × 20 grid</div></div>
+        <div class="control-panel"><div class="micro-label">GAME CONTROLS</div><p id="controlsHelp">Arrow keys / WASD to steer</p><div class="control-buttons"><button class="primary-action" type="button" id="startButton">Start Game</button><button type="button" id="pauseButton" disabled>Pause</button><button type="button" id="restartButton">Reset</button></div><p class="tip" id="gameTip">Tip: you can also use the directional buttons below the board.</p></div>
+        <div class="save-note" id="saveNote"><span class="save-dot" aria-hidden="true"></span><span>High scores saved to your local profile. No impact on production EXP.</span></div>
+      </aside>
+    </section>
+    <footer class="arcade-footer"><span>POWERED BY BREAK TIME</span><span>NO INTERNET · NO PHOTOSHOP · JUST PLAY</span></footer>
+  </div>
+  <script src="../shared/engines.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

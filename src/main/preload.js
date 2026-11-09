@@ -146,3 +146,11 @@ contextBridge.exposeInMainWorld("combineApp", {
         return () => ipcRenderer.removeListener("combine:progress", handler);
     }
 });
+
+// Arcade scores/preferences are profile-keyed in a separate local store.
+// No production data or Photoshop APIs are exposed to the mini games.
+contextBridge.exposeInMainWorld("arcadeApp", {
+    getState: () => ipcRenderer.invoke("arcade:get-state"),
+    saveScore: (game, score) => ipcRenderer.invoke("arcade:save-score", game, score),
+    setSound: enabled => ipcRenderer.invoke("arcade:set-sound", enabled)
+});

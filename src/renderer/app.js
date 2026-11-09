@@ -6,6 +6,7 @@ const pageMeta = {
     "landing-page": ["Landing Page Generator", "Reconstruct 1000px-wide landing pages from Single images and ordered screenshots."],
     "lp-folder": ["LP Folder Generator", "Auto-compose editable long LP PSD/PSB + high-quality JPEG from a folder of images."],
     "combine": ["Combine Generator", "600 px Single, two-column Line Up with color names, and a flexible Detail grid."],
+    arcade: ["Arcade", "Take a break with four offline mini games and personal high scores."],
     progress: ["Progress & History", "Levels, EXP, achievements, brands, and Monday–Friday history."],
     settings: ["Settings", "System readiness, local profile, shared workflow rules, and app data."]
 };
@@ -22,8 +23,16 @@ let profileDashboard = null;
 let authMode = "login";
 let settingsInitialized = false;
 
+let currentPage = "dashboard";
+function notifyArcade(type) {
+    const target = document.getElementById("arcadeFrame")?.contentWindow;
+    if (target) target.postMessage({ source: "brandforge-shell", type }, "*");
+}
 function showPage(pageName) {
     const meta = pageMeta[pageName] || pageMeta.dashboard;
+    if (currentPage === "arcade" && pageName !== "arcade") notifyArcade("arcade-hidden");
+    currentPage = pageName;
+    if (pageName === "arcade") notifyArcade("arcade-profile-refresh");
 
     navItems.forEach(item => {
         item.classList.toggle("active", item.dataset.page === pageName);
@@ -36,7 +45,7 @@ function showPage(pageName) {
     pageTitle.textContent = meta[0];
     pageSubtitle.textContent = meta[1];
 
-    const fullModule = ["slider", "amazon", "remove-bg", "landing-page", "lp-folder", "combine"].includes(pageName);
+    const fullModule = ["slider", "amazon", "remove-bg", "landing-page", "lp-folder", "combine", "arcade"].includes(pageName);
     mainContent.classList.toggle("embedded-module-active", fullModule);
 
     if (pageName === "dashboard" || pageName === "progress") {
@@ -294,6 +303,8 @@ async function requireAuthentication() {
 async function doLogout() {
     if (!profileApi) return;
     await profileApi.logout();
+    notifyArcade("arcade-hidden");
+    notifyArcade("arcade-profile-refresh");
     profileDashboard = null;
     setProfileMini(null);
     document.getElementById("authForm").reset();
@@ -326,6 +337,7 @@ document.getElementById("authForm").addEventListener("submit", async event => {
         document.getElementById("authOverlay").hidden = true;
         document.getElementById("authForm").reset();
         setProfileMini(result.profile);
+        notifyArcade("arcade-profile-refresh");
         await refreshProfileDashboard();
     } catch (error) {
         errorBox.textContent = error?.message || String(error);

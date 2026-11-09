@@ -1,0 +1,18 @@
+BrandForge v1.7.39 - Full Source Project Install
+================================================
+1. Close BrandForge. Back up the current project directory.
+2. Extract BrandForge_v1.7.39_FULL_PROJECT_Arcade_Four_Games.zip.
+3. Copy extracted contents into the original BrandForge project ROOT (where package.json is).
+   Recommended root: D:\gulliver-image-workflow\gulliver-image-workflow
+   MERGE folders, REPLACE matching files. Do not delete source files from modules you customized.
+4. Verify the root contains package.json and src\main\main.js and src\modules\arcade\renderer\index.html.
+5. From VS Code PowerShell:
+   cd D:\gulliver-image-workflow\gulliver-image-workflow
+   npm run check
+   npm run test:arcade
+   npm start
+6. Open Arcade in the left sidebar, sign in to your local profile, and play.
+7. To rebuild a portable Windows application, run npm run build:portable.
+
+Note: this ZIP is SOURCE, not a built EXE. The optional browser test scripts
+are for development only. New dependencies are not required.

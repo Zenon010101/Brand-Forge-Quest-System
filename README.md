@@ -366,3 +366,23 @@ Smart Folder Import was reintroduced.
 - A dual-variant image occupies **one full-width row** and creates two independent, editable 28px Photoshop text layers.
 - Pasting `LEFT | RIGHT` into the first field or into the bulk color names box automatically sets that image to dual mode. The full-width row is not split into two source images.
 - Existing optional Single, text cleanup, dual-row PSD export, unrestricted Slider, and other modules are unchanged.
+
+
+## BrandForge Arcade (v1.7.39)
+
+**New sidebar tab: Arcade · Mini Games.** Includes four original, entirely offline JavaScript mini-games. This feature is separate from Amazon, Slider, Combine, LP, Background Removal, Photoshop jobs, and production EXP/history.
+
+| Game | Controls | Scoring |
+| --- | --- | --- |
+| Snake | Arrow keys / WASD or directional buttons | +10 for each fruit; wall/body ends game |
+| Color Match Rush | Mouse or touch: find tile matching the target | +10 correct, wrong picks -2 seconds, 45-second round |
+| Memory Flip | Mouse or touch: find 8 matching pairs | End score based on moves and elapsed time |
+| Block Puzzle | Left/right move, up rotate, down soft drop, Space hard drop | Rows cleared and hard-drop distance |
+
+All games have **Start, Pause, Reset**. Leaving the Arcade tab pauses an active game, and returning with the same profile preserves the paused game. Use **Sound: On / Off** for locally generated Web Audio effects (no sound assets or online service). Sound can be turned off at any time.
+
+**Personal high scores** are saved for the signed-in local BrandForge profile (identified by profile UUID) in a separate `arcade-scores.json` file under Electron `userData`. No changes are made to `profiles.json` or production EXP, history, rankings, achievements, Photoshop jobs, or asset folders. The game code cannot reach production IPC endpoints through its own API.
+
+Arcade code lives in `src/modules/arcade/`: `main/register.js` and `main/scoreStore.js` (profile-authenticated IPC and high scores), `shared/engines.js` (pure game rules), and `renderer/index.html`, `renderer/style.css`, `renderer/app.js` (interactive UI). No new npm packages are required. The build configuration already includes `src/**/*`.
+
+Developers can run `npm run test:arcade`, `npm run check`, and `npm run validate`. Optional Python Playwright scripts `test/arcadeBrowser.py` and `test/arcadeProfileBrowser.py` are for development only; running BrandForge does not require Python. See `UPGRADE_v1.7.39.txt`.

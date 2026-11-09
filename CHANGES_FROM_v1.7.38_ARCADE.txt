@@ -1,0 +1,26 @@
+BrandForge v1.7.39 change manifest vs full v1.7.38 source
+
+Modified existing files:
+  README.md
+  package-lock.json
+  package.json
+  src/main/main.js
+  src/main/preload.js
+  src/renderer/app.js
+  src/renderer/index.html
+
+New files:
+  INSTALL_FULL_PROJECT_v1.7.39.txt
+  UPGRADE_v1.7.39.txt
+  src/modules/arcade/main/register.js
+  src/modules/arcade/main/scoreStore.js
+  src/modules/arcade/renderer/app.js
+  src/modules/arcade/renderer/index.html
+  src/modules/arcade/renderer/style.css
+  src/modules/arcade/shared/engines.js
+  test/arcade.js
+  test/arcadeBrowser.py
+  test/arcadeIpc.js
+  test/arcadeProfileBrowser.py
+
+All other prior project files remain byte-for-byte unchanged.
