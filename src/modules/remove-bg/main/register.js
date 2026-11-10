@@ -5,6 +5,8 @@ const path = require("path");
 const os = require("os");
 const sharp = require("sharp");
 const { app, dialog, ipcMain } = require("electron");
+const { recordProductionEvent } = require("../../profile/main/service");
+const { recordCompletedProduction } = require("../../profile/main/productionEvents");
 const { RemoveBgProcessor } = require("./processor");
 const { pathKey } = require("./files");
 const { jsxFromFile, runPhotoshopJSX } = require("./photoshopBridge");
@@ -32,15 +34,17 @@ ipcMain.handle("remove-bg:add-paths", (_event, paths) => processor.add(paths));
 ipcMain.handle("remove-bg:forget", (_event, paths) => processor.removeFromQueue(paths));
 ipcMain.handle("remove-bg:get-state", () => processor.getState());
 
-ipcMain.handle("remove-bg:remove-background", async (event, payload) => processor.batch(
-    "remove", payload && payload.paths, payload && payload.overwrite,
-    data => { sendProgressToRequestFrame(event, data); }
-));
+ipcMain.handle("remove-bg:remove-background", async (event, payload) => {
+    const result = await processor.batch("remove", payload && payload.paths, payload && payload.overwrite,
+        data => sendProgressToRequestFrame(event, data));
+    return recordCompletedProduction("remove-bg", result, {}, recordProductionEvent);
+});
 
-ipcMain.handle("remove-bg:add-shadow", async (event, payload) => processor.batch(
-    "shadow", payload && payload.paths, payload && payload.overwrite,
-    data => { sendProgressToRequestFrame(event, data); }
-));
+ipcMain.handle("remove-bg:add-shadow", async (event, payload) => {
+    const result = await processor.batch("shadow", payload && payload.paths, payload && payload.overwrite,
+        data => sendProgressToRequestFrame(event, data));
+    return recordCompletedProduction("shadow", result, {}, recordProductionEvent);
+});
 
 ipcMain.handle("remove-bg:get-preview", async (_event, payload) => {
     const source = typeof payload?.filePath === "string" ? path.resolve(payload.filePath) : "";

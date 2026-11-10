@@ -1,0 +1,19 @@
+BrandForge v1.7.40 changes from v1.7.39
+=========================================
+NEW   src/modules/profile/main/productionEvents.js
+CHANGE src/modules/profile/main/service.js            (5 new job statistics)
+CHANGE src/modules/landing-page/main/register.js      (Screenshot LP EXP / History)
+CHANGE src/modules/lp-folder/main/register.js         (Folder LP EXP / History)
+CHANGE src/modules/combine/main/register.js           (Combine EXP / History)
+CHANGE src/modules/remove-bg/main/register.js         (Remove BG / Add Shadow EXP / History)
+CHANGE src/modules/slider/jsx/sliderEngine.jsx         (center rendered Line Up group)
+CHANGE src/renderer/app.js                             (history labels + counters)
+CHANGE src/renderer/index.html                         (lifetime counters)
+NEW   test/productionHistoryXp.js
+NEW   test/sliderLineupCentering.js
+CHANGE package.json, package-lock.json, README.md, PROJECT_CHECKSUMS.txt
+NEW   INSTALL_FULL_PROJECT_v1.7.40.txt
+
+Amazon, Arcade, Combine/Slider processing logic outside these touched paths,
+Photoshop connection code, original files and source templates remain unchanged.
+No new dependencies. All source files from v1.7.39 are included in full ZIP.

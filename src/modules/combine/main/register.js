@@ -1,6 +1,8 @@
 "use strict";
 
 const { app, dialog, ipcMain, shell } = require("electron");
+const { recordProductionEvent } = require("../../profile/main/service");
+const { recordCompletedProduction } = require("../../profile/main/productionEvents");
 const { CombineService } = require("./service");
 const service = new CombineService();
 const { RakutenImporter } = require("./rakutenImporter");
@@ -40,7 +42,10 @@ ipcMain.handle("combine:choose-output", async () => {
 });
 ipcMain.handle("combine:preview", (_event, payload) => service.preview(payload || {}));
 ipcMain.handle("combine:layout", (_event, payload) => service.layout(payload || {}));
-ipcMain.handle("combine:generate", (event, payload) => service.generate(payload || {}, p => sendProgress(event, p)));
+ipcMain.handle("combine:generate", async (event, payload) => {
+    const result = await service.generate(payload || {}, p => sendProgress(event, p));
+    return recordCompletedProduction("combine", result, {}, recordProductionEvent);
+});
 ipcMain.handle("combine:open-output", () => {
     if (!service.lastOutput) throw new Error("Generate a Combine file first.");
     shell.showItemInFolder(service.lastOutput);

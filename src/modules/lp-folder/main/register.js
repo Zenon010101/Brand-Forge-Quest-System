@@ -1,6 +1,8 @@
 "use strict";
 
 const { app, dialog, ipcMain, shell } = require("electron");
+const { recordProductionEvent } = require("../../profile/main/service");
+const { recordCompletedProduction } = require("../../profile/main/productionEvents");
 const { LPFolderService } = require("./service");
 const service = new LPFolderService();
 let lastFolder = null;
@@ -30,7 +32,10 @@ ipcMain.handle("lp-folder:refresh", () => {
 ipcMain.handle("lp-folder:get-state", () => service.getState());
 ipcMain.handle("lp-folder:preview", (_event, payload) => service.preview(payload || {}));
 ipcMain.handle("lp-folder:layout", (_event, payload) => service.layout(payload || {}));
-ipcMain.handle("lp-folder:generate", (event, payload) => service.generate(payload || {}, p => notify(event, p)));
+ipcMain.handle("lp-folder:generate", async (event, payload) => {
+    const result = await service.generate(payload || {}, p => notify(event, p));
+    return recordCompletedProduction("lp-folder", result, {}, recordProductionEvent);
+});
 ipcMain.handle("lp-folder:open-output", async () => {
     if (!service.lastOutput) throw new Error("Generate an LP first.");
     const result = await shell.showItemInFolder(service.lastOutput);

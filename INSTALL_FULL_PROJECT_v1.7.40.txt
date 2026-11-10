@@ -1,0 +1,35 @@
+BrandForge v1.7.40 — Complete Project Installation
+==================================================
+BASE: BrandForge v1.7.39 Arcade Edition.
+NEW: History / EXP for Screenshot LP, Folder LP, Combine, Remove BG and Add Shadow;
+Slider Line Up content centered with equal visible left/right margins.
+
+1. Close BrandForge and create a backup of your original project.
+2. Extract the v1.7.40 FULL PROJECT ZIP.
+3. Copy its contents into your project root, such as
+   D:\gulliver-image-workflow\gulliver-image-workflow
+   Merge folders and replace matching files. Keep your own backups if you've
+   customized newer source files since v1.7.39.
+4. Verify the root has package.json and src\main\main.js.
+5. VS Code PowerShell commands:
+   cd D:\gulliver-image-workflow\gulliver-image-workflow
+   npm run check
+   npm run test:production-history
+   npm run test:slider-lineup-center
+   npm start
+6. Sign in to BrandForge. Generate a Screenshot LP, Folder LP, Combine,
+   Remove BG batch, or Add Shadow batch; open Progress & History.
+7. In Slider, test centered Line Up with unequal source-image whitespace.
+8. To build a portable Windows EXE (only if needed): npm run build:portable
+
+EXP per successful job:
+  Screenshot LP: 20 + 2 x (screenshots + optional Single)
+  Folder LP:     20 + 2 x image layers
+  Combine:       20 + 2 x source images
+  Remove BG:     10 + 4 x successfully removed backgrounds
+  Add Shadow:    10 + 5 x successfully created PSDs
+No EXP for empty, failed, or skipped jobs. Existing scoring retained.
+
+All original project modules (including Arcade) are preserved.
+This ZIP is full SOURCE, not a compiled EXE. Windows Photoshop automation
+and real project output must be verified on your workstation.

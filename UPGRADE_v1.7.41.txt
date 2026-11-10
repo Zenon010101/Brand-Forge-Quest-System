@@ -1,0 +1,18 @@
+BrandForge v1.7.41
+
+What changed
+- Slider Line Up single-variant centering logic was corrected.
+- Multi-item Line Up rows still center the whole visible product group across the 600x600 canvas.
+- Single-item Line Up rows no longer get pulled into the middle of the whole canvas.
+- Instead, a single visible product now stays in its original slot and is optically balanced inside that slot using the product's actual visible bounds.
+- This keeps top/bottom and left/right whitespace close enough while preserving the intended placement.
+
+Files changed
+- src/modules/slider/jsx/sliderEngine.jsx
+- test/sliderLineupCentering.js
+- package.json
+- package-lock.json
+
+Notes
+- No crop or resize rules were changed.
+- Captions and shadows still move together with the Line Up group.

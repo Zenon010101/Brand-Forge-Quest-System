@@ -130,6 +130,11 @@ function defaultStats() {
         sliderJobs: 0,
         amazonJobs: 0,
         amazonVariants: 0,
+        landingPageJobs: 0,
+        lpFolderJobs: 0,
+        combineJobs: 0,
+        removeBgJobs: 0,
+        shadowJobs: 0,
         colorboxes: 0,
         outputFiles: 0,
         qcPerfectJobs: 0,
@@ -309,6 +314,11 @@ async function recordProductionEvent(event) {
             profile.stats.totalJobs++;
             if (kind === "slider") profile.stats.sliderJobs++;
             if (kind === "amazon") profile.stats.amazonJobs++;
+            if (kind === "landing-page") profile.stats.landingPageJobs++;
+            if (kind === "lp-folder") profile.stats.lpFolderJobs++;
+            if (kind === "combine") profile.stats.combineJobs++;
+            if (kind === "remove-bg") profile.stats.removeBgJobs++;
+            if (kind === "shadow") profile.stats.shadowJobs++;
             if (status === "success") {
                 profile.stats.successStreak++;
                 profile.stats.bestStreak = Math.max(profile.stats.bestStreak, profile.stats.successStreak);

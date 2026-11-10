@@ -1,3 +1,17 @@
+# BrandForge v1.7.40 — LP / Combine / Remove BG History + EXP, Slider Line Up Centering
+
+**Production History + EXP:** Both LP generators (Screenshot LP and Folder LP), Combine, and Remove Background + Add Shadow now record completed production jobs for the currently signed-in BrandForge profile. Each successful generator records its result **after verified output publishing**, adding a clearly labeled History entry, EXP, output-file counts, and a module-specific lifetime counter. Remove Background and Add Shadow are independent phases: each records one event per successful batch (including partial batches). Failed runs, empty/previously completed BG batches, scans, previews, and Arcade games earn no production EXP.
+
+EXP formulas: Screenshot LP **20 + 2 per input**; Folder LP **20 + 2 per image layer**; Combine **20 + 2 per source image**; Remove BG **10 + 4 per successfully processed image**; Add Shadow **10 + 5 per successfully created PSD**. Existing Amazon/Slider/Colorbox EXP formulas are unchanged. History is stored in local `profiles.json` under Electron userData; older profile stores get new counters automatically without losing previous progress. If saving an EXP entry fails, the completed export is reported as successful with a separate warning; no duplicate processing is triggered.
+
+**Slider Line Up centering:** After building a Line Up group, Slider measures the **actual visible product bounds**, calculates equal left/right margins on its 600px canvas, and horizontally translates the complete editable group in one operation. This covers side-by-side, stacked vertical, PA Vertical, and Four Cut modes; it also centers single populated slots. **No resizing, cropping, or stretching:** existing product-to-caption spacing, groups, layer order, and shadows are retained. Slider's unlimited output count and bottom 50px Cut Image behavior remain unchanged.
+
+Testing: `npm run check`, `npm run test:production-history`, `npm run test:slider-lineup-center`, and the full existing per-module test suite. In Windows, generate one asymmetrically padded side-by-side Line Up and one PA Vertical/4-Cut PSD, and check outer visible margins in Photoshop. Photoshop COM execution cannot be validated in this container.
+
+Install: back up your original project, merge this source ZIP into the project root, run `VERIFY_BRANDFORGE_ROOT.cmd`, `npm run check`, `npm run test:production-history`, `npm run test:slider-lineup-center`, then `npm start`. No new runtime dependencies or Python installation are required. See `INSTALL_FULL_PROJECT_v1.7.40.txt`.
+
+---
+
 ## v1.7.38 — Combine selected-caption auto-fill
 
 After marking embedded caption text with an OCR box, Rectangle, or Brush Select,

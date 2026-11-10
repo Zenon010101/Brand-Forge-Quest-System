@@ -2,6 +2,8 @@
 
 const path = require("path");
 const { app, ipcMain, dialog } = require("electron");
+const { recordProductionEvent } = require("../../profile/main/service");
+const { recordCompletedProduction } = require("../../profile/main/productionEvents");
 const { LandingPageService } = require("./service");
 const { uniqueSourceOrder, checkImageFile } = require("./planner");
 
@@ -59,7 +61,11 @@ ipcMain.handle("landing-page:validate-files", (_event, payload) => {
 ipcMain.handle("landing-page:analyze", (event, payload) => service.analyze(payload, data => notify(event, data)));
 ipcMain.handle("landing-page:get-analysis", () => service.publicSession());
 ipcMain.handle("landing-page:preview", async (_event, payload) => service.preview(payload));
-ipcMain.handle("landing-page:generate", (event, payload) => service.generate(payload, data => notify(event, data)));
+ipcMain.handle("landing-page:generate", async (event, payload) => {
+    const hasSingle = Boolean(service.session?.singleFile);
+    const result = await service.generate(payload, data => notify(event, data));
+    return recordCompletedProduction("landing-page", result, { hasSingle }, recordProductionEvent);
+});
 ipcMain.handle("landing-page:discard", () => service.dispose());
 
 app.on("before-quit", () => { void service.dispose(); });

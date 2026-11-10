@@ -78,6 +78,11 @@ function kindLabel(kind) {
     if (kind === "slider") return "Slider";
     if (kind === "amazon") return "Amazon";
     if (kind === "colorbox") return "Colorbox";
+    if (kind === "landing-page") return "Screenshot LP";
+    if (kind === "lp-folder") return "Folder LP";
+    if (kind === "combine") return "Combine";
+    if (kind === "remove-bg") return "Remove BG";
+    if (kind === "shadow") return "Add Shadow";
     return "Production";
 }
 
@@ -174,6 +179,11 @@ function renderProgress(data) {
     document.getElementById("lifetimeAmazonJobs").textContent = stats.amazonJobs || 0;
     document.getElementById("lifetimeVariants").textContent = stats.amazonVariants || 0;
     document.getElementById("lifetimeColorboxes").textContent = stats.colorboxes || 0;
+    document.getElementById("lifetimeLandingPage").textContent = stats.landingPageJobs || 0;
+    document.getElementById("lifetimeLpFolder").textContent = stats.lpFolderJobs || 0;
+    document.getElementById("lifetimeCombine").textContent = stats.combineJobs || 0;
+    document.getElementById("lifetimeRemoveBg").textContent = stats.removeBgJobs || 0;
+    document.getElementById("lifetimeShadow").textContent = stats.shadowJobs || 0;
     document.getElementById("lifetimeOutputs").textContent = stats.outputFiles || 0;
     document.getElementById("lifetimeBestStreak").textContent = stats.bestStreak || 0;
 

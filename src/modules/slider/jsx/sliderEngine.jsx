@@ -1386,6 +1386,69 @@ function createVariantTextLayer(doc, text, box, layerName) {
 }
 
 
+// Center visible product pixels in Line Up layouts. All group children
+// (editable Main/Shadow, generated shadow, and captions) translate together.
+// Multi-item lineups are centered as a full group across the 600px canvas.
+// Single-item lineups must NOT be pulled into the middle of the full canvas;
+// they stay in their original slot and only receive a small balancing shift so
+// the visible product is centered inside that slot.
+function lineupVisibleCenterShift(photoBounds, canvasWidth) {
+    var minLeft = null;
+    var maxRight = null;
+    for (var i = 0; i < photoBounds.length; i++) {
+        var b = photoBounds[i];
+        if (!b || !isFinite(b.left) || !isFinite(b.right) || b.right <= b.left) continue;
+        if (minLeft === null || b.left < minLeft) minLeft = b.left;
+        if (maxRight === null || b.right > maxRight) maxRight = b.right;
+    }
+    if (minLeft === null) return 0;
+    // The two outer visible margins become equal; subpixel offsets are valid
+    // for odd-width artwork, retaining the original product dimensions.
+    return (canvasWidth - minLeft - maxRight) / 2;
+}
+
+function translateLineupGroup(group, dx, dy) {
+    if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return;
+    // Moving the LayerSet (instead of individual Main layers) preserves all
+    // relative distances, variant text alignment and both kinds of shadows.
+    // Do not clamp to the LayerSet's opaque/document bounds: PSD source
+    // Smart Objects can retain large white padding despite the measured Main
+    // product being small. Clamping to that source canvas would undo centering.
+    group.translate(new UnitValue(dx, "px"), new UnitValue(dy, "px"));
+}
+
+function centerSingleLineupPhotoInSlot(group, photoLayer, targetBox) {
+    if (!group || !photoLayer || !targetBox) return;
+    var bounds = getSliderPlacementBounds(photoLayer);
+    if (!bounds || !isFinite(bounds.left) || !isFinite(bounds.right) ||
+        !isFinite(bounds.top) || !isFinite(bounds.bottom) ||
+        bounds.right <= bounds.left || bounds.bottom <= bounds.top) {
+        return;
+    }
+    var targetCenterX = targetBox.x + (targetBox.width / 2);
+    var targetCenterY = targetBox.y + (targetBox.height / 2);
+    var photoCenterX = (bounds.left + bounds.right) / 2;
+    var photoCenterY = (bounds.top + bounds.bottom) / 2;
+    translateLineupGroup(group, targetCenterX - photoCenterX, targetCenterY - photoCenterY);
+}
+
+function centerLineupVisibleProducts(group, photoLayers, singleTargetBox) {
+    var bounds = [];
+    var validPhotos = [];
+    for (var i = 0; i < photoLayers.length; i++) {
+        if (photoLayers[i]) {
+            validPhotos.push(photoLayers[i]);
+            bounds.push(getSliderPlacementBounds(photoLayers[i]));
+        }
+    }
+    if (validPhotos.length === 1 && singleTargetBox) {
+        centerSingleLineupPhotoInSlot(group, validPhotos[0], singleTargetBox);
+        return;
+    }
+    var dx = lineupVisibleCenterShift(bounds, CANVAS_SIZE);
+    translateLineupGroup(group, dx, 0);
+}
+
 function buildHorizontalLineupGroup(doc, lineupData, index) {
     var layout = computeLineupLayout();
     var group = doc.layerSets.add();
@@ -1418,6 +1481,9 @@ function buildHorizontalLineupGroup(doc, lineupData, index) {
     if (photo2) moveItemToGroupTopSafe(photo2, group);
     if (text1) text1.move(group, ElementPlacement.PLACEATBEGINNING);
     if (photo1) moveItemToGroupTopSafe(photo1, group);
+    var singlePhoto = photo1 || photo2;
+    var singleBox = photo1 ? layout.photo1 : (photo2 ? layout.photo2 : null);
+    centerLineupVisibleProducts(group, [photo1, photo2], singleBox);
     return group;
 }
 
@@ -1485,6 +1551,9 @@ function buildVerticalLineupGroup(doc, lineupData, index) {
     if (photo2) moveItemToGroupTopSafe(photo2, group);
     if (text1) text1.move(group, ElementPlacement.PLACEATBEGINNING);
     if (photo1) moveItemToGroupTopSafe(photo1, group);
+    var singlePhoto = photo1 || photo2;
+    var singleBox = photo1 ? layout.photo1 : (photo2 ? layout.photo2 : null);
+    centerLineupVisibleProducts(group, [photo1, photo2], singleBox);
     return group;
 }
 
@@ -1546,6 +1615,8 @@ function buildPaVerticalLineupGroup(doc, lineupData, index) {
     if (detailLayer) moveItemToGroupTopSafe(detailLayer, group);
     if (itemLayer) moveItemToGroupTopSafe(itemLayer, group);
 
+    var paSingleBox = itemLayer ? layout.item : (detailLayer ? layout.detail : null);
+    centerLineupVisibleProducts(group, [itemLayer, detailLayer], paSingleBox);
     return group;
 }
 
@@ -1580,6 +1651,14 @@ function buildFourCutGroup(doc, lineupData, index) {
         if (texts[r]) texts[r].move(group, ElementPlacement.PLACEATBEGINNING);
         if (photos[r]) moveItemToGroupTopSafe(photos[r], group);
     }
+    var fourSingleBox = null;
+    for (var singleIndex = 0; singleIndex < photos.length; singleIndex++) {
+        if (photos[singleIndex]) {
+            fourSingleBox = layout["photo" + (singleIndex + 1)];
+            break;
+        }
+    }
+    centerLineupVisibleProducts(group, photos, fourSingleBox);
     return group;
 }
 
