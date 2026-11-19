@@ -13,11 +13,24 @@ contextBridge.exposeInMainWorld("profileApp", {
 });
 
 contextBridge.exposeInMainWorld("sliderApp", {
-    version: "1.4.3-unified",
+    version: "1.7.49",
     selectImages: options => ipcRenderer.invoke("slider:select-images", options || {}),
     selectImage: options => ipcRenderer.invoke("slider:select-image", options || {}),
+    getPathForFile: file => webUtils.getPathForFile(file),
+    describeDroppedFiles: paths => ipcRenderer.invoke("slider:describe-dropped-files", paths),
     selectOutputFolder: () => ipcRenderer.invoke("slider:select-output-folder"),
     generate: job => ipcRenderer.invoke("slider:generate", job),
+    getNewBrandCombineSettings: () => ipcRenderer.invoke("slider:combine:get-settings"),
+    chooseNewBrandSingle: () => ipcRenderer.invoke("slider:combine:choose-single"),
+    chooseNewBrandOutput: () => ipcRenderer.invoke("slider:combine:choose-output"),
+    suggestNewBrandCombine: job => ipcRenderer.invoke("slider:combine:suggest", job),
+    generateNewBrandCombine: payload => ipcRenderer.invoke("slider:combine:generate", payload),
+    openNewBrandOutput: folder => ipcRenderer.invoke("slider:combine:open-output", folder),
+    onNewBrandCombineProgress: callback => {
+        const listener = (_event, update) => callback(update);
+        ipcRenderer.on("slider:combine:progress", listener);
+        return () => ipcRenderer.removeListener("slider:combine:progress", listener);
+    },
     onProgress: callback => {
         const listener = (_event, payload) => callback(payload);
         ipcRenderer.on("slider:progress", listener);
@@ -49,6 +62,7 @@ contextBridge.exposeInMainWorld("amazonApp", {
 contextBridge.exposeInMainWorld("settingsApp", {
     get: () => ipcRenderer.invoke("settings:get"),
     testPhotoshop: () => ipcRenderer.invoke("settings:test-photoshop"),
+    openPhotoshopDiagnostics: () => ipcRenderer.invoke("settings:open-photoshop-diagnostics"),
     openUserData: () => ipcRenderer.invoke("settings:open-user-data"),
     resetRecentFolders: () => ipcRenderer.invoke("settings:reset-recent-folders")
 });
@@ -115,6 +129,20 @@ contextBridge.exposeInMainWorld("brandProjectApp", {
 
 
 contextBridge.exposeInMainWorld("combineApp", {
+    // v1.7.44: HTML/Excel Combine, no Photoshop or image downloads.
+    chooseHtmlExcel: () => ipcRenderer.invoke("combine:html:choose-excel"),
+    chooseHtmlOutput: () => ipcRenderer.invoke("combine:html:choose-output"),
+    inspectHtmlExcel: file => ipcRenderer.invoke("combine:html:inspect-excel",file),
+    previewIframeHtml: payload => ipcRenderer.invoke("combine:html:preview",payload),
+    generateIframeBatch: payload => ipcRenderer.invoke("combine:html:batch",payload),
+    cancelIframeBatch: () => ipcRenderer.invoke("combine:html:cancel"),
+    saveSingleHtml: payload => ipcRenderer.invoke("combine:html:save-single",payload),
+    openHtmlBatchFolder: folder => ipcRenderer.invoke("combine:html:open-folder",folder),
+    onIframeBatchProgress: callback => {
+        const listener=(_event,data)=>callback(data);
+        ipcRenderer.on("combine:html:progress",listener);
+        return ()=>ipcRenderer.removeListener("combine:html:progress",listener);
+    },
     chooseCleanupFiles: () => ipcRenderer.invoke("combine:cleanup-choose-files"),
     addDownloadedToCleanup: () => ipcRenderer.invoke("combine:cleanup-add-downloaded"),
     scanCleanup: filePath => ipcRenderer.invoke("combine:cleanup-scan", filePath),

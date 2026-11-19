@@ -1,0 +1,38 @@
+BRANDFORGE v1.7.44 - IFRAME HTML BATCH COMBINE
+
+FULL SOURCE PROJECT (not a precompiled EXE).
+
+Build Windows portable EXE:
+  1. Extract ZIP to a local writable folder (not G: if it is syncing).
+  2. Open VS Code terminal in the project folder.
+  3. npm install
+  4. npm run validate
+  5. npm run build:portable
+  6. Find the portable EXE in dist.
+
+NOTE: v1.7.44 adds the npm library exceljs. `npm install` must run to update
+package-lock.json and add the new library. Do NOT use `npm ci` with the included
+pre-install lock file. The new npm package could not be downloaded in the
+sandbox, so test Excel import/export on your actual Windows PC first.
+
+NEW WORKFLOW:
+  Combine > Iframe -> HTML Batch
+  1. Use examples/IFRAME_LIST_TEMPLATE.xlsx (or any .xlsx with an iframe column).
+  2. Paste your 1000 whole iframe HTML blocks (one per row).
+  3. Optional: enter Lineup Count per row, including zero where no Line Up.
+  4. Save Excel before running BrandForge.
+  5. Select Excel -> Inspect Workbook -> Choose Folder -> Generate HTML + Excel.
+  6. Review generated HTML_RESULTS sheet: A iframe, B HTML code,
+     C clickable HTML file path, D status, E/F lineup/detail counts.
+  7. Open produced HTML files to check image links/order/layout; publish manually.
+
+Single URL is also supported via paste -> Analyze & Preview -> Save HTML File.
+No image files are downloaded or edited. Remote images display through their
+existing Rakuten URLs; an internet connection is needed to view them.
+
+WARNING:
+  - The input file is preserved. A new output workbook is created every run.
+  - No guaranteed source classification if the iframe HTML has no real DETAILS
+    heading. Uncertain splits are flagged REVIEW. Override lineup count in Excel.
+  - HTML-only mode is completely independent of Photoshop COM errors.
+  - Rakuten website fetching and real ExcelJS read/write need Windows testing.

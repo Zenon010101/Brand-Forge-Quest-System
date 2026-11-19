@@ -77,3 +77,37 @@
 #cleanupCaptionWarning{color:#e8c58f;white-space:normal;overflow-wrap:anywhere}
 .combine-recovered-note{margin-top:8px;display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)}
 .combine-recovered-note textarea{max-width:100%;box-sizing:border-box;min-height:42px;resize:vertical}
+
+/* v1.7.44: Excel/iframe -> HTML is the primary Combine workflow.
+   Deprecated downloader + text-removal UI is retired, including in legacy PSD mode. */
+#rakutenPanel,#cleanupPanel{display:none!important}
+.batch-workspace{max-width:1720px;margin:0 auto;padding:22px 24px 16px;color:var(--ink)}
+.batch-header{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:20px}
+.batch-header h1{font-size:29px;letter-spacing:-.035em;margin:4px 0 8px}
+.batch-header p{font-size:12px;line-height:1.6;color:var(--muted);max-width:830px;margin:0}
+.batch-header-side{display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0}
+.batch-header-side>strong{font-size:20px;letter-spacing:.04em}
+.batch-header-side>span{font-size:10px;color:var(--muted)}
+.batch-header-side>button{margin-top:7px}
+.batch-layout{display:grid;grid-template-columns:minmax(360px,42%) minmax(480px,1fr);gap:15px;align-items:start}
+.batch-controls,.batch-preview-column{display:flex;flex-direction:column;gap:15px;min-width:0}
+.batch-panel .field-label{margin-top:14px}
+.batch-textarea{width:100%;min-height:95px;resize:vertical;background:#10171c;color:#e9efed;border:1px solid #45555f;border-radius:8px;font-size:12px;line-height:1.55;padding:12px;overflow-wrap:anywhere}
+.batch-textarea:focus,.batch-panel .field:focus{outline:1px solid #81ceaa}
+.batch-panel .section-tools{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.batch-panel .action{background:#83cdb0;color:#11251d;border-color:#83cdb0}
+.batch-location{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #41505a;border-radius:7px;background:#12191f;min-height:45px;padding:7px 9px;font-size:11px}
+.batch-location>span{color:#bbcad0;min-width:0;overflow-wrap:anywhere;line-height:1.4}
+.batch-location>button{flex-shrink:0}
+.batch-quiet{font-size:11px;color:#96a6af}
+.batch-meter{background:#303a41;border-radius:20px;height:9px;overflow:hidden;margin:15px 0 8px}
+.batch-meter-fill{height:100%;background:#88cdb1;transition:width .2s}
+.batch-stats,.batch-preview-info{font-size:11px;line-height:1.5;color:#a9b7bf}
+.batch-log{min-height:110px;max-height:190px;overflow:auto;background:#10171c;border:1px solid #34424a;border-radius:8px;padding:10px 12px;font:11px/1.6 Consolas,monospace;color:#c4d3d9;white-space:pre-wrap;overflow-wrap:anywhere}
+.batch-preview-panel .panel-head{margin-bottom:13px}
+.batch-live-preview{margin-top:12px;padding:12px;max-height:655px;min-height:425px;overflow:auto;background:repeating-conic-gradient(#293039 0% 25%,#222a32 0% 50%) 50% / 22px 22px;text-align:center;border-radius:8px}
+.batch-live-preview iframe{display:block;width:100%;height:585px;max-width:805px;margin:0 auto;background:#fff;border:0;border-radius:3px}
+.batch-code{min-height:220px;font-family:Consolas,monospace;font-size:11px}
+.batch-footer{margin-top:17px;padding:12px 15px;background:#191f24;color:#a9b7be;border:1px solid var(--edge);font-size:11px;border-radius:10px}
+@media(max-width:1100px){.batch-layout{grid-template-columns:1fr}.batch-live-preview{max-height:700px}.batch-header{flex-wrap:wrap}}
+@media(max-width:560px){.batch-workspace{padding:14px}.batch-header h1{font-size:23px}.batch-header-side{align-items:flex-start}}

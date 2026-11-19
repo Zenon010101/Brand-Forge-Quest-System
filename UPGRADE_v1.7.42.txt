@@ -1,0 +1,39 @@
+BrandForge v1.7.42 - Photoshop 2027 Connection Recovery and Diagnostics
+
+Base: full BrandForge v1.7.41 (Amazon, Slider, Combine, Landing Page,
+Remove Background, History/EXP, Arcade and all existing modules preserved).
+
+CHANGELOG / FILES
+- src/shared/photoshopCom.js [NEW]: Shared Photoshop.Application COM bootstrap:
+  running-instance attach then registered-server creation, explicit HRESULTs,
+  version/method reporting, JSX runner, bounded worker timeouts.
+- src/modules/settings/main/photoshopDiagnostics.js [NEW]: Read-only Windows
+  registry/installed-version detection and text report generation.
+- src/modules/settings/main/register.js: Test Photoshop now probes COM + JSX,
+  logs diagnostic, and exposes Open Diagnostics action.
+- src/main/preload.js: Isolated IPC access to the diagnostic report.
+- src/renderer/index.html, app.js, style.css: Photoshop 2027 status,
+  diagnostics button and expandable detailed log.
+- src/modules/amazon/main/photoshopBridge.js: Uses shared launcher.
+- src/modules/slider/main/photoshopBridge.js: Uses shared launcher.
+- src/modules/landing-page/main/photoshopBridge.js: Uses shared launcher.
+- src/modules/remove-bg/main/photoshopBridge.js: Uses shared launcher.
+- test/photoshop2027Bridge.js [NEW]: Connection/fallback, registry parsing,
+  runner output and integration regression tests.
+- tools/PHOTOSHOP_2027_JSX_TEST.jsx [NEW]: Manual, read-only JSX smoke test.
+- docs/PHOTOSHOP_2027_CONNECTION.md [NEW]: Windows troubleshooting guide.
+- package.json / package-lock.json: Release version 1.7.42 and added test.
+- README.md: Release notes at top (see below).
+
+All existing generation and positioning rules are unchanged. No Python,
+admin permissions, registry writes, Photoshop preference modifications,
+or new npm dependencies were added.
+
+Build: npm install && npm run build:portable
+Smoke test: npm run check && npm run test:photoshop-2027
+Complete tests: npm run validate
+
+IMPORTANT: This fix improves attaching to running Photoshop and diagnosing
+broken registration. Photoshop 2027 itself must expose a usable COM server.
+A Photoshop/Creative Cloud registration problem requires Adobe or IT repair.
+See docs/PHOTOSHOP_2027_CONNECTION.md.

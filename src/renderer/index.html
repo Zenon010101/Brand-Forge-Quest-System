@@ -250,11 +250,16 @@
                     <section class="settings-card">
                         <span class="module-tag">SYSTEM READINESS</span>
                         <h2>Photoshop connection</h2>
-                        <p>Slider and Amazon PSD/PSB workflows require Adobe Photoshop automation on Windows.</p>
+                        <p>Amazon, Slider, Combine, LP and Remove Background use Photoshop scripting. Photoshop 2027 (28.x) requires a working Windows COM connection.</p>
                         <div class="settings-action-row">
                             <button id="testPhotoshopBtn" class="settings-primary">Test Photoshop</button>
+                            <button id="openPhotoshopDiagnosticsBtn">Open Diagnostics</button>
                             <div id="photoshopStatus" class="settings-status">Not tested yet.</div>
                         </div>
+                        <details id="photoshopDiagnosticDetails" class="settings-ps-details" hidden>
+                            <summary>Photoshop connection details</summary>
+                            <pre id="photoshopDiagnosticsText"></pre>
+                        </details>
                     </section>
 
                     <section class="settings-card">

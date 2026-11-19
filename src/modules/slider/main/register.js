@@ -17,6 +17,7 @@ const { randomUUID } = require("crypto");
 const { getStoredLink } = require("../../project-location/main/register");
 const { pathKey, assertMarkerSafe } = require("../../project-location/main/projectPaths");
 const { publishGroup } = require("../../amazon/main/sharedExporter");
+const { suggestFromSlider, generateSliderCombine } = require("./combineFromSlider");
 
 function safeFileName(value) {
     return (
@@ -101,6 +102,33 @@ async function pickFiles(multi) {
 
     return result.filePaths.map(fileRecord);
 }
+
+// Electron does not expose an OS file path directly to a sandboxed renderer File.
+// The preload resolves files dragged from Explorer, and main validates the paths.
+const DROP_IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp",
+    ".tif", ".tiff", ".psd", ".psb", ".avif", ".heic", ".heif", ".tga"]);
+ipcMain.handle("slider:describe-dropped-files", async (_event, paths) => {
+    const files = [], rejected = [], seen = new Set();
+    if (!Array.isArray(paths) || paths.length > 300) throw new Error("Drop at most 300 image files at a time.");
+    for (const candidate of paths) {
+        if (typeof candidate !== "string" || !path.isAbsolute(candidate)) {
+            rejected.push("Invalid file path"); continue;
+        }
+        const key = process.platform === "win32" ? candidate.toLowerCase() : candidate;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (!DROP_IMAGE_EXTS.has(path.extname(candidate).toLowerCase())) {
+            rejected.push(`${path.basename(candidate)}: unsupported image type`); continue;
+        }
+        try {
+            const stat = await fs.promises.stat(candidate);
+            if (!stat.isFile()) throw new Error("not a regular file");
+            files.push(fileRecord(candidate));
+        } catch (error) { rejected.push(`${path.basename(candidate)}: ${error.message}`); }
+    }
+    if (files.length) saveDialogState({ lastImageFolder: path.dirname(files[0].path) });
+    return { files, rejected };
+});
 
 ipcMain.handle("slider:select-images", async () => pickFiles(true));
 ipcMain.handle("slider:select-image", async () => {
@@ -299,4 +327,69 @@ ipcMain.handle("slider:generate", async (event, payload) => {
     } finally {
         if (stageRoot && !retainStage) await fs.promises.rm(stageRoot, { recursive: true, force: true }).catch(() => {});
     }
+});
+
+
+// New Brand Combine belongs to Slider Maker, not the Rakuten Standalone app.
+// Only the selected Single and explicit reviewed Slider sections are exported.
+ipcMain.handle("slider:combine:get-settings", () => {
+    const state = loadDialogState();
+    return { outputFolder: usableDefaultPath(state.lastSliderCombineOutputFolder) || null,
+        singleFolder: usableDefaultPath(state.lastSliderCombineSingleFolder) || null };
+});
+ipcMain.handle("slider:combine:choose-single", async () => {
+    const state = loadDialogState();
+    const result = await dialog.showOpenDialog({
+        title: "Select New Brand Single image",
+        defaultPath: usableDefaultPath(state.lastSliderCombineSingleFolder || state.lastImageFolder),
+        properties: ["openFile"],
+        filters: [{ name: "All supported image formats", extensions: ["jpg","jpeg","png","webp","gif","bmp","tif","tiff","psd","psb","avif","heic","heif","svg","tga","jp2","j2k","exr","hdr","ppm","pgm","jpe","jfif"] }, { name: "All files", extensions: ["*"] }]
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    saveDialogState({ lastSliderCombineSingleFolder: path.dirname(result.filePaths[0]) });
+    return fileRecord(result.filePaths[0]);
+});
+ipcMain.handle("slider:combine:choose-output", async () => {
+    const state = loadDialogState();
+    const result = await dialog.showOpenDialog({
+        title: "Choose folder for New Brand Combine JPEG, HTML and optional PSD",
+        defaultPath: usableDefaultPath(state.lastSliderCombineOutputFolder || state.lastOutputFolder) || app.getPath("documents"),
+        properties: ["openDirectory"]
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    saveDialogState({ lastSliderCombineOutputFolder: result.filePaths[0] });
+    return { folderPath: result.filePaths[0] };
+});
+ipcMain.handle("slider:combine:suggest", (_event, job) => suggestFromSlider(job));
+ipcMain.handle("slider:combine:generate", async (event, payload) => {
+    const send = progress => {
+        try { if (!event.sender.isDestroyed()) event.sender.send("slider:combine:progress", progress); }
+        catch (_) { /* caller receives final result */ }
+    };
+    try {
+        const result = await generateSliderCombine(payload || {}, send);
+        let progression = null;
+        try {
+            progression = await recordProductionEvent({
+                kind: "combine", label: result.outputName,
+                subtitle: "Slider -> New Brand Combine (JPEG + HTML)",
+                brandNames: payload?.brandName ? [payload.brandName] : [],
+                itemCount: result.lineupCount + result.detailCount + (payload?.singlePath ? 1 : 0),
+                outputFiles: result.jpegPaths.length + 1 + (result.psdPath ? 1 : 0),
+                outputPath: result.htmlPath, status: "success",
+                xp: 20 + (result.lineupCount + result.detailCount) * 2
+            });
+        } catch (_) { /* saving the user's files is independent of EXP */ }
+        return { ...result, progression };
+    } catch (error) {
+        send({ stage: "error", message: error.message || String(error) });
+        return { ok: false, error: error.message || String(error) };
+    }
+});
+ipcMain.handle("slider:combine:open-output", async (_event, folder) => {
+    const saved = loadDialogState().lastSliderCombineOutputFolder;
+    if (!saved || pathKey(folder) !== pathKey(saved)) throw new Error("Choose a New Brand Combine output folder first.");
+    const error = await require("electron").shell.openPath(saved);
+    if (error) throw new Error(error);
+    return { ok: true };
 });

@@ -85,6 +85,7 @@
                         <button class="primary" id="addCreativeBtn" type="button">+ Add Images</button>
                         <button class="clear" id="clearListBtn" type="button">Clear list</button>
                     </div>
+                    <div class="slider-file-drop" id="creativeDropZone" role="group" aria-label="Drop Creative images">Drop Creative images here or click + Add Images</div>
                     <div class="item-list" id="creativeList"></div>
                 </div>
 
@@ -107,6 +108,8 @@
                     </div>
                     <div class="layout-help" id="layoutHelp">Horizontal: two product/color entries placed side by side.</div>
 
+                    <div class="slider-file-drop" id="lineupDropZone" role="group" aria-label="Drop Line Up photos">Drop Line Up images here to fill cards in order (2 or 4 per card). You can also drop onto an individual slot.</div>
+                    <p class="slider-drag-tip">Drag <strong>one color variant tile</strong> anywhere on the tile (except inputs/buttons). Drop it on another color to swap positions, or on an empty tile to move it. A whole Line Up group does not move.</p>
                     <div id="lineupList" class="lineup-list"></div>
                 </div>
 
@@ -124,6 +127,7 @@
                             <button class="clear" id="clearDetailBtn" type="button">Clear list</button>
                         </div>
                     </div>
+                    <div class="slider-file-drop" id="detailDropZone" role="group" aria-label="Drop Detail images">Drop Detail images here or click + Add Detail</div>
                     <div class="item-list" id="detailList"></div>
                 </div>
 
@@ -140,6 +144,60 @@
             </section>
         </main>
 
+        <section id="sliderCombinePanel" class="slider-combine card" hidden aria-label="Create Combine for New Brand">
+            <div class="slider-combine-head">
+                <div><div class="eyebrow">SLIDER TO COMBINE</div>
+                    <h2>Create Combine for New Brand</h2>
+                    <p>Single → Line Up → DETAILS. Uses Slider categories as suggestions. Review every image before export.</p>
+                </div>
+                <button id="sliderCombineClose" class="ghost" type="button">Close</button>
+            </div>
+            <div class="slider-combine-controls">
+                <label><input type="checkbox" id="sliderCombineUseLineup" checked> Use Slider Line Up</label>
+                <label><input type="checkbox" id="sliderCombineUseDetails" checked> Use Slider Details + Creative</label>
+                <button id="sliderCombineDetect" class="secondary" type="button">Import & Classify from Slider</button>
+            </div>
+            <div class="slider-combine-fields">
+                <div class="slider-combine-field">
+                    <label>Single — manual upload (optional)</label>
+                    <div class="output-row"><span class="path-display" id="sliderCombineSinglePath">No Single selected</span>
+                        <button id="sliderCombineSingleBtn" class="secondary" type="button">Upload Single</button>
+                        <button id="sliderCombineSingleClear" class="ghost" type="button">Clear</button></div>
+                </div>
+                <div class="slider-combine-field">
+                    <label>Output folder — JPEG, HTML, optional editable PSD/PSB</label>
+                    <div class="output-row"><span class="path-display" id="sliderCombineOutputPath">Choose where to save</span>
+                        <button id="sliderCombineOutputBtn" class="secondary" type="button">Choose Folder</button>
+                        <button id="sliderCombineOpenFolder" class="ghost" type="button">Open</button></div>
+                </div>
+                <div class="slider-combine-field">
+                    <label for="sliderCombineName">Output name</label>
+                    <input id="sliderCombineName" type="text" placeholder="e.g. ALI-20_COMBINE" />
+                </div>
+                <div class="slider-combine-field">
+                    <label for="sliderCombinePublicUrl">Public JPEG folder URL (optional, for Rakuten HTML)</label>
+                    <input id="sliderCombinePublicUrl" type="text" placeholder="https://example.com/images/" />
+                </div>
+            </div>
+            <div id="sliderCombineSummary" class="slider-combine-summary">Import Slider images to review their sections.</div>
+            <div class="slider-combine-sections">
+                <div class="slider-combine-list-panel"><h3>LINE UP <span id="sliderCombineLineupCount">0</span></h3>
+                    <p>Color text is editable; Hiragino Kaku Gothic Pro W3, 28px. Drag images to reorder or move between sections. You can also drop new image files here.</p>
+                    <div id="sliderCombineLineupList" class="slider-combine-list"></div>
+                </div>
+                <div class="slider-combine-list-panel"><h3>DETAILS <span id="sliderCombineDetailCount">0</span></h3>
+                    <p>Slider Creative images start here for manual review. Drag to Line Up or drop additional images here.</p>
+                    <div id="sliderCombineDetailList" class="slider-combine-list"></div>
+                </div>
+            </div>
+            <div class="slider-combine-actions">
+                <label><input id="sliderCombineReviewed" type="checkbox"> I reviewed the Line Up, Details and image order.</label>
+                <label><input id="sliderCombinePsd" type="checkbox" checked> Also generate editable PSD/PSB (Photoshop required)</label>
+                <button class="primary" id="sliderCombineGenerate" type="button">GENERATE JPEG + HTML</button>
+            </div>
+            <div class="slider-combine-progress" id="sliderCombineProgress" aria-live="polite">Ready.</div>
+            <div id="sliderCombineResults" class="slider-combine-results"></div>
+        </section>
         <footer class="footer card">
             <div class="status-wrap">
                 <span class="status-dot" id="statusDot"></span>
@@ -150,12 +208,15 @@
             </div>
 
             <div class="footer-actions">
+                <button class="secondary" id="sliderCombineOpen" type="button">CREATE COMBINE FOR NEW BRAND</button>
                 <button class="primary generate" id="generateBtn" type="button">GENERATE PSD</button>
             </div>
         </footer>
     </div>
 
     <script src="../../project-location/renderer/projectLink.js"></script>
+    <script src="lineupDragDrop.js"></script>
     <script src="app.js"></script>
+    <script src="combineNewBrandUi.js"></script>
 </body>
 </html>

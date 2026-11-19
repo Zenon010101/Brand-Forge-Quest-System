@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const { spawn } = require("child_process");
+const { buildJsxLaunchVbs, explainFailure } = require("../../../shared/photoshopCom");
 const { WORKFLOW_RULES } = require("../../../shared/workflowConfig");
 
 function jsxString(value) {
@@ -47,13 +48,9 @@ async function runPhotoshopJSXDirect(scriptText, label, timeoutMs = 300000) {
         `try {\n${body}\n__gwsStatus("OK");\n` +
         `} catch (e) { var message = String(e && e.message ? e.message : e); try { if (e && e.line) message += " (JSX line " + e.line + ")"; } catch (ignore) {} __gwsStatus("ERROR\\n" + message); }\n` +
         `finally { app.displayDialogs = __gwsOldDialogs; }\n`;
-    const vbs = `On Error Resume Next\n` +
-        `Set ps = CreateObject("Photoshop.Application")\n` +
-        `If Err.Number <> 0 Then\n WScript.Echo "Cannot launch Photoshop: " & Err.Description\n WScript.Quit 2\nEnd If\n` +
-        `Err.Clear\nps.DoJavaScriptFile ${vbsString(worker)}\n` +
-        `If Err.Number <> 0 Then\n WScript.Echo "Photoshop automation error: " & Err.Description\n WScript.Quit 3\nEnd If\nWScript.Quit 0\n`;
+    const vbs = buildJsxLaunchVbs(worker, { variableName: "ps" });
     await fs.promises.writeFile(worker, wrapped, "utf8");
-    await fs.promises.writeFile(launch, vbs, "utf8");
+    await fs.promises.writeFile(launch, "\uFEFF" + vbs, "utf16le");
 
     try {
         const result = await new Promise((resolve, reject) => {
@@ -83,11 +80,11 @@ async function runPhotoshopJSXDirect(scriptText, label, timeoutMs = 300000) {
         try {
             status = (await fs.promises.readFile(statusFile, "utf8")).replace(/^\uFEFF/, "").trim();
         } catch (error) {
-            throw new Error(`${label}: Photoshop did not send a result. ${result.stdout} ${result.stderr}`.trim());
+            throw new Error(`${label}: Photoshop did not send a result. ${explainFailure(result, label)}`.trim());
         }
         if (/^ERROR(?:\s|$)/.test(status)) throw new Error(status.slice(5).trim());
         if (result.code !== 0 || status !== "OK") {
-            throw new Error(`${label} failed: ${result.stdout} ${result.stderr} ${status}`.trim());
+            throw new Error(`${label} failed: ${explainFailure(result, label)} ${status}`.trim());
         }
     } finally {
         await fs.promises.rm(dir, { recursive: true, force: true }).catch(() => {});

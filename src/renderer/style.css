@@ -434,3 +434,9 @@ button { color: inherit; }
     .progress-xp-summary { text-align: left; }
     .achievement-grid { grid-template-columns: 1fr; }
 }
+
+/* Photoshop 2027 COM diagnostics: wrapped, selectable text for local QA. */
+.settings-ps-details { margin-top: 13px; color: #aaa; font-size: 12px; }
+.settings-ps-details summary { cursor: pointer; font-weight: 650; }
+.settings-ps-details pre { margin-top: 9px; padding: 12px; border: 1px solid #383838; border-radius: 8px; background: #141414; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 275px; overflow-y: auto; user-select: text; }
+.settings-action-row .settings-status { flex: 1 1 260px; overflow-wrap: anywhere; }

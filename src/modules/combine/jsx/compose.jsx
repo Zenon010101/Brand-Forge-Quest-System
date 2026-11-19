@@ -54,7 +54,7 @@
         t.contents = value;
         t.size = px(fontSize);
         t.justification = wrapped ? Justification.CENTER : Justification.LEFT;
-        try { t.font = /[\u3000-\uffff]/.test(value) ? "YuGothic-Regular" : "ArialMT"; }
+        try { t.font = "HiraginoKakuGothicPro-W3"; }
         catch (ignoreFont) { /* use Photoshop's installed fallback font */ }
         var ink = new SolidColor(); ink.rgb.red = 30; ink.rgb.green = 30; ink.rgb.blue = 30;
         t.color = ink;
@@ -119,6 +119,7 @@
                     width: variation.labelWidth, height: variation.labelHeight }];
                 for (var l = 0; l < labels.length; l++) {
                     var caption = labels[l];
+                    if (!caption.lines || !caption.lines.length) continue;
                     var suffix = labels.length === 2
                         ? (variation.rowMode === "vertical"
                             ? (l === 0 ? "_TOP" : "_BOTTOM")

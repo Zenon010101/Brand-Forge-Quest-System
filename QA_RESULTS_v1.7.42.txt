@@ -1,0 +1,16 @@
+BrandForge v1.7.42 Photoshop 2027 COM/JSX Integration QA
+
+Status: PASS - static Node check and full existing JS regression tests.
+Command: npm run validate
+Exit code: 0
+New unit tests: test/photoshop2027Bridge.js (mocked Windows COM/registry).
+Direct live test on Photoshop 2027 / Windows: NOT RUN (this environment is Linux).
+Windows portable executable build: NOT RUN (requires Windows electron-builder).
+
+Safety: No registry writes or Photoshop preference changes. Generated launcher
+tries GetObject(, Photoshop.Application) then CreateObject(Photoshop.Application).
+If the OS/Photoshop 28 COM server fails both calls, the system shows an
+error and writes local diagnostics; it does not claim the COM server was fixed.
+
+Protected rules: Amazon full-bleed/crop, Slider Line Up, Combine captions,
+LP, Remove BG/Shadow, EXP/History, Arcade, output folder markers.

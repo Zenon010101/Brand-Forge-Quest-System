@@ -1,3 +1,64 @@
+## BrandForge v1.7.50 — Slider Line Up color movement
+
+In the Slider Maker, each color variant tile is draggable independently. Drag the color **tile**, not the entire Line Up group: an occupied target swaps the two color variants while keeping each photo, caption, and Shadow setting together. Empty targets accept a move. The old whole-card drag handle is removed. PA Vertical moves the linked Item + Item Detail pair using its single color handle. See `CHANGELOG_v1.7.50.md`.
+
+# BrandForge v1.7.49 — Slider Maker Drag & Drop
+
+**Slider Maker (Creative / Line Up / Detail):** Drag image files from Windows Explorer directly onto the marked drop zones, their lists, or the matching sidebar tabs. Existing file-picker buttons still work. Bulk Line Up drops append photos in source order into available slots, creating additional cards as needed (2 per card for Horizontal, Vertical and PA Vertical; 4 for Four Cut). Dropping a single image onto an occupied Line Up slot requests confirmation before replacing it; the old caption is then cleared so it cannot label the wrong product. Supported dropped inputs: JPG/JPEG, PNG, WEBP, GIF, BMP, TIFF, PSD/PSB, AVIF, HEIC/HEIF, TGA, subject to Photoshop/Sharp format support for actual generation. Unsupported or missing files are reported, not silently imported.
+
+**Reorder:** Drag the **Move card** handle in a Line Up card header to reorder complete groups. Drag the **⋮⋮ color handle** within a photo slot onto another slot (same or different card) to move or swap that single photo **with its variant name and Shadow setting**. Four Cut supports the same behavior. In PA Vertical, dragging an individual slot is deliberately disabled because Item and Item Detail are a linked pair; whole-card movement is supported. The current color/caption position is what goes into the Slider PSD and the New Brand Combine handoff. Creative/Detail card ordering and Overview ordering stay intact.
+
+**Slider → Create Combine for New Brand:** The review screen accepts dropped images directly into Line Up or Details, and lets you drag reviewed image rows to reorder or move them between sections. You can also drop a Single photo onto the Single field. Re-importing Slider categories warns before discarding manually dropped review images. The reviewed order is passed unchanged to the existing Single → Line Up → DETAILS layout, 600px JPEG, local HTML, and optional layered PSD/PSB. The font remains **Hiragino Kaku Gothic Pro W3, 28px**; no text removal.
+
+**No changes** to existing Amazon/Colorbox/Combine generators, original Slider image geometry/cropping rules, EXP/History, or output-folder selection. Slider drag-and-drop is local Windows Explorer input and does not upload files to a server.
+
+**QA:** `npm install`, `npm run test:slider-drag-drop`, `npm run test:slider-new-brand`, `npm run validate`, then `npm run build:portable` on Windows. Source-level drag/drop and layout tests run in the container. Test live Explorer drag events, PSD generation and clipboard/file format support in Windows Electron before production use.
+
+---
+
+# BrandForge v1.7.48 — Slider -> New Brand Combine
+
+Open **Slider Maker**, add your Creative / Line Up / Detail images as usual, then click **CREATE COMBINE FOR NEW BRAND**. This new workflow is inside BrandForge (not the Rakuten Standalone converter).
+
+- Import & Classify from Slider: existing Slider Line Up groups become suggested Line Up images; Slider Detail and Creative become suggested Details. PA Vertical's feature image starts in Details. This is section-based detection **not OCR**. Move/reorder individual images in the review panel before generation.
+- Manually upload an optional Single image (broad image types). Select output folder; BrandForge remembers the last Single/output folders. Output name defaults to `{ProductCode}_COMBINE` and will version safely if the same filename exists.
+- **Final layout:** Single (600px, if supplied) -> 15px gap -> two-column Line Up (293px cells, 8px gap, 7px rows, original 28px captions) -> DETAILS heading -> two-column Details. Original image proportions and original embedded text are preserved. Caption text is optional when the source photo already contains text. The new names use Hiragino Kaku Gothic Pro W3 when installed; no text removal.
+- Generate JPEG and local HTML first **without Photoshop**. HTML is table-only markup referencing the JPEG file(s) beside it; enter a public HTTPS JPEG folder URL to produce publishing-ready image links. The image files must separately be uploaded to that host before using the HTML on Rakuten.
+- Check **Also generate editable PSD/PSB** for Photoshop Smart Object output. Photoshop failure is reported as a warning and does not delete the JPEG or HTML. A PSD/PSB input file requires Photoshop even for JPEG preview/rasterization.
+- Existing Slider PSD generation, Combine Generator, Rakuten iframe batch, project markers, profiles, and EXP remain in place.
+
+## QA / build
+
+`npm install` followed by `npm run check`, `npm run test:slider-new-brand`, and `npm run build:portable` on Windows.
+
+**Local-only verification available here:** synthetic JPEG/HTML export tests and original Combine/Slider planner regression tests. Windows Electron visual operation, installed Hiragino font, live source image types, and Photoshop PSD saving must still be tested on the actual Windows PC.
+
+---
+
+## v1.7.46 Combine HTML + JPEG Excel batch
+
+Same worksheet: IFRAME | OUTPUT (HTML code) | HTML FILE LINK | JPEG FILE LINK. HTML remains 780px (2 Line Up / 3 Details columns); JPEG now follows the original 600px Combine geometry (2 Line Up / 2 Details columns), no Photoshop. Full details: CHANGELOG_v1.7.47.md.
+
+# BrandForge v1.7.43 - Windows VBScript compilation hotfix
+
+**Fix:** Photoshop Test failed with `probe.vbs(2, 10) Microsoft VBScript compilation error: Invalid character` in v1.7.42. The shared COM launcher generated VBScript variables beginning with `__bf`, which is not a legal VBScript identifier. This release renames them to `BF...`, tightens validation for generated variable names, and reports VBScript compilation errors distinctly from COM failures.
+
+**Scope:** The Photoshop connection helper shared by Settings, Amazon, Slider, Combine, Landing Page and Remove Background. No changes to image positioning, PSD output templates, EXP, Arcade, or Google Drive saving logic.
+
+**Windows steps:** Extract the full project or merge the changed-file patch into your existing v1.7.42 source, then run `npm run check`, `npm run test:photoshop-2027`, and `npm run build:portable`. Open Photoshop 2027, launch the NEW portable EXE, then Settings > Test Photoshop. A further COM error after the compile fix requires the diagnostic report. The compiled EXE is not part of the ZIP.
+
+**Testing:** Node bridge tests and script text/BOM checks passed; cannot execute Windows VBScript/Photoshop COM in this environment.
+
+---
+
+# BrandForge v1.7.42 — Photoshop 2027 (28.x) COM recovery + diagnostics
+
+This release centralizes the Windows Photoshop `Photoshop.Application` connection across Amazon, Slider, LP, Combine and Remove Background. Settings > **Test Photoshop** now checks COM + JSX, shows the connected version and connection method, and writes a read-only local report (Open Diagnostics). It first tries to attach to running Photoshop, then tries the registered COM server. No original JSX layouts, image selection, profile data, history/EXP, or Arcade content is changed. **It cannot repair a broken Photoshop 28.x COM installation**; see `docs/PHOTOSHOP_2027_CONNECTION.md`.
+
+To build a portable Windows EXE: `npm install` then `npm run build:portable`. Test via `npm run check` and `npm run test:photoshop-2027`.
+
+---
+
 # BrandForge v1.7.40 — LP / Combine / Remove BG History + EXP, Slider Line Up Centering
 
 **Production History + EXP:** Both LP generators (Screenshot LP and Folder LP), Combine, and Remove Background + Add Shadow now record completed production jobs for the currently signed-in BrandForge profile. Each successful generator records its result **after verified output publishing**, adding a clearly labeled History entry, EXP, output-file counts, and a module-specific lifetime counter. Remove Background and Add Shadow are independent phases: each records one event per successful batch (including partial batches). Failed runs, empty/previously completed BG batches, scans, previews, and Arcade games earn no production EXP.
@@ -400,3 +461,31 @@ All games have **Start, Pause, Reset**. Leaving the Arcade tab pauses an active 
 Arcade code lives in `src/modules/arcade/`: `main/register.js` and `main/scoreStore.js` (profile-authenticated IPC and high scores), `shared/engines.js` (pure game rules), and `renderer/index.html`, `renderer/style.css`, `renderer/app.js` (interactive UI). No new npm packages are required. The build configuration already includes `src/**/*`.
 
 Developers can run `npm run test:arcade`, `npm run check`, and `npm run validate`. Optional Python Playwright scripts `test/arcadeBrowser.py` and `test/arcadeProfileBrowser.py` are for development only; running BrandForge does not require Python. See `UPGRADE_v1.7.39.txt`.
+
+---
+## v1.7.44 - Combine iframe-to-HTML batch
+
+The default Combine view now takes full Rakuten GOLD iframe markup or an Excel
+list of iframe blocks. It creates 780px table-only image layouts (2 Line Up
+columns at 380px, `DETAILS` 28px, 3 Details columns at 250px) using existing
+remote image URLs. It never downloads/edits images and does not require Photoshop.
+
+An input .xlsx with ~1,000 iframe rows produces one NEW result .xlsx (with
+`HTML_RESULTS` sheet containing iframe | HTML code | local HTML hyperlink and
+QC status), plus a folder of standalone .html files. Missing source DETAILS
+boundaries are flagged REVIEW unless you provide the per-row Lineup Count.
+
+See `CHANGELOG_v1.7.44.md`, `docs/IFRAME_HTML_BATCH_ARCHITECTURE.md`,
+`examples/IFRAME_LIST_TEMPLATE.xlsx`, and `INSTALL_FULL_PROJECT_v1.7.44.txt`.
+Run `npm install` before `npm run build:portable` to install new ExcelJS dependency.
+
+
+## v1.7.47 - original Combine-style JPEG output restored
+
+- HTML export: **unchanged** 780px table-only layout; 2-column Line Up, 3-column Details, 28px DETAILS heading.
+- JPEG export: **600px** legacy Combine-style vertical canvas; 2-column Line Up and 2-column Details; 293px image slots, 8px column gap, 7px row gap, 30px separation before DETAILS, 28px DETAILS heading.
+- Preserve source-image aspect ratio and existing printed color labels. No text removal, cropping, stretching, Photoshop, or separately saved image assets.
+- One JPEG and one HTML per iframe; Excel OUTPUT code remains next to each original iframe, with adjacent HTML and JPEG hyperlinks.
+- Preview selector switches between the published HTML layout and the separate legacy JPEG layout.
+- The **Legacy PSD Combine** feature has not been rewritten or removed. Photoshop 2027 COM repair is still separate from this iframe workflow.
+- JPEG rendering requires remote image URLs to load; failed image renders are flagged REVIEW while the HTML remains available.

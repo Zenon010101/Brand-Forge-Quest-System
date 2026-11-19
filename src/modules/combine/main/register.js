@@ -11,6 +11,12 @@ const sharp = require("sharp");
 const { TextCleanupService } = require("./textCleanup");
 const textCleanup = new TextCleanupService();
 const { autoCleanDownloadedImage } = require("./autoCaptionCleanup");
+const { IframeBatchService } = require("./iframeBatchService");
+const { ElectronJpegRenderer } = require("./iframeJpegRenderer");
+const iframeBatch = new IframeBatchService();
+const path = require("path");
+const fs = require("fs");
+const { iframeUrl, outputStem } = require("./iframeHtml");
 
 const FILTERS = [{ name: "Photoshop and image files", extensions: ["jpg", "jpeg", "png", "webp", "tif", "tiff", "bmp", "gif", "psd", "psb", "avif", "heic", "heif", "tga", "svg", "jp2", "exr", "hdr"] },
     { name: "All files", extensions: ["*"] }];
@@ -107,4 +113,77 @@ ipcMain.handle("combine:cleanup-save", async (_event, payload) => {
     const imported = await service.addFiles([saved.path]);
     return { ...saved, imported };
 });
-module.exports = { service, rakutenImporter, textCleanup };
+// HTML-only Combine, independent of Photoshop and image download/cleanup flows.
+ipcMain.handle("combine:html:choose-excel", async () => {
+    const result=await dialog.showOpenDialog({title:"Choose iframe list Excel workbook (.xlsx)",
+        properties:["openFile"],filters:[{name:"Excel workbook",extensions:["xlsx"]}]});
+    return result.canceled ? null : result.filePaths[0];
+});
+ipcMain.handle("combine:html:choose-output", async () => {
+    const result=await dialog.showOpenDialog({title:"Choose output folder for Combine HTML batch",
+        properties:["openDirectory"],defaultPath:app.getPath("documents")});
+    return result.canceled ? null : result.filePaths[0];
+});
+ipcMain.handle("combine:html:inspect-excel", (_event,file) => iframeBatch.inspectExcel(file));
+ipcMain.handle("combine:html:preview", async (_event,payload) => {
+    const result=await iframeBatch.processIframe(payload?.iframe,{lineupCount:payload?.lineupCount,defaultLineupCount:payload?.defaultLineupCount});
+    iframeBatch.lastPreview=result;
+    return result;
+});
+ipcMain.handle("combine:html:batch", async (event,payload) => {
+    const result=await iframeBatch.generateExcel(payload,p => sendProgressHtml(event,p));
+    if (result.generatedFiles>0) {
+        const historyResult=await recordCompletedProduction("combine",{
+            ok:true,htmlBatch:true,outputPath:result.excelPath,sourceCount:result.generatedFiles,
+            generatedFiles:result.generatedFiles,failed:result.failed,review:result.review
+        },{},recordProductionEvent);
+        return {...result,progression:historyResult.progression||null,
+            progressionWarning:historyResult.progressionWarning||null};
+    }
+    return result;
+});
+ipcMain.handle("combine:html:cancel",()=>iframeBatch.cancel());
+ipcMain.handle("combine:html:save-single", async (_event,payload) => {
+    const base=await fs.promises.realpath(payload?.outputFolder);
+    if(!(await fs.promises.stat(base)).isDirectory()) throw new Error("Choose a valid output folder.");
+    const url=iframeUrl(payload?.iframe);
+    const prepared=iframeBatch.lastPreview;
+    if(!prepared || prepared.url!==url || !prepared.document || !prepared.code)
+        throw new Error("Generate a valid HTML preview for this iframe before saving.");
+    const content=prepared.document;
+    const stem=outputStem(url,1).replace(/^00001_/,"");
+    for(let v=1;v<=999;v++){
+        const name=stem+(v===1?"":`_v${v}`);
+        const full=path.join(base,name+".html");
+        const jpeg=path.join(base,name+".jpg");
+        try { await fs.promises.access(jpeg); continue; }
+        catch(e) { if(e.code!=="ENOENT") throw e; }
+        try { await fs.promises.writeFile(full,content,{encoding:"utf8",flag:"wx"}); }
+        catch(e) { if(e.code==="EEXIST")continue;throw e; }
+        const renderer=new ElectronJpegRenderer();
+        try {
+            await renderer.capture(full,jpeg,{expectedImages:prepared.images.length,renderHtml:prepared.jpegDocument});
+            return {path:full,jpegPath:jpeg};
+        } catch(error) {
+            // Single-file command is all-or-nothing; never leave a half pair.
+            await fs.promises.rm(full,{force:true}).catch(()=>{});
+            await fs.promises.rm(jpeg,{force:true}).catch(()=>{});
+            throw new Error("HTML generated but JPEG failed: "+String(error?.message||error));
+        } finally { await renderer.close(); }
+    }
+    throw new Error("Too many existing versions in the selected folder.");
+});
+ipcMain.handle("combine:html:open-folder", async (_event,folder) => {
+    if(!iframeBatch.lastBatch || folder!==iframeBatch.lastBatch.outputFolder)
+        throw new Error("Generate an HTML batch before opening its output.");
+    const error=await shell.openPath(folder);
+    if(error)throw new Error(error);
+    return {ok:true};
+});
+function sendProgressHtml(event,p){
+    try {const frame=event.senderFrame;
+        if(frame && !(typeof frame.isDestroyed==="function"&&frame.isDestroyed()))
+            frame.send("combine:html:progress",p);
+    }catch(_){/* final result is authoritative */}
+}
+module.exports = { service, rakutenImporter, textCleanup, iframeBatch };

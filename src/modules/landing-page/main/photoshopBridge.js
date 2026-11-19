@@ -4,6 +4,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawn } = require("child_process");
+const { buildJsxLaunchVbs, explainFailure } = require("../../../shared/photoshopCom");
 
 function jsxString(value) { return JSON.stringify(String(value).replace(/\\/g, "/")); }
 function vbsString(value) { return '"' + String(value).replace(/"/g, '""') + '"'; }
@@ -27,9 +28,9 @@ async function runDirect(body, label, timeoutMs) {
         `try {\n${body.replace(/^\s*#target\s+photoshop[^\n]*\n?/i, "")}\n__result("OK");\n` +
         `} catch(e) { var msg = String(e && e.message ? e.message : e); try { if (e.line) msg += " (JSX line " + e.line + ")"; } catch(ignore) {} __result("ERROR\\n" + msg); }\n` +
         `finally { app.displayDialogs = __oldDialogs; }`;
-    const vbs = `On Error Resume Next\nSet p = CreateObject("Photoshop.Application")\nIf Err.Number <> 0 Then\n WScript.Echo "Unable to launch Photoshop: " & Err.Description\n WScript.Quit 2\nEnd If\nErr.Clear\np.DoJavaScriptFile ${vbsString(source)}\nIf Err.Number <> 0 Then\n WScript.Echo "Photoshop script error: " & Err.Description\n WScript.Quit 3\nEnd If\nWScript.Quit 0\n`;
+    const vbs = buildJsxLaunchVbs(source, { variableName: "p" });
     await fs.promises.writeFile(source, wrapped, "utf8");
-    await fs.promises.writeFile(launch, vbs, "utf8");
+    await fs.promises.writeFile(launch, "\uFEFF" + vbs, "utf16le");
     try {
         const childResult = await new Promise((resolve, reject) => {
             const child = spawn("cscript.exe", ["//nologo", launch], { windowsHide: true });
@@ -51,9 +52,9 @@ async function runDirect(body, label, timeoutMs) {
         });
         let reply = "";
         try { reply = (await fs.promises.readFile(status, "utf8")).replace(/^\uFEFF/, "").trim(); }
-        catch (_) { throw new Error(`${label}: Photoshop did not write a result. ${childResult.output}`); }
+        catch (_) { throw new Error(`${label}: Photoshop did not write a result. ${explainFailure({code: childResult.code, stdout: childResult.output}, label)}`); }
         if (/^ERROR(?:\s|$)/.test(reply)) throw new Error(`${label}: ${reply.slice(5).trim()}`);
-        if (childResult.code !== 0 || reply !== "OK") throw new Error(`${label}: ${childResult.output} ${reply}`);
+        if (childResult.code !== 0 || reply !== "OK") throw new Error(`${label}: ${explainFailure({code: childResult.code, stdout: childResult.output}, label)} ${reply}`);
     } finally {
         await fs.promises.rm(folder, { recursive: true, force: true }).catch(() => {});
     }

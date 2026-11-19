@@ -72,7 +72,10 @@ function fitInside(entry, x, y, slotWidth, slotHeight) {
     return { ...entry, slotX: x, slotY: y, slotWidth, slotHeight, x: x + Math.floor((slotWidth - width) / 2),
         y: y + offsetY, placedWidth: width, placedHeight: height };
 }
-function buildCombineLayout({ single, lineup, details, outputName }) {
+function buildCombineLayout({ single, lineup, details, outputName, allowBlankCaptions = false }) {
+    // The Slider handoff may already contain printed names in the source.
+    // Only that opt-in path may omit an additional editable caption.
+    const captionLines = text => allowBlankCaptions && !String(text || "").trim() ? [] : wrapColorName(text);
     if (single != null && (typeof single !== "object" || Array.isArray(single))) throw new Error("Invalid Single image.");
     if (!Array.isArray(lineup) || !Array.isArray(details)) throw new Error("Line Up and Details must be ordered lists.");
     if (!single && !lineup.length && !details.length) throw new Error("Add at least one image to Single, Line Up, or Details.");
@@ -91,7 +94,7 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
     let pending = [];
     function appendNormalRow(items) {
         if (!items.length) return;
-        const labels = items.map(({ item }) => wrapColorName(item.colorName));
+        const labels = items.map(({ item }) => captionLines(item.colorName));
         // Each single-variant product keeps its 293px COLUMN width, but is
         // NOT constrained to a 293px-square image box. Tall products such as
         // coats can use the same vertical scale as the adjacent 594px-wide
@@ -102,9 +105,10 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
             fitInside(item, 0, 0, DIM.cell, DIM.lineupPortraitMaxHeight));
         const imageHeight = Math.max(...measured.map(item => item.placedHeight));
         const labelHeight = Math.max(...labels.map(lines => lines.length)) * DIM.labelLine;
-        const labelTop = y + imageHeight + DIM.labelGap;
+        const rowGapToLabel = labelHeight ? DIM.labelGap : 0;
+        const labelTop = y + imageHeight + rowGapToLabel;
         const row = { kind: "regular", top: y, imageHeight, labelTop,
-            labelHeight, rowHeight: imageHeight + DIM.labelGap + labelHeight,
+            labelHeight, rowHeight: imageHeight + rowGapToLabel + labelHeight,
             imageIndices: items.map(({ index }) => index) };
         items.forEach(({ item, index }, column) => {
             const x = DIM.margin + column * (DIM.cell + DIM.columnGap);
@@ -120,8 +124,8 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
         y += row.rowHeight + DIM.rowGap;
     }
     function appendDualRow(item, index) {
-        const left = wrapColorName(item.colorName);
-        const right = wrapColorName(item.colorNameRight);
+        const left = captionLines(item.colorName);
+        const right = captionLines(item.colorNameRight);
         const rawWidth = Number(item.visibleWidth || item.width);
         const rawHeight = Number(item.visibleHeight || item.height);
         if (!(rawWidth > 0 && rawHeight > 0)) throw new Error(`Invalid dimensions: ${item.name}`);
@@ -133,7 +137,8 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
         const imageHeight = Math.max(1, Math.min(DIM.dualMaxHeight,
             Math.round(DIM.dualWidth * rawHeight / rawWidth)));
         const labelHeight = Math.max(left.length, right.length) * DIM.labelLine;
-        const labelTop = y + imageHeight + DIM.labelGap;
+        const rowGapToLabel = labelHeight ? DIM.labelGap : 0;
+        const labelTop = y + imageHeight + rowGapToLabel;
         const xRight = DIM.margin + DIM.cell + DIM.columnGap;
         const labels = [
             { side: "left", text: item.colorName, lines: left,
@@ -142,7 +147,7 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
                 x: xRight, y: labelTop, width: DIM.cell, height: labelHeight }
         ];
         const row = { kind: "dual", top: y, imageHeight, labelTop,
-            labelHeight, rowHeight: imageHeight + DIM.labelGap + labelHeight,
+            labelHeight, rowHeight: imageHeight + rowGapToLabel + labelHeight,
             imageIndices: [index] };
         placedLineup.push({ ...fitInside({ ...item, verticalAlign: "bottom" }, DIM.margin, y, DIM.dualWidth, imageHeight),
             rowMode: "dual", colorName: item.colorName, colorNameRight: item.colorNameRight,
@@ -156,8 +161,8 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
     // areas, not both appended after the second product. Preserve the entire
     // source canvas so original text positions and image-to-caption gaps match.
     function appendVerticalRow(item, index) {
-        const top = wrapColorName(item.colorName, 19.5);
-        const bottom = wrapColorName(item.colorNameRight, 19.5);
+        const top = allowBlankCaptions && !String(item.colorName || "").trim() ? [] : wrapColorName(item.colorName, 19.5);
+        const bottom = allowBlankCaptions && !String(item.colorNameRight || "").trim() ? [] : wrapColorName(item.colorNameRight, 19.5);
         const positions = verticalPositions(item.captionTopY, item.captionBottomY);
         const sourceWidth = Number(item.width), sourceHeight = Number(item.height);
         if (!(sourceWidth > 0 && sourceHeight > 0)) throw new Error(`Invalid dimensions: ${item.name}`);
@@ -172,7 +177,7 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
         const bottomY = image.y + Math.round(image.placedHeight * positions.bottomY);
         const topHeight = top.length * DIM.labelLine;
         const bottomHeight = bottom.length * DIM.labelLine;
-        if (topY + topHeight + DIM.labelGap > bottomY) {
+        if (topHeight && bottomHeight && topY + topHeight + DIM.labelGap > bottomY) {
             throw new Error(`TOP/BOTTOM names overlap in ${item.name}. Move their caption positions farther apart or shorten the names.`);
         }
         const labels = [
@@ -183,7 +188,7 @@ function buildCombineLayout({ single, lineup, details, outputName }) {
         ];
         // If the printed bottom caption was very close to the source bottom,
         // reserve only the pixels actually needed for its replacement text.
-        const rowHeight = Math.max(imageHeight, bottomY + bottomHeight - y + DIM.margin);
+        const rowHeight = bottomHeight ? Math.max(imageHeight, bottomY + bottomHeight - y + DIM.margin) : imageHeight;
         lineupRows.push({kind:"vertical", top:y, imageHeight, labelTop:topY,
             labelHeight:bottomHeight, rowHeight, imageIndices:[index]});
         placedLineup.push({ ...image, rowMode:"vertical", preserveCanvas:true,

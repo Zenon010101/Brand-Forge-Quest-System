@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { spawn } = require("child_process");
+const { buildJsxLaunchVbs, runVbsScript, explainFailure } = require("../../../shared/photoshopCom");
 
 function jsxString(value) {
     return JSON.stringify(String(value).replace(/\\/g, "/"));
@@ -53,42 +53,13 @@ ${body}
 }
 `;
 
-    const vbs = `
-On Error Resume Next
-Set photoshopApp = CreateObject("Photoshop.Application")
-If Err.Number <> 0 Then
-    WScript.Echo "Could not start Photoshop: " & Err.Description
-    WScript.Quit 2
-End If
-Err.Clear
-photoshopApp.Visible = True
-photoshopApp.DoJavaScriptFile ${vbString(jsxPath)}
-If Err.Number <> 0 Then
-    WScript.Echo "Photoshop script error: " & Err.Description
-    WScript.Quit 3
-End If
-WScript.Quit 0
-`;
+    const vbs = buildJsxLaunchVbs(jsxPath, { variableName: "photoshopApp", reveal: true });
 
     await fs.promises.writeFile(jsxPath, jsx, "utf8");
-    await fs.promises.writeFile(vbsPath, vbs, "utf8");
+    await fs.promises.writeFile(vbsPath, "\uFEFF" + vbs, "utf16le");
 
     try {
-        const processResult = await new Promise((resolve, reject) => {
-            const child = spawn(
-                "cscript.exe",
-                ["//nologo", vbsPath],
-                { windowsHide: true }
-            );
-
-            let stdout = "";
-            let stderr = "";
-
-            child.stdout.on("data", data => { stdout += data.toString(); });
-            child.stderr.on("data", data => { stderr += data.toString(); });
-            child.on("error", reject);
-            child.on("close", code => resolve({ code, stdout, stderr }));
-        });
+        const processResult = await runVbsScript(vbsPath, { timeoutMs: 900000 });
 
         let status = "";
 
@@ -100,8 +71,7 @@ WScript.Quit 0
                 .join("\n");
 
             throw new Error(
-                `Photoshop did not return a result for ${label}.` +
-                (details ? `\n\n${details}` : "")
+                explainFailure(processResult, label) + (details ? `\n\n${details}` : "")
             );
         }
 
@@ -113,8 +83,7 @@ WScript.Quit 0
 
         if (processResult.code !== 0) {
             throw new Error(
-                `Photoshop bridge failed for ${label}.\n\n` +
-                processResult.stdout + "\n" + processResult.stderr
+                explainFailure(processResult, label)
             );
         }
 

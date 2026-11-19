@@ -364,6 +364,9 @@ async function initSettings() {
 
     const testBtn = document.getElementById("testPhotoshopBtn");
     const psStatus = document.getElementById("photoshopStatus");
+    const psDetails = document.getElementById("photoshopDiagnosticDetails");
+    const psDiagnostics = document.getElementById("photoshopDiagnosticsText");
+    const openPsDiagnosticsBtn = document.getElementById("openPhotoshopDiagnosticsBtn");
     const openDataBtn = document.getElementById("openUserDataBtn");
     const resetBtn = document.getElementById("resetFoldersBtn");
     const userDataPath = document.getElementById("userDataPath");
@@ -395,21 +398,35 @@ async function initSettings() {
     testBtn?.addEventListener("click", async () => {
         testBtn.disabled = true;
         psStatus.className = "settings-status";
-        psStatus.textContent = "Testing Photoshop automation...";
+        psStatus.textContent = "Testing Photoshop COM and JSX automation (up to 90 seconds)...";
+        if (psDetails) psDetails.hidden = true;
         try {
             const result = await api.testPhotoshop();
             if (result?.ok) {
                 psStatus.className = "settings-status ok";
-                psStatus.textContent = `Photoshop detected · version ${result.version}`;
+                psStatus.textContent = `Photoshop detected · version ${result.version} · ${result.method === "running" ? "attached to running instance" : "COM connection created"} · JSX OK`;
             } else {
                 psStatus.className = "settings-status error";
-                psStatus.textContent = result?.error || "Photoshop could not be detected.";
+                psStatus.textContent = result?.error || "Photoshop could not be detected. Open Diagnostics for details.";
+            }
+            if (psDetails && psDiagnostics && result?.diagnosticDetails) {
+                psDetails.hidden = false;
+                psDiagnostics.textContent = result.diagnosticDetails;
             }
         } catch (error) {
             psStatus.className = "settings-status error";
             psStatus.textContent = error?.message || String(error);
         } finally {
             testBtn.disabled = false;
+        }
+    });
+
+    openPsDiagnosticsBtn?.addEventListener("click", async () => {
+        try {
+            const result = await api.openPhotoshopDiagnostics();
+            if (!result?.ok) alert(result?.error || "Could not open Photoshop diagnostics.");
+        } catch (error) {
+            alert(error?.message || String(error));
         }
     });
 

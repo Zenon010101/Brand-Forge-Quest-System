@@ -31,6 +31,14 @@ function makeProductionEvent(kind, result, context = {}) {
         };
     }
     if (kind === "combine") {
+        if (result.htmlBatch === true) {
+            const count=nonnegative(result.generatedFiles);
+            if(!result.outputPath || !count)return null;
+            return {kind,label:outputName(result.outputPath),
+                subtitle:`Combine HTML · ${count} exported HTML file(s) · ${nonnegative(result.failed)} failed · ${nonnegative(result.review)} review`,
+                itemCount:count,outputFiles:count+1,outputPath:result.outputPath,
+                status:nonnegative(result.failed)?"partial":"success",xp:15+Math.min(40,Math.ceil(count/10))};
+        }
         if (!result.outputPath) return null;
         const count = nonnegative(result.sourceCount);
         const jpegs = Array.isArray(result.jpegPaths) ? result.jpegPaths.length : 0;

@@ -46,6 +46,46 @@ const statusSub = document.getElementById("statusSub");
 let nextOutputId = 1;
 let dragContext = null;
 let overviewDragIndex = null;
+let lineupDrag = null; // { kind: "slot" | "pa-variant", fromRow, fromSlot? }
+const lineupDnD = window.BrandForgeSliderDnD;
+
+function externalFilesDragged(event) {
+  return Array.from(event.dataTransfer?.types || []).includes("Files");
+}
+async function decodeExplorerDrop(event) {
+  const browserFiles = Array.from(event.dataTransfer?.files || []);
+  const paths = browserFiles.map(file => {
+    try { return sliderApi.getPathForFile(file); } catch (_error) { return ""; }
+  }).filter(Boolean);
+  if (!paths.length) throw new Error("No local image file paths found. Drop files from Windows Explorer.");
+  const result = await sliderApi.describeDroppedFiles(paths);
+  if (result?.rejected?.length) setStatus("Some files skipped", result.rejected.join("; "), "error");
+  if (!result?.files?.length) throw new Error("No supported image files found in the drop.");
+  return result.files;
+}
+function enableFileDrop(element, onFiles) {
+  // External file drops must not be mistaken for our internal card/slot drag.
+  element.addEventListener("dragover", event => {
+    if (!externalFilesDragged(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = state.busy ? "none" : "copy";
+    if (!state.busy) element.classList.add("file-drag-over");
+  });
+  element.addEventListener("dragleave", event => {
+    if (!element.contains(event.relatedTarget)) element.classList.remove("file-drag-over");
+  });
+  element.addEventListener("drop", async event => {
+    if (!externalFilesDragged(event)) return;
+    event.preventDefault(); event.stopPropagation();
+    element.classList.remove("file-drag-over");
+    if (state.busy) return;
+    try { await onFiles(await decodeExplorerDrop(event)); }
+    catch (error) { setStatus("Drop failed", error.message || String(error), "error"); }
+  });
+}
+// Prevent Electron from navigating away when a file is dropped outside a zone.
+document.addEventListener("dragover", event => { if (externalFilesDragged(event)) event.preventDefault(); });
+document.addEventListener("drop", event => { if (externalFilesDragged(event)) event.preventDefault(); });
 
 function newOutputId(type) {
   return `${type}-${nextOutputId++}`;
@@ -390,16 +430,16 @@ function updateLayoutHelp() {
   if (!layoutHelp) return;
   if (state.layoutMode === "horizontal") {
     layoutHelp.textContent =
-      "Horizontal: two product/color entries placed side by side.";
+      "Horizontal: two color variants per group. Drag ONE variant tile to move or swap its position.";
   } else if (state.layoutMode === "vertical") {
     layoutHelp.textContent =
-      "Vertical: two product/color entries stacked from top to bottom.";
+      "Vertical: two stacked color variants. Drag ONE variant tile, never the complete group.";
   } else if (state.layoutMode === "paVertical") {
     layoutHelp.textContent =
-      "PA Vertical: Item 571×280 · Item Detail 571×250 · Color Name 571×50.";
+      "PA Vertical: Item 571×280 + Item Detail 571×250 + Color Name 571×50. Drag the COLOR handle to move its linked pair.";
   } else {
     layoutHelp.textContent =
-      "Four Cut: four product/color entries arranged in a 2×2 layout.";
+      "Four Cut: four color variants in a 2×2 layout. Drag each color tile independently.";
   }
 }
 
@@ -416,6 +456,33 @@ function makeSlot(row, rowIndex, slotNumber) {
 
   const top = document.createElement("div");
   top.className = "slot-top";
+  // ONE color variant = ONE draggable tile (photo, caption and shadow together).
+  // The surrounding LINEUP 01 / 02 container is never draggable.
+  const occupied = Boolean(row[`photo${slotNumber}`] || String(row[`variant${slotNumber}`] || "").trim());
+  slot.draggable = !state.busy && !isPaVertical && occupied;
+  slot.setAttribute("aria-label", `Line Up color variant ${slotNumber}. Drag this tile to move or swap this color only.`);
+  if (!isPaVertical) {
+    const colorGrip = document.createElement("div");
+    colorGrip.className = "color-drag-handle";
+    colorGrip.textContent = "⋮⋮ Drag this color variant";
+    colorGrip.title = "Drag the entire color tile, not the Line Up group. Photo, name and shadow move together.";
+    slot.appendChild(colorGrip);
+  }
+  slot.addEventListener("dragstart", event => {
+    if (state.busy || isPaVertical || !occupied ||
+        event.target.closest?.("button, input, textarea, select, label")) {
+      event.preventDefault(); return;
+    }
+    lineupDrag = {kind: "slot", fromRow: rowIndex, fromSlot: slotNumber};
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `lineup-color-${rowIndex}-${slotNumber}`);
+    slot.classList.add("dragging");
+  });
+  slot.addEventListener("dragend", () => {
+    lineupDrag = null;
+    slot.classList.remove("dragging");
+    document.querySelectorAll(".slot.drag-over").forEach(node => node.classList.remove("drag-over"));
+  });
   top.appendChild(fileThumb(row[`photo${slotNumber}`], "slot-thumb"));
 
   const info = document.createElement("div");
@@ -489,12 +556,73 @@ function makeSlot(row, rowIndex, slotNumber) {
     slot.appendChild(variant);
   }
 
+  slot.addEventListener("dragover", event => {
+    if (state.busy || !lineupDrag || lineupDrag.kind !== "slot" || isPaVertical) return;
+    event.preventDefault(); event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+    slot.classList.add("drag-over");
+  });
+  slot.addEventListener("dragleave", () => slot.classList.remove("drag-over"));
+  slot.addEventListener("drop", event => {
+    if (!lineupDrag || lineupDrag.kind !== "slot") return;
+    event.preventDefault(); event.stopPropagation(); slot.classList.remove("drag-over");
+    if (state.busy) return;
+    const {fromRow, fromSlot} = lineupDrag;
+    lineupDrag = null;
+    if (lineupDnD.moveVariation(state.lineupRows, fromRow, fromSlot, rowIndex, slotNumber, state.layoutMode)) {
+      setStatus("Color variant moved", "Only this color's photo, caption and shadow moved; occupied positions are swapped.");
+      renderAll();
+    }
+  });
+  enableFileDrop(slot, async files => addLineupFiles(files, rowIndex, slotNumber));
   return slot;
 }
 
-function makePaVerticalColorField(row) {
+function makePaVerticalColorField(row, rowIndex) {
   const fieldWrap = document.createElement("div");
   fieldWrap.className = "pa-color-field";
+
+  // In PA Vertical, ONE color variant necessarily includes Item + Item Detail.
+  // Drag via its color label only; never offer drag on an individual paired photo.
+  const handle = document.createElement("div");
+  handle.className = "pa-color-drag-handle";
+  handle.draggable = !state.busy && Boolean(row.photo1 || row.photo2 || String(row.variant1 || "").trim());
+  handle.textContent = "⋮⋮ Drag this PA color variant";
+  handle.title = "Move this color with its linked Item and Item Detail images";
+  handle.addEventListener("dragstart", event => {
+    if (state.busy || !handle.draggable) { event.preventDefault(); return; }
+    event.stopPropagation();
+    lineupDrag = {kind: "pa-variant", fromRow: rowIndex};
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `lineup-pa-color-${rowIndex}`);
+    fieldWrap.classList.add("dragging");
+  });
+  handle.addEventListener("dragend", () => {
+    lineupDrag = null;
+    fieldWrap.classList.remove("dragging");
+    document.querySelectorAll(".pa-color-field.drag-over").forEach(node => node.classList.remove("drag-over"));
+  });
+  fieldWrap.appendChild(handle);
+  fieldWrap.addEventListener("dragover", event => {
+    if (state.busy || lineupDrag?.kind !== "pa-variant") return;
+    event.preventDefault(); event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+    fieldWrap.classList.add("drag-over");
+  });
+  fieldWrap.addEventListener("dragleave", () => fieldWrap.classList.remove("drag-over"));
+  fieldWrap.addEventListener("drop", event => {
+    if (lineupDrag?.kind !== "pa-variant") return;
+    event.preventDefault(); event.stopPropagation();
+    fieldWrap.classList.remove("drag-over");
+    const fromRow = lineupDrag.fromRow;
+    lineupDrag = null;
+    if (state.busy) return;
+    if (lineupDnD.moveCard(state.lineupRows, fromRow, rowIndex)) {
+      syncTypeOrderInOutputOrder("lineup");
+      setStatus("PA color variant moved", "Its linked Item + Item Detail and color name stayed together.");
+      renderAll();
+    }
+  });
 
   const label = document.createElement("strong");
   label.textContent = "Color Name";
@@ -530,6 +658,7 @@ function renderLineups() {
 
     const head = document.createElement("div");
     head.className = "lineup-card-head";
+    // This is a visual group only. Never drag the whole group/card.
     const title = document.createElement("strong");
     title.textContent = `LINEUP ${String(rowIndex + 1).padStart(2, "0")}`;
     head.appendChild(title);
@@ -553,7 +682,7 @@ function renderLineups() {
       body.appendChild(makeSlot(row, rowIndex, slot));
     }
     if (state.layoutMode === "paVertical") {
-      body.appendChild(makePaVerticalColorField(row));
+      body.appendChild(makePaVerticalColorField(row, rowIndex));
     }
     card.appendChild(body);
     lineupList.appendChild(card);
@@ -823,15 +952,78 @@ function setBusy(busy) {
   );
 }
 
-addCreativeBtn.onclick = async () => {
-  const files = await sliderApi.selectImages({});
-  if (!files?.length) return;
-  files.forEach((file) => {
-    const entry = cloneFile(file, { _outputId: newOutputId("creative") });
+function addCreativeFiles(files) {
+  files.forEach(file => {
+    const entry = cloneFile(file, {_outputId: newOutputId("creative")});
     state.creative.push(entry);
     registerOutputItem("creative", entry._outputId);
   });
   renderAll();
+  setStatus("Creative files added", `${files.length} image(s) imported. Drag cards to reorder.`);
+}
+function addDetailFiles(files, isCut = false) {
+  files.forEach(file => {
+    const entry = cloneFile(file, {_outputId: newOutputId("detail"),
+      isCut, hasShadow: state.detailAllShadow});
+    state.detail.push(entry);
+    registerOutputItem("detail", entry._outputId);
+  });
+  syncAllShadowState(); renderAll();
+  setStatus("Detail files added", `${files.length} image(s) imported. Drag cards to reorder.`);
+}
+function addLineupFiles(files, rowIndex = null, slotNumber = 1) {
+  if (!files.length) return;
+  // Generic list/zone drops APPEND in order (rather than silently inserting
+  // ahead of existing images in an earlier empty slot).
+  if (rowIndex === null) {
+    const slots = activeSlotCount();
+    let last = -1;
+    state.lineupRows.forEach((row, ri) => {
+      for (let n = 1; n <= slots; n++) {
+        if (row[`photo${n}`] || String(row[`variant${n}`] || "").trim()) last = ri * slots + n - 1;
+      }
+    });
+    rowIndex = Math.floor((last + 1) / slots);
+    slotNumber = (last + 1) % slots + 1;
+  }
+  // Single-image drop on a filled slot requests explicit replacement;
+  // never silently discard the existing variant/photo.
+  const row = state.lineupRows[rowIndex];
+  if (files.length === 1 && row && row[`photo${slotNumber}`]) {
+    const current = row[`photo${slotNumber}`];
+    if (!window.confirm(`Replace ${current.name} with ${files[0].name}? The existing color caption will be cleared.`)) return;
+    row[`photo${slotNumber}`] = cloneFile(files[0]);
+    row[`variant${slotNumber}`] = "";
+    row[`shadow${slotNumber}`] = false;
+    setStatus("Line Up photo replaced", `Enter the color name for ${files[0].name}.`);
+    renderAll(); return;
+  }
+  const count = lineupDnD.insertDroppedPhotos(state.lineupRows, files.map(file => cloneFile(file)), {
+    layoutMode: state.layoutMode, startRow: rowIndex, startSlot: slotNumber, makeRow: makeLineup
+  });
+  ensureOutputOrder(); renderAll();
+  setStatus("Line Up photos added", `${count} image(s) placed in source order. Enter color names before Slider PSD generation.`);
+}
+// Three clearly marked file-drop zones, plus drops anywhere in their lists.
+enableFileDrop(document.getElementById("creativeDropZone"), addCreativeFiles);
+enableFileDrop(creativeList, addCreativeFiles);
+enableFileDrop(document.getElementById("detailDropZone"), files => addDetailFiles(files));
+enableFileDrop(detailList, files => addDetailFiles(files));
+enableFileDrop(document.getElementById("lineupDropZone"), files => addLineupFiles(files));
+enableFileDrop(lineupList, files => addLineupFiles(files));
+// Sidebar tabs are also valid drop targets, even when that section isn't open.
+for (const [tab, handler] of [
+  ["creative", addCreativeFiles], ["detail", files => addDetailFiles(files)],
+  ["lineup", files => addLineupFiles(files)]
+]) {
+  const button = document.querySelector(`.nav-tab[data-tab="${tab}"]`);
+  enableFileDrop(button, files => { handler(files); button.click(); });
+}
+
+addCreativeBtn.onclick = async () => {
+  const files = await sliderApi.selectImages({});
+  if (!files?.length) return;
+  addCreativeFiles(files);
 };
 
 clearListBtn.onclick = () => {
@@ -846,17 +1038,7 @@ clearLineupBtn.onclick = () => {
 addDetailBtn.onclick = async () => {
   const files = await sliderApi.selectImages({});
   if (!files?.length) return;
-  files.forEach((file) => {
-    const entry = cloneFile(file, {
-      _outputId: newOutputId("detail"),
-      isCut: false,
-      hasShadow: state.detailAllShadow,
-    });
-    state.detail.push(entry);
-    registerOutputItem("detail", entry._outputId);
-  });
-  syncAllShadowState();
-  renderAll();
+  addDetailFiles(files, false);
 };
 clearDetailBtn.onclick = () => {
   state.detail = [];
@@ -867,17 +1049,7 @@ clearDetailBtn.onclick = () => {
 addCutDetailBtn.onclick = async () => {
   const files = await sliderApi.selectImages({});
   if (!files?.length) return;
-  files.forEach((file) => {
-    const entry = cloneFile(file, {
-      _outputId: newOutputId("detail"),
-      isCut: true,
-      hasShadow: state.detailAllShadow,
-    });
-    state.detail.push(entry);
-    registerOutputItem("detail", entry._outputId);
-  });
-  syncAllShadowState();
-  renderAll();
+  addDetailFiles(files, true);
 };
 
 addLineupBtn.onclick = () => {

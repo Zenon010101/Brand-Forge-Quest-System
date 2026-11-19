@@ -1,0 +1,37 @@
+<table width="780" border="0" cellpadding="3" cellspacing="0">
+  <tr>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_1.jpg" width="380"></td>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_2.jpg" width="380"></td>
+  </tr>
+  <tr>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_3.jpg" width="380"></td>
+    <td></td>
+  </tr>
+</table>
+<table width="780" border="0">
+  <tr><td height="40"></td></tr>
+  <tr><td><h2 style="font-family:Arial,sans-serif;font-size:28px;font-weight:400;line-height:1.2;margin:0;">DETAILS</h2></td></tr>
+  <tr><td height="20"></td></tr>
+</table>
+<table width="780" border="0" cellpadding="3" cellspacing="0">
+  <tr>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_4.jpg" width="250"></td>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_5.jpg" width="250"></td>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_6.jpg" width="250"></td>
+  </tr>
+  <tr>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_7.jpg" width="250"></td>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_8.jpg" width="250"></td>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_9.jpg" width="250"></td>
+  </tr>
+  <tr>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_10.jpg" width="250"></td>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_11.jpg" width="250"></td>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_12.jpg" width="250"></td>
+  </tr>
+  <tr>
+    <td><img src="https://image.rakuten.co.jp/glv/cabinet/secrid/sec-84_13.jpg" width="250"></td>
+    <td></td>
+    <td></td>
+  </tr>
+</table>

@@ -1,3 +1,7 @@
+## Individual color variant dragging (v1.7.50)
+
+Horizontal, Vertical and Four Cut Line Up: drag the actual color variant tile to another slot. Occupied slots swap, empty slots move; photo + caption + shadow stay together. A whole Line Up group is not draggable. PA Vertical has one color per linked Item/Item Detail pair, moved by its Color Name grip. Interactive inputs/buttons remain editable instead of starting a drag.
+
 # Slider module
 
 Production Slider Maker module used by the unified app.

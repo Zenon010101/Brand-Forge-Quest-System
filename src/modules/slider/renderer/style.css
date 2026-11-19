@@ -380,3 +380,69 @@ button:active:not(:disabled) { transform: translateY(1px); }
     height: 34px;
     font-size: 12px;
 }
+
+
+/* Slider -> New Brand Combine. This panel never alters Slider source inputs. */
+.slider-combine[hidden] { display:none !important; }
+.slider-combine { padding:20px; display:flex; flex-direction:column; gap:15px; }
+.slider-combine-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.slider-combine-head p, .slider-combine-list-panel p { font-size:12px; line-height:1.5; color:var(--muted); margin-top:5px; }
+.slider-combine-controls, .slider-combine-actions { display:flex; align-items:center; gap:15px; flex-wrap:wrap; padding:10px; background:var(--panel-2); border-radius:9px; }
+.slider-combine-controls label, .slider-combine-actions label { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text); }
+.slider-combine-fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.slider-combine-field { min-width:0; }
+.slider-combine-field label { font-size:12px; font-weight:600; display:block; margin-bottom:6px; }
+.slider-combine-field .path-display { padding:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; }
+.slider-combine-fields input[type=text] { width:100%; }
+.slider-combine-summary { font-size:12px; color:var(--muted); }
+.slider-combine-sections { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:start; }
+.slider-combine-list-panel { border:1px solid var(--border); border-radius:10px; padding:12px; min-width:0; }
+.slider-combine-list-panel h3 { font-size:15px; margin:0; }
+.slider-combine-list-panel h3 span { color:var(--muted); }
+.slider-combine-list { margin-top:12px; display:flex; flex-direction:column; gap:7px; max-height:650px; overflow-y:auto; }
+.slider-combine-row { display:grid; grid-template-columns:58px minmax(0,1fr); gap:10px; padding:9px; border:1px solid var(--border); background:var(--panel-2); border-radius:9px; }
+.slider-combine-row .thumb { width:54px; height:54px; }
+.slider-combine-row .row-name { font-size:12px; font-weight:700; word-break:break-all; }
+.slider-combine-row .row-hint { margin-top:3px; font-size:10px; color:var(--muted); }
+.slider-combine-row .row-buttons { margin-top:6px; display:flex; flex-wrap:wrap; gap:4px; }
+.slider-combine-row .row-buttons button { padding:5px 8px; font-size:10px; min-height:24px; }
+.slider-combine-row .row-edit { display:grid; grid-template-columns:minmax(0,1fr) minmax(80px,auto); gap:6px; margin-top:8px; }
+.slider-combine-row .row-edit input, .slider-combine-row .row-edit select { width:100%; min-width:0; height:31px; border:1px solid var(--border); background:#111317; color:var(--text); padding:4px; border-radius:5px; font-size:12px; }
+.slider-combine-row .row-edit .row-label-right { grid-column:1/-1; }
+.slider-combine-progress { font-size:12px; border:1px solid var(--border); border-radius:8px; padding:10px; white-space:pre-wrap; }
+.slider-combine-results { font-size:12px; color:var(--ok); word-break:break-all; }
+@media (max-width:1180px) { .slider-combine-fields, .slider-combine-sections { grid-template-columns:1fr; } }
+
+/* v1.7.49 - native Explorer file drops and Line Up card / color ordering */
+.slider-file-drop {
+    border: 2px dashed #475160; border-radius: 12px; background: rgba(65,78,98,.13);
+    color: var(--muted); font-size: 12px; text-align: center; line-height: 1.5;
+    padding: 16px 12px; margin: 0 0 10px; transition: border-color .12s, background .12s;
+}
+.slider-file-drop.file-drag-over, .item-list.file-drag-over,
+.lineup-list.file-drag-over, .slot.file-drag-over,
+.slider-combine-list.file-drag-over, #sliderCombineSinglePath.file-drag-over {
+    border-color: var(--accent) !important;
+    background: rgba(80,140,198,.16) !important;
+    outline: 2px dashed var(--accent); outline-offset: -2px;
+}
+.slider-drag-tip {font-size:11px; color:var(--muted); margin:-3px 0 12px;}
+.slot[draggable="true"] {cursor:grab; user-select:none;}
+.slot[draggable="true"]:active {cursor:grabbing;}
+.slot[draggable="true"]:hover {border-color:var(--accent);}
+.slot input, .slot button, .slot label {user-select:auto; cursor:auto;}
+.slot.dragging, .pa-color-field.dragging, .slider-combine-row.dragging {opacity:.50;}
+.slot.drag-over, .pa-color-field.drag-over, .slider-combine-row.drag-over,
+.slider-combine-list.drag-over { border-color:var(--accent) !important; box-shadow:0 0 0 1px var(--accent) inset; }
+.slot .color-drag-handle, .pa-color-field .pa-color-drag-handle,
+.slider-combine-row .review-drag-handle {user-select:none; color:var(--muted-2);
+    border:1px solid var(--border); padding:5px 9px; border-radius:6px; background:#20252b;}
+.slot .color-drag-handle, .pa-color-field .pa-color-drag-handle {display:block; font-size:10px; width:100%; margin:0 0 8px; text-align:center; cursor:grab;}
+.pa-color-field .pa-color-drag-handle:active, .slot .color-drag-handle:active,
+.slider-combine-row .review-drag-handle:active {cursor:grabbing;}
+.slider-combine-row .review-drag-handle {cursor:grab;}
+.lineup-card-head {gap:10px;}
+.lineup-card-head strong {flex:1;}
+.slider-combine-list {min-height:75px;}
+.slider-combine-row .review-drag-handle {grid-column:1 / -1; width:fit-content; font-size:10px; margin-bottom:-2px;}
+#sliderCombineSinglePath {border:1px dashed var(--border); border-radius:7px;}

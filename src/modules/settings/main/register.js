@@ -1,9 +1,12 @@
+"use strict";
+
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { spawn } = require("child_process");
 const { app, ipcMain, shell } = require("electron");
 const { WORKFLOW_RULES } = require("../../../shared/workflowConfig");
+const { buildJsxLaunchVbs, runVbsScript, explainFailure, parseSuccessfulConnection, connectionAdvice } = require("../../../shared/photoshopCom");
+const { getComRegistration, findInstallations, formatReport } = require("./photoshopDiagnostics");
 
 const SHARED_RULES = Object.freeze({
     sliderShadow: {
@@ -27,55 +30,64 @@ const SHARED_RULES = Object.freeze({
     }
 });
 
+const DIAGNOSTIC_FILENAME = "photoshop-connection-diagnostic.txt";
+
+function statusFileJsx(statusPath) {
+    return `#target photoshop\nvar f = new File(${JSON.stringify(statusPath.replace(/\\/g, "/"))});\n` +
+        `f.encoding = "UTF8";\n` +
+        `if (!f.open("w")) throw new Error("BrandForge probe cannot write status file.");\n` +
+        `f.write("OK");\n` +
+        `f.close();\n`;
+}
+
 async function runPhotoshopProbe() {
+    const result = { ok: false, version: "", method: "", error: "", stdout: "", stderr: "" };
     if (process.platform !== "win32") {
-        return {
-            ok: false,
-            error: "Photoshop automation is supported by this app on Windows only."
-        };
-    }
-
-    const temp = await fs.promises.mkdtemp(path.join(os.tmpdir(), "image-workflow-ps-probe-"));
-    const scriptPath = path.join(temp, "probe.vbs");
-    const script = `
-On Error Resume Next
-Set ps = CreateObject("Photoshop.Application")
-If Err.Number <> 0 Then
-    WScript.Echo "ERROR|" & Err.Description
-    WScript.Quit 2
-End If
-Err.Clear
-ps.Visible = True
-WScript.Echo "OK|" & ps.Version
-WScript.Quit 0
-`;
-
-    await fs.promises.writeFile(scriptPath, script, "utf8");
-
-    try {
-        const result = await new Promise((resolve, reject) => {
-            const child = spawn("cscript.exe", ["//nologo", scriptPath], { windowsHide: true });
-            let stdout = "";
-            let stderr = "";
-            child.stdout.on("data", data => { stdout += data.toString(); });
-            child.stderr.on("data", data => { stderr += data.toString(); });
-            child.on("error", reject);
-            child.on("close", code => resolve({ code, stdout: stdout.trim(), stderr: stderr.trim() }));
-        });
-
-        if (result.stdout.startsWith("OK|")) {
-            return { ok: true, version: result.stdout.slice(3).trim() || "Detected" };
+        result.error = "Photoshop COM automation is supported by BrandForge on Windows only.";
+    } else {
+        const temp = await fs.promises.mkdtemp(path.join(os.tmpdir(), "brandforge-ps2027-probe-"));
+        const launch = path.join(temp, "probe.vbs");
+        const worker = path.join(temp, "probe.jsx");
+        const status = path.join(temp, "status.txt");
+        try {
+            await fs.promises.writeFile(worker, statusFileJsx(status), "utf8");
+            await fs.promises.writeFile(launch, "\uFEFF" + buildJsxLaunchVbs(worker), "utf16le");
+            const processResult = await runVbsScript(launch, { timeoutMs: 90000 });
+            result.stdout = processResult.stdout;
+            result.stderr = processResult.stderr;
+            const conn = parseSuccessfulConnection(processResult.stdout);
+            if (conn) { result.version = conn.version; result.method = conn.method; }
+            let reply = "";
+            try { reply = (await fs.promises.readFile(status, "utf8")).replace(/^\uFEFF/, "").trim(); }
+            catch (_) { /* NO STATUS indicates script failed or did not run */ }
+            if (processResult.code === 0 && conn && reply === "OK") {
+                result.ok = true;
+            } else if (processResult.code !== 0) {
+                result.error = explainFailure(processResult, "Photoshop connection test");
+            } else {
+                result.error = "Connected to Photoshop, but its JSX probe did not write a status file. " +
+                    connectionAdvice("missing JSX status");
+            }
+        } catch (error) {
+            result.error = error?.message || String(error);
+        } finally {
+            await fs.promises.rm(temp, { recursive: true, force: true }).catch(() => {});
         }
-
-        const error = result.stdout.startsWith("ERROR|")
-            ? result.stdout.slice(6).trim()
-            : (result.stderr || "Photoshop COM automation was not available.");
-        return { ok: false, error };
-    } catch (error) {
-        return { ok: false, error: error?.message || String(error) };
-    } finally {
-        await fs.promises.rm(temp, { recursive: true, force: true }).catch(() => {});
     }
+
+    // Always write a local read-only diagnostic, even when Photoshop fails.
+    try {
+        const [registration, installations] = await Promise.all([getComRegistration(), findInstallations()]);
+        const report = formatReport({ result, registration, installations });
+        const diagnosticPath = path.join(app.getPath("userData"), DIAGNOSTIC_FILENAME);
+        await fs.promises.mkdir(path.dirname(diagnosticPath), { recursive: true });
+        await fs.promises.writeFile(diagnosticPath, report, "utf8");
+        result.diagnosticPath = diagnosticPath;
+        result.diagnosticDetails = report;
+    } catch (error) {
+        result.diagnosticDetails = `Diagnostic report could not be saved: ${error?.message || error}`;
+    }
+    return result;
 }
 
 ipcMain.handle("settings:get", async () => ({
@@ -88,6 +100,13 @@ ipcMain.handle("settings:get", async () => ({
 
 ipcMain.handle("settings:test-photoshop", runPhotoshopProbe);
 
+ipcMain.handle("settings:open-photoshop-diagnostics", async () => {
+    const file = path.join(app.getPath("userData"), DIAGNOSTIC_FILENAME);
+    if (!fs.existsSync(file)) return { ok: false, error: "Run Test Photoshop first to generate a diagnostic report." };
+    const error = await shell.openPath(file);
+    return error ? { ok: false, error } : { ok: true, path: file };
+});
+
 ipcMain.handle("settings:open-user-data", async () => {
     const folder = app.getPath("userData");
     await fs.promises.mkdir(folder, { recursive: true });
@@ -96,13 +115,9 @@ ipcMain.handle("settings:open-user-data", async () => {
 });
 
 ipcMain.handle("settings:reset-recent-folders", async () => {
-    const names = [
-        "dialog-state.json",
-        "amazon-dialog-state.json"
-    ];
+    const names = ["dialog-state.json", "amazon-dialog-state.json"];
     const folder = app.getPath("userData");
     const removed = [];
-
     for (const name of names) {
         const file = path.join(folder, name);
         try {
@@ -112,6 +127,5 @@ ipcMain.handle("settings:reset-recent-folders", async () => {
             if (error.code !== "ENOENT") throw error;
         }
     }
-
     return { ok: true, removed };
 });

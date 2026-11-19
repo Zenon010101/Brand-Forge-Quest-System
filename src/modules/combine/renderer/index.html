@@ -6,10 +6,63 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="workspace">
+<div id="htmlBatchWorkspace" class="batch-workspace">
+  <header class="batch-header">
+    <div><p class="kicker">BRANDFORGE / COMBINE / HTML</p><h1>Iframe → HTML Batch <span class="version">v1.7.46</span></h1>
+      <p>Paste full Rakuten iframe code or load an Excel list. Outputs include adjacent Excel HTML code, a standalone HTML file and a complete JPEG of each product. Source images stay remote.</p></div>
+    <div class="batch-header-side"><strong>HTML 780 / JPEG 600</strong><span>HTML Details 3 columns · JPEG Details 2 columns</span><button type="button" id="switchLegacy" class="minor">Legacy PSD Combine</button></div>
+  </header>
+  <div class="batch-layout">
+    <div class="batch-controls">
+      <section class="panel batch-panel">
+        <div class="panel-head"><div><span class="step">01</span><h2>Single iframe / Quick Preview</h2></div><span class="tag">HTML + JPEG</span></div>
+        <label class="field-label" for="batchSingleIframe">Full Rakuten iframe block</label>
+        <textarea id="batchSingleIframe" class="batch-textarea" spellcheck="false" placeholder="&lt;iframe src=&quot;https://www.rakuten.ne.jp/gold/glv/six/tenera/TNR-90.html&quot; scrolling=&quot;no&quot; frameborder=&quot;0&quot; width=&quot;780&quot; height=&quot;610&quot;&gt;&lt;/iframe&gt;"></textarea>
+        <label class="field-label" for="batchSingleCount">Line Up image count (optional)</label>
+        <input class="field" id="batchSingleCount" type="number" min="0" max="250" placeholder="Auto-detect DETAILS or use batch default" />
+        <div class="section-tools"><button type="button" id="batchPreview" class="action">Analyze & Preview</button><button type="button" id="batchSaveSingle" class="minor" disabled>Save HTML + JPEG</button></div>
+        <p class="tip">Preserves text and color labels already inside the source images. If the page lacks a visible DETAILS heading, you must review the Line Up split.</p>
+      </section>
+      <section class="panel batch-panel">
+        <div class="panel-head"><div><span class="step">02</span><h2>Batch Excel · Up to 15,000 iframes</h2></div><span class="tag">1,000+ rows supported</span></div>
+        <p class="tip">Excel input: one iframe per row, anywhere in an .xlsx sheet. Optionally add a column labeled <strong>Lineup Count</strong> to specify the split per product.</p>
+        <div class="batch-location"><span id="batchExcelPath">No Excel file selected</span><button type="button" class="minor" id="batchChooseExcel">Select Excel</button></div>
+        <div class="section-tools"><button type="button" class="minor" id="batchInspect" disabled>Inspect Workbook</button><span class="batch-quiet" id="batchExcelSummary">—</span></div>
+        <label class="field-label" for="batchDefaultCount">Default Line Up count (when source doesn't mark DETAILS)</label>
+        <input class="field" id="batchDefaultCount" type="number" min="0" max="250" value="3" />
+        <p class="tip">When the count is inferred, rows are flagged REVIEW. You can adjust the Lineup Count column in Excel and run the batch again.</p>
+        <label class="field-label">Destination folder</label>
+        <div class="batch-location"><span id="batchOutputPath">No output folder selected</span><button type="button" class="minor" id="batchChooseOutput">Choose Folder</button></div>
+        <div class="section-tools batch-run-controls"><button type="button" id="batchGenerate" class="action" disabled>Generate HTML + JPEG + Excel</button><button type="button" id="batchCancel" class="minor" disabled>Stop after current pages</button></div>
+        <div class="batch-meter"><div class="batch-meter-fill" id="batchMeterFill" style="width:0%"></div></div>
+        <div class="batch-stats" id="batchStats">No batch started</div>
+        <div class="section-tools"><button type="button" class="minor" id="batchOpenOutput" disabled>Open Last Output Folder</button></div>
+        <p class="tip">Each run saves a NEW batch folder with <code>HTML_FILES/</code>, <code>JPEG_FILES/</code>, and a results Excel (IFRAME, OUTPUT, HTML FILE LINK, JPEG FILE LINK side by side). Original Excel stays unchanged; HTML uses 780px / 2+3 columns, while JPEG restores the 600px legacy Combine / 2+2-column layout. No intermediary image downloads.</p>
+      </section>
+      <section class="panel batch-panel">
+        <div class="panel-head"><div><span class="step">QC</span><h2>Progress & Warnings</h2></div></div>
+        <div class="batch-log" id="batchLog" aria-live="polite">Ready — paste an iframe or select an Excel workbook.</div>
+      </section>
+    </div>
+    <div class="batch-preview-column">
+      <section class="panel batch-preview-panel">
+        <div class="panel-head"><div><span class="step">03</span><h2>Combine Output Preview</h2></div><span class="tag">HTML + Legacy JPEG</span></div>
+        <div class="section-tools"><button type="button" id="batchViewHtml" class="minor" disabled aria-pressed="false">HTML Layout · 780px</button><button type="button" id="batchViewJpeg" class="minor" disabled aria-pressed="true">JPEG Layout · 600px</button></div>
+        <div class="batch-preview-info" id="batchPreviewInfo">Preview a Rakuten iframe to view the generated layout.</div>
+        <div class="batch-live-preview"><iframe id="batchLiveFrame" title="Generated HTML preview" sandbox="" referrerpolicy="no-referrer"></iframe></div>
+        <div class="section-tools"><button type="button" class="minor" id="batchCopyCode" disabled>Copy HTML Code</button></div>
+        <label class="field-label" for="batchCode">Generated HTML code (the exact Excel Code cell content)</label>
+        <textarea id="batchCode" class="batch-textarea batch-code" readonly spellcheck="false" placeholder="Generated 780px HTML tables appear here."></textarea>
+      </section>
+    </div>
+  </div>
+  <footer class="batch-footer" id="batchFooter">Manual review required before publishing. No Photoshop required for the new HTML workflow.</footer>
+</div>
+
+<div class="workspace" id="legacyCombine" hidden>
   <header class="module-head">
-    <div><p class="kicker">BRANDFORGE / IMAGE WORKFLOW STUDIO</p><h1>COMBINE Generator <span class="version">v1.7.38 · Selected Text OCR → Auto Names</span></h1><p>Upload by section, set the color names, drag images into order, and export a layered Photoshop Combine with JPEG.</p></div>
-    <div class="head-stats"><strong>600 PX</strong><span>Fixed width · Dynamic height</span></div>
+    <div><p class="kicker">BRANDFORGE / IMAGE WORKFLOW STUDIO</p><h1>Legacy PSD Combine <span class="version">Photoshop mode</span></h1><p>Upload by section, set the color names, drag images into order, and export a layered Photoshop Combine with JPEG.</p></div>
+    <div class="head-stats"><strong>600 PX</strong><span>Fixed width · Dynamic height</span><button id="switchHtmlBatch" type="button" class="minor" style="margin-top:8px">Back to HTML Batch</button></div>
   </header>
   <div class="workgrid">
     <aside class="editor">
@@ -117,4 +170,5 @@
 <script src="../shared/captionLayout.js"></script>
 <script src="cleanupUi.js"></script>
 <script src="app.js"></script>
+<script src="iframeBatchUi.js"></script>
 </body></html>
