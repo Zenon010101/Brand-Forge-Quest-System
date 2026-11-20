@@ -65,24 +65,40 @@ function gwsFullCanvas(bounds, width, height) {
 }
 
 function gwsSelectSubject(doc) {
+    // The optional sampleAllLayers descriptor works in 27.x, but some 28.x
+    // builds reject it. Retry the SAME Select Subject operation once with the
+    // default descriptor, never with an unrelated destructive action.
+    var firstError = "";
     try {
         var options = new ActionDescriptor();
         options.putBoolean(stringIDToTypeID("sampleAllLayers"), false);
         executeAction(stringIDToTypeID("autoCutout"), options, DialogModes.NO);
     } catch (error) {
-        throw new Error("Photoshop could not detect the product with Select Subject. " +
-            "Try Edit > Preferences > Image Processing > Select Subject and Remove Background > Cloud; " +
-            "restart Photoshop, then retry. Original image was not changed. " +
-            "Photoshop detail: " + String(error && error.message ? error.message : error));
+        firstError = String(error && error.message ? error.message : error);
     }
     var chosen = gwsSelectionBounds(doc);
-    if (!chosen || chosen[2] <= chosen[0] || chosen[3] <= chosen[1]) {
-        throw new Error("Photoshop returned an empty subject selection. " +
-            "Try enabling Cloud in Photoshop > Edit > Preferences > Image Processing, then retry.");
+    var incomplete = !chosen || chosen[2] <= chosen[0] || chosen[3] <= chosen[1] ||
+        gwsFullCanvas(chosen, doc.width.as("px"), doc.height.as("px"));
+    if (firstError || incomplete) {
+        var secondError = "";
+        try {
+            try { doc.selection.deselect(); } catch (ignoreNoSelection) {}
+            executeAction(stringIDToTypeID("autoCutout"), new ActionDescriptor(), DialogModes.NO);
+        } catch (error2) {
+            secondError = String(error2 && error2.message ? error2.message : error2);
+        }
+        chosen = gwsSelectionBounds(doc);
+        if (secondError || !chosen || chosen[2] <= chosen[0] || chosen[3] <= chosen[1]) {
+            throw new Error("Photoshop Select Subject failed in both compatibility modes. " +
+                "Check Edit > Preferences > Image Processing > Select Subject and Remove Background (Cloud), " +
+                "restart Photoshop, then retry. Original image was not changed. " +
+                "First attempt: " + (firstError || "empty or full-canvas selection") +
+                "; second attempt: " + (secondError || "no subject selected"));
+        }
     }
     if (gwsFullCanvas(chosen, doc.width.as("px"), doc.height.as("px"))) {
-        throw new Error("Photoshop selected the entire canvas rather than the product. " +
-            "No PNG was created; check subject contrast or Photoshop's Cloud processing mode.");
+        throw new Error("Photoshop selected the entire canvas rather than the product, including after the compatibility retry. " +
+            "No PNG was created. Check subject contrast or Photoshop's Cloud processing mode.");
     }
 }
 

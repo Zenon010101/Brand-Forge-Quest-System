@@ -47,3 +47,8 @@ visible area rather than fit-inside. Intentional overflow is hidden by the
 existing non-destructive Cut Area clip; the bottom 50px of each 600x600 output
 stays white. Left/right/top/bottom cut-edge flags still determine alignment.
 Normal Detail (570x530), Creative and Line Up retain their original rules.
+
+
+## v1.7.54 Photoshop 2027 JSX string-literal hotfix
+
+`runPhotoshopScript()` now generates the entire JSX worker via the pure `buildSliderWorkerJsx()` helper, which safely serializes the status error prefix as a JSON string literal. The prior template literal emitted a raw newline inside `__sliderWriteStatus("ERROR...`) and Photoshop rejected the entire Slider job before running it. `node test/sliderJsxSyntax.js` parses the complete Slider engine+job+wrapper, including Japanese product codes/paths and success/error status writing. The Photoshop 2027 ROT fallback is unchanged.

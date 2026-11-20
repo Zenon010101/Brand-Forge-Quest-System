@@ -2,6 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const { buildJsxLaunchVbs, runVbsScript, explainFailure } = require("../../../shared/photoshopCom");
+const { writeJsxFile } = require("../../../shared/photoshopFiles");
+const { withPhotoshopTask } = require("../../../shared/photoshopTaskQueue");
 
 function jsxString(value) {
     return JSON.stringify(String(value).replace(/\\/g, "/"));
@@ -11,7 +13,7 @@ function vbString(value) {
     return '"' + String(value).replace(/"/g, '""') + '"';
 }
 
-async function runPhotoshopJSX(body, label = "Photoshop task") {
+async function runPhotoshopJSXDirect(body, label = "Photoshop task") {
     if (process.platform !== "win32") {
         throw new Error(`${label} requires Windows + Adobe Photoshop.`);
     }
@@ -53,13 +55,13 @@ ${body}
 }
 `;
 
-    const vbs = buildJsxLaunchVbs(jsxPath, { variableName: "photoshopApp", reveal: true });
+    const vbs = buildJsxLaunchVbs(jsxPath, { variableName: "photoshopApp", reveal: true, receiptPath: statusPath });
 
-    await fs.promises.writeFile(jsxPath, jsx, "utf8");
+    await writeJsxFile(jsxPath, jsx);
     await fs.promises.writeFile(vbsPath, "\uFEFF" + vbs, "utf16le");
 
     try {
-        const processResult = await runVbsScript(vbsPath, { timeoutMs: 900000 });
+        const processResult = await runVbsScript(vbsPath, { timeoutMs: 900000, rotFallback: { jsxPath, receiptPath: statusPath } });
 
         let status = "";
 
@@ -94,6 +96,10 @@ ${body}
         await fs.promises.rm(workDir, { recursive: true, force: true })
             .catch(() => {});
     }
+}
+
+function runPhotoshopJSX(body, label = "Photoshop task") {
+    return withPhotoshopTask(label, () => runPhotoshopJSXDirect(body, label));
 }
 
 /**

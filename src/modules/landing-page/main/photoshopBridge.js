@@ -3,15 +3,16 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { spawn } = require("child_process");
-const { buildJsxLaunchVbs, explainFailure } = require("../../../shared/photoshopCom");
+const { buildJsxLaunchVbs, runVbsScript, explainFailure } = require("../../../shared/photoshopCom");
+const { writeJsxFile } = require("../../../shared/photoshopFiles");
+const { withPhotoshopTask } = require("../../../shared/photoshopTaskQueue");
 
 function jsxString(value) { return JSON.stringify(String(value).replace(/\\/g, "/")); }
 function vbsString(value) { return '"' + String(value).replace(/"/g, '""') + '"'; }
 
 let previous = Promise.resolve();
 function runPhotoshopJSX(scriptBody, label = "Landing Page PSD", timeoutMs = 900000) {
-    const pending = previous.then(() => runDirect(scriptBody, label, timeoutMs));
+    const pending = previous.then(() => withPhotoshopTask(label, () => runDirect(scriptBody, label, timeoutMs)));
     previous = pending.catch(() => {});
     return pending;
 }
@@ -28,33 +29,16 @@ async function runDirect(body, label, timeoutMs) {
         `try {\n${body.replace(/^\s*#target\s+photoshop[^\n]*\n?/i, "")}\n__result("OK");\n` +
         `} catch(e) { var msg = String(e && e.message ? e.message : e); try { if (e.line) msg += " (JSX line " + e.line + ")"; } catch(ignore) {} __result("ERROR\\n" + msg); }\n` +
         `finally { app.displayDialogs = __oldDialogs; }`;
-    const vbs = buildJsxLaunchVbs(source, { variableName: "p" });
-    await fs.promises.writeFile(source, wrapped, "utf8");
+    const vbs = buildJsxLaunchVbs(source, { variableName: "p", receiptPath: status });
+    await writeJsxFile(source, wrapped);
     await fs.promises.writeFile(launch, "\uFEFF" + vbs, "utf16le");
     try {
-        const childResult = await new Promise((resolve, reject) => {
-            const child = spawn("cscript.exe", ["//nologo", launch], { windowsHide: true });
-            let output = "";
-            let settled = false;
-            const timeout = setTimeout(() => {
-                child.kill();
-                settle(new Error(`${label} timed out after ${Math.round(timeoutMs / 60000)} minutes. Check Photoshop for a dialog or stalled operation.`));
-            }, timeoutMs);
-            function settle(error, value) {
-                if (settled) return;
-                settled = true; clearTimeout(timeout);
-                if (error) reject(error); else resolve(value);
-            }
-            child.on("error", settle);
-            child.stdout.on("data", chunk => { output = (output + chunk.toString()).slice(-8000); });
-            child.stderr.on("data", chunk => { output = (output + chunk.toString()).slice(-8000); });
-            child.on("close", code => settle(null, { code, output }));
-        });
+        const childResult = await runVbsScript(launch, { timeoutMs, rotFallback: { jsxPath: source, receiptPath: status } });
         let reply = "";
         try { reply = (await fs.promises.readFile(status, "utf8")).replace(/^\uFEFF/, "").trim(); }
-        catch (_) { throw new Error(`${label}: Photoshop did not write a result. ${explainFailure({code: childResult.code, stdout: childResult.output}, label)}`); }
+        catch (_) { throw new Error(`${label}: Photoshop did not write a result. ${explainFailure({code: childResult.code, stdout: childResult.stdout, stderr: childResult.stderr}, label)}`); }
         if (/^ERROR(?:\s|$)/.test(reply)) throw new Error(`${label}: ${reply.slice(5).trim()}`);
-        if (childResult.code !== 0 || reply !== "OK") throw new Error(`${label}: ${explainFailure({code: childResult.code, stdout: childResult.output}, label)} ${reply}`);
+        if (childResult.code !== 0 || reply !== "OK") throw new Error(`${label}: ${explainFailure({code: childResult.code, stdout: childResult.stdout, stderr: childResult.stderr}, label)} ${reply}`);
     } finally {
         await fs.promises.rm(folder, { recursive: true, force: true }).catch(() => {});
     }

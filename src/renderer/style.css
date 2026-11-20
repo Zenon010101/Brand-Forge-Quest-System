@@ -440,3 +440,28 @@ button { color: inherit; }
 .settings-ps-details summary { cursor: pointer; font-weight: 650; }
 .settings-ps-details pre { margin-top: 9px; padding: 12px; border: 1px solid #383838; border-radius: 8px; background: #141414; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 275px; overflow-y: auto; user-select: text; }
 .settings-action-row .settings-status { flex: 1 1 260px; overflow-wrap: anywhere; }
+
+/* Photoshop Compatibility Manager (v1.7.55) */
+.compat-controls { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:12px 0 8px; }
+.compat-controls label { color:#ddd; font-size:13px; font-weight:650; }
+.compat-controls select { min-width:260px; max-width:100%; border:1px solid #424242; background:#151515; color:#eee; padding:10px; border-radius:8px; font:inherit; }
+.compat-controls button { background:#202020; border:1px solid #434343; border-radius:8px; color:#eee; padding:10px 13px; font-weight:600; cursor:pointer; }
+.compat-controls button:disabled { opacity:.45; cursor:not-allowed; }
+.compat-note { color:#999; font-size:12px; line-height:1.55; overflow-wrap:anywhere; }
+.compat-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin:14px 0 16px; }
+.compat-summary div { background:#141414; border:1px solid #303030; padding:12px; border-radius:9px; min-width:0; }
+.compat-summary span, .compat-summary strong { display:block; overflow-wrap:anywhere; }
+.compat-summary span { font-size:11px; color:#aaa; margin-bottom:6px; }
+.compat-summary strong { color:#ddd; font-size:12px; font-weight:650; }
+.compat-subtitle { font-size:16px; font-weight:750; margin:16px 0 5px; }
+.compat-module-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.compat-module-item { border:1px solid #343434; border-radius:9px; background:#151515; padding:12px; min-width:0; }
+.compat-module-item-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.compat-module-item strong { color:#e3e3e3; font-size:13px; }
+.compat-module-item p { font-size:11px; color:#999; margin:7px 0 0; line-height:1.4; overflow-wrap:anywhere; }
+.compat-state { font-size:10px; text-align:center; border-radius:10px; padding:4px 7px; background:#303030; color:#bbb; white-space:nowrap; }
+.compat-state.pass { background:#163a25; color:#92e7ae; }
+.compat-state.warn { background:#473719; color:#f2c87b; }
+.compat-state.fail { background:#471c1c; color:#ffc1c1; }
+.compat-manager #compatStatus { margin:13px 0; display:block; white-space:pre-wrap; }
+@media(max-width:900px) { .compat-summary, .compat-module-grid { grid-template-columns:1fr; } }

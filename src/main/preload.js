@@ -62,6 +62,10 @@ contextBridge.exposeInMainWorld("amazonApp", {
 contextBridge.exposeInMainWorld("settingsApp", {
     get: () => ipcRenderer.invoke("settings:get"),
     testPhotoshop: () => ipcRenderer.invoke("settings:test-photoshop"),
+    getCompatibility: () => ipcRenderer.invoke("settings:compat:get"),
+    scanCompatibility: mode => ipcRenderer.invoke("settings:compat:scan", mode),
+    setPhotoshopPreference: major => ipcRenderer.invoke("settings:compat:set-preference", major),
+    openCompatibilityReport: () => ipcRenderer.invoke("settings:compat:open-report"),
     openPhotoshopDiagnostics: () => ipcRenderer.invoke("settings:open-photoshop-diagnostics"),
     openUserData: () => ipcRenderer.invoke("settings:open-user-data"),
     resetRecentFolders: () => ipcRenderer.invoke("settings:reset-recent-folders")

@@ -15,6 +15,7 @@ function simulate(shouldFindSubject) {
     let work = null;
     let cleared = false;
     let selected = null;
+    let subjectAttempts = 0;
     function rect(list) { return list.map(n => ({ as: () => n })); }
     const makeDoc = (name) => ({
         name, mode: "RGB", bitsPerChannel: "EIGHT", width: { as: () => 120 }, height: { as: () => 100 },
@@ -51,7 +52,9 @@ function simulate(shouldFindSubject) {
             if (action === "setd") selected = cleared ? [15, 12, 106, 95] : [0, 0, 120, 100];
             if (action === "removeBackground") throw new Error("Legacy Quick Action must not be called");
             if (action === "autoCutout") {
-                if (!shouldFindSubject) throw new Error("Could not find subject to select");
+                subjectAttempts += 1;
+                if (!shouldFindSubject || (shouldFindSubject === "second" && subjectAttempts === 1))
+                    throw new Error("Could not find subject to select");
                 selected = [15, 12, 106, 95];
             }
         }
@@ -59,7 +62,7 @@ function simulate(shouldFindSubject) {
     let failure = null;
     try { vm.runInNewContext(jsx, context, { filename: "removeBackground.jsx" }); }
     catch (error) { failure = error; }
-    return { calls, failure, cleared };
+    return { calls, failure, cleared, subjectAttempts };
 }
 
 const success = simulate(true);
@@ -72,8 +75,17 @@ assert(success.calls.some(c => c.startsWith("save:C:/test/")));
 assert(success.calls.includes("close:Temporary duplicate"));
 assert(success.calls.includes("close:Original source"));
 
+// Photoshop 28.x can reject the sampleAllLayers descriptor while accepting
+// the default descriptor. Retry must be non-destructive and preserve the cutout.
+const fallback = simulate("second");
+assert.equal(fallback.failure, null, String(fallback.failure));
+assert.equal(fallback.subjectAttempts, 2);
+assert.equal(fallback.cleared, true);
+assert(fallback.calls.some(c => c.startsWith("save:")));
+
 const failure = simulate(false);
 assert(failure.failure);
+assert.equal(failure.subjectAttempts, 2);
 assert.match(failure.failure.message, /Preferences.*Cloud/);
 assert.equal(failure.cleared, false, "no background deletion on failed selection");
 assert(!failure.calls.some(c => c.startsWith("save:")), "no opaque PNG on failed segmentation");

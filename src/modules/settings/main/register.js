@@ -6,7 +6,11 @@ const os = require("os");
 const { app, ipcMain, shell } = require("electron");
 const { WORKFLOW_RULES } = require("../../../shared/workflowConfig");
 const { buildJsxLaunchVbs, runVbsScript, explainFailure, parseSuccessfulConnection, connectionAdvice } = require("../../../shared/photoshopCom");
+const { writeJsxFile } = require("../../../shared/photoshopFiles");
+const { withPhotoshopTask } = require("../../../shared/photoshopTaskQueue");
 const { getComRegistration, findInstallations, formatReport } = require("./photoshopDiagnostics");
+const { runCheck, readState, persistState, REPORT_FILE } = require("./compatibilityManager");
+const { setPreferredMajor, validatePreferredMajor } = require("../../../shared/photoshopVersionPolicy");
 
 const SHARED_RULES = Object.freeze({
     sliderShadow: {
@@ -41,22 +45,22 @@ function statusFileJsx(statusPath) {
 }
 
 async function runPhotoshopProbe() {
-    const result = { ok: false, version: "", method: "", error: "", stdout: "", stderr: "" };
+    const result = { ok: false, version: "", method: "", invocationMethod: "", error: "", stdout: "", stderr: "" };
     if (process.platform !== "win32") {
         result.error = "Photoshop COM automation is supported by BrandForge on Windows only.";
     } else {
-        const temp = await fs.promises.mkdtemp(path.join(os.tmpdir(), "brandforge-ps2027-probe-"));
+        const temp = await fs.promises.mkdtemp(path.join(os.tmpdir(), "brandforge-photoshop-probe-"));
         const launch = path.join(temp, "probe.vbs");
         const worker = path.join(temp, "probe.jsx");
         const status = path.join(temp, "status.txt");
         try {
-            await fs.promises.writeFile(worker, statusFileJsx(status), "utf8");
-            await fs.promises.writeFile(launch, "\uFEFF" + buildJsxLaunchVbs(worker), "utf16le");
-            const processResult = await runVbsScript(launch, { timeoutMs: 90000 });
+            await writeJsxFile(worker, statusFileJsx(status));
+            await fs.promises.writeFile(launch, "\uFEFF" + buildJsxLaunchVbs(worker, { receiptPath: status }), "utf16le");
+            const processResult = await withPhotoshopTask("Photoshop connection test", () => runVbsScript(launch, { timeoutMs: 90000, rotFallback: { jsxPath: worker, receiptPath: status } }));
             result.stdout = processResult.stdout;
             result.stderr = processResult.stderr;
             const conn = parseSuccessfulConnection(processResult.stdout);
-            if (conn) { result.version = conn.version; result.method = conn.method; }
+            if (conn) { result.version = conn.version; result.method = conn.method; result.invocationMethod = conn.invocationMethod || "DoJavaScriptFile"; }
             let reply = "";
             try { reply = (await fs.promises.readFile(status, "utf8")).replace(/^\uFEFF/, "").trim(); }
             catch (_) { /* NO STATUS indicates script failed or did not run */ }
@@ -89,6 +93,50 @@ async function runPhotoshopProbe() {
     }
     return result;
 }
+
+// Restore the selected Photoshop version guard before any renderer can launch a job.
+// This never edits the Windows registry or launches a Photoshop installation.
+app.whenReady().then(async () => {
+    try { setPreferredMajor((await readState(app.getPath("userData"))).preferredMajor); }
+    catch (error) { console.warn("Compatibility preference not loaded:", error?.message || error); }
+});
+
+ipcMain.handle("settings:compat:get", async () => {
+    const dataDir = app.getPath("userData");
+    // Refresh quick inventory at every app launch. A Photoshop update can
+    // replace the executable without changing the registered file path.
+    await runCheck({ mode: "quick", userDataPath: dataDir });
+    return readState(dataDir);
+});
+
+ipcMain.handle("settings:compat:set-preference", async (_event, major) => {
+    const preferredMajor = validatePreferredMajor(major);
+    const folder = app.getPath("userData");
+    const state = await readState(folder);
+    state.preferredMajor = preferredMajor;
+    await persistState(folder, state);
+    setPreferredMajor(preferredMajor);
+    return { ok: true, preferredMajor, lastWorking: state.lastWorking,
+        note: "The preference guards Photoshop version; it does not switch installations. Run the Live Test to verify." };
+});
+
+let compatibilityRunning = false;
+ipcMain.handle("settings:compat:scan", async (_event, mode) => {
+    if (mode !== "quick" && mode !== "full") throw new Error("Invalid compatibility test type.");
+    if (compatibilityRunning) throw new Error("A Photoshop compatibility check is already running.");
+    compatibilityRunning = true;
+    try {
+        return await runCheck({ mode, userDataPath: app.getPath("userData"),
+            connectionProbe: runPhotoshopProbe });
+    } finally { compatibilityRunning = false; }
+});
+
+ipcMain.handle("settings:compat:open-report", async () => {
+    const filename = path.join(app.getPath("userData"), REPORT_FILE);
+    if (!fs.existsSync(filename)) return { ok: false, error: "Run a Compatibility Manager scan first." };
+    const error = await shell.openPath(filename);
+    return error ? { ok: false, error } : { ok: true, path: filename };
+});
 
 ipcMain.handle("settings:get", async () => ({
     appName: app.getName(),

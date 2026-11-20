@@ -3,8 +3,9 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { spawn } = require("child_process");
-const { buildJsxLaunchVbs, explainFailure } = require("../../../shared/photoshopCom");
+const { buildJsxLaunchVbs, runVbsScript, explainFailure } = require("../../../shared/photoshopCom");
+const { writeJsxFile } = require("../../../shared/photoshopFiles");
+const { withPhotoshopTask } = require("../../../shared/photoshopTaskQueue");
 const { WORKFLOW_RULES } = require("../../../shared/workflowConfig");
 
 function jsxString(value) {
@@ -27,7 +28,7 @@ function jsxFromFile(filename, variables) {
 // change the active Photoshop document while a cutout/PSD job is running.
 let pendingPhotoshop = Promise.resolve();
 function runPhotoshopJSX(scriptText, label, timeoutMs = 300000) {
-    const task = pendingPhotoshop.then(() => runPhotoshopJSXDirect(scriptText, label, timeoutMs));
+    const task = pendingPhotoshop.then(() => withPhotoshopTask(label, () => runPhotoshopJSXDirect(scriptText, label, timeoutMs)));
     pendingPhotoshop = task.catch(() => {});
     return task;
 }
@@ -48,34 +49,12 @@ async function runPhotoshopJSXDirect(scriptText, label, timeoutMs = 300000) {
         `try {\n${body}\n__gwsStatus("OK");\n` +
         `} catch (e) { var message = String(e && e.message ? e.message : e); try { if (e && e.line) message += " (JSX line " + e.line + ")"; } catch (ignore) {} __gwsStatus("ERROR\\n" + message); }\n` +
         `finally { app.displayDialogs = __gwsOldDialogs; }\n`;
-    const vbs = buildJsxLaunchVbs(worker, { variableName: "ps" });
-    await fs.promises.writeFile(worker, wrapped, "utf8");
+    const vbs = buildJsxLaunchVbs(worker, { variableName: "ps", receiptPath: statusFile });
+    await writeJsxFile(worker, wrapped);
     await fs.promises.writeFile(launch, "\uFEFF" + vbs, "utf16le");
 
     try {
-        const result = await new Promise((resolve, reject) => {
-            const child = spawn("cscript.exe", ["//nologo", launch], { windowsHide: true });
-            let stdout = "";
-            let stderr = "";
-            let settled = false;
-            const timer = setTimeout(() => {
-                if (settled) return;
-                settled = true;
-                child.kill();
-                reject(new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)} seconds. Check Photoshop for an open dialog or a hung operation.`));
-            }, timeoutMs);
-            const finish = (error, value) => {
-                if (settled) return;
-                settled = true;
-                clearTimeout(timer);
-                if (error) reject(error);
-                else resolve(value);
-            };
-            child.stdout.on("data", chunk => { stdout = (stdout + chunk.toString()).slice(-16000); });
-            child.stderr.on("data", chunk => { stderr = (stderr + chunk.toString()).slice(-16000); });
-            child.on("error", error => finish(error));
-            child.on("close", code => finish(null, { code, stdout, stderr }));
-        });
+        const result = await runVbsScript(launch, { timeoutMs, rotFallback: { jsxPath: worker, receiptPath: statusFile } });
         let status = "";
         try {
             status = (await fs.promises.readFile(statusFile, "utf8")).replace(/^\uFEFF/, "").trim();

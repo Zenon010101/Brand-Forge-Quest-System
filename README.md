@@ -1,3 +1,29 @@
+# BrandForge v1.7.55 — Photoshop Compatibility Manager
+
+New **Settings > Photoshop Compatibility Manager** helps you detect Photoshop updates before production. It scans installed Photoshop/COM registration, parses each module's JSX (including the complete Slider worker), runs an opt-in live scratch PSD/JPEG/Smart Object test, remembers the last successful Photoshop version, and saves a detailed compatibility report. You may require 2026 (27.x), 2027 (28.x), or Auto, but this only **guards against running the wrong version**—it does not change Windows COM registration or automatically install/select Photoshop. The original v1.7.54 Slider JSX fix and the working 2027 ROT fallback are preserved.
+
+**After any Photoshop update:** restart BrandForge, choose Settings > Scan Installed + Check Scripts, run the Live Test with Photoshop open, and generate one real output from each Photoshop module before processing batches. The live preflight cannot certify AI Select Subject or an entire production PSD workflow. See `CHANGELOG_v1.7.55.md`, `PATCH_README_v1.7.55.md`, and `docs/PHOTOSHOP_COMPATIBILITY_MANAGER_v1.7.55.md`.
+
+---
+
+# BrandForge v1.7.54 — Slider Photoshop 2027 JSX syntax fix
+
+Fixes the Slider Maker error `Photoshop - Error 4: Unterminated string constant` at the generated `__sliderWriteStatus("ERROR` line (~4060), seen after the ROT fallback reached Photoshop 2027. The Slider Photoshop worker wrapper accidentally embedded a real newline in a quoted string. This release generates a correctly escaped `"ERROR\n"` literal and adds full generated-JSX parsing tests. On ROT failures that actually reached Photoshop and then failed JSX execution, diagnostics now identify the Photoshop script error rather than reporting only COM 429.
+
+The v1.7.53 ROT fallback, working Remove BG/Add Shadow, all original Slider creative/lineup/details rules, individual color-variant drag/drop, Amazon, Combine (JPEG/HTML/PSD), folders, History/EXP and Arcade are preserved. This is a **source-only** Windows Electron project; compile the portable EXE on Windows with `npm install` and `npm run build:portable`.
+
+Validate: `npm run test:slider-jsx`, `npm run test:slider-open`, and `npm run validate`. On Photoshop 2027, reopen BrandForge and try one TEST_CODE Slider PSD first. If a *different* error occurs, save its full log. Photoshop 2027/COM live execution was not available in the Linux test environment. Details: `CHANGELOG_v1.7.54.md` and `PATCH_README_v1.7.54.md`.
+
+---
+
+**v1.7.53 update:** Experimental Photoshop 2027 ROT fallback for `GetObject`/`CreateObject` error 429. The existing COM automation still runs first; on a connection failure, a non-activating PowerShell COM interface probe tries an already-running Photoshop 28.x object if one exists. Windows field QA is required; this cannot repair a Photoshop build that exposes no COM scripting object. See `CHANGELOG_v1.7.53.md` and `docs/PHOTOSHOP_2027_ROT_FALLBACK_v1.7.53.md`.
+
+# BrandForge v1.7.52 — Photoshop 2027 compatibility hardening
+
+Based on the user-uploaded `brandforge latest.zip` (v1.7.50). Supports Photoshop 2026 (27.x) and **Photoshop 2027 (28.x)** when their Windows COM/JSX automation works. A single shared queue now prevents competing Photoshop tasks. JSX scripts get UTF-8 BOM to preserve Japanese captions; 2027 can fall back from `DoJavaScriptFile` to `DoJavaScript` if no completed worker receipt exists. Remove BG tries a second safe Select Subject descriptor, but refuses to publish an invalid cutout. Settings > Test Photoshop shows version, connection and JSX invocation method. **Does not bypass Adobe's broken COM registration/AI engine; Windows 2027 runtime testing still required.** See `CHANGELOG_v1.7.52.md` and `docs/PHOTOSHOP_2027_COMPATIBILITY_v1.7.52.md`.
+
+---
+
 ## BrandForge v1.7.50 — Slider Line Up color movement
 
 In the Slider Maker, each color variant tile is draggable independently. Drag the color **tile**, not the entire Line Up group: an occupied target swaps the two color variants while keeping each photo, caption, and Shadow setting together. Empty targets accept a move. The old whole-card drag handle is removed. PA Vertical moves the linked Item + Item Detail pair using its single color handle. See `CHANGELOG_v1.7.50.md`.
@@ -489,3 +515,9 @@ Run `npm install` before `npm run build:portable` to install new ExcelJS depende
 - Preview selector switches between the published HTML layout and the separate legacy JPEG layout.
 - The **Legacy PSD Combine** feature has not been rewritten or removed. Photoshop 2027 COM repair is still separate from this iframe workflow.
 - JPEG rendering requires remote image URLs to load; failed image renders are flagged REVIEW while the HTML remains available.
+
+## v1.7.55 — Photoshop Compatibility Manager
+
+**Settings > Photoshop Compatibility Manager** lets you scan installed Photoshop versions, validate actual BrandForge JSX source syntax, run an opt-in Photoshop connection + temporary PSD/JPEG/Smart Object test, see per-module preflight status, and open a saved diagnostic report. The manager remembers the last verified working version and warns if the registered Photoshop executable changes after an Adobe update.
+
+Set **Require Photoshop version** to Auto, 2026 (27.x) or 2027 (28.x). This is a **safety guard only**, not a version switcher: it prevents job JSX from running against a mismatched Photoshop major. All existing COM/ROT paths remain, including the v1.7.54 Slider JSX string fix. See `CHANGELOG_v1.7.55.md` and `docs/PHOTOSHOP_COMPATIBILITY_MANAGER_v1.7.55.md`. After a Photoshop update, always run one real job per module; a passed preflight is not a production-output guarantee.

@@ -8,7 +8,7 @@ const pageMeta = {
     "combine": ["Combine Generator", "600 px Single, two-column Line Up with color names, and a flexible Detail grid."],
     arcade: ["Arcade", "Take a break with four offline mini games and personal high scores."],
     progress: ["Progress & History", "Levels, EXP, achievements, brands, and Monday–Friday history."],
-    settings: ["Settings", "System readiness, local profile, shared workflow rules, and app data."]
+    settings: ["Settings", "Photoshop Compatibility Manager, local profile, shared rules, and app data."]
 };
 
 const navItems = Array.from(document.querySelectorAll(".nav-item"));
@@ -362,6 +362,9 @@ async function initSettings() {
     const api = window.settingsApp;
     if (!api) return;
 
+    if (typeof window.initCompatibilityManager === "function") {
+        await window.initCompatibilityManager();
+    }
     const testBtn = document.getElementById("testPhotoshopBtn");
     const psStatus = document.getElementById("photoshopStatus");
     const psDetails = document.getElementById("photoshopDiagnosticDetails");
@@ -404,7 +407,7 @@ async function initSettings() {
             const result = await api.testPhotoshop();
             if (result?.ok) {
                 psStatus.className = "settings-status ok";
-                psStatus.textContent = `Photoshop detected · version ${result.version} · ${result.method === "running" ? "attached to running instance" : "COM connection created"} · JSX OK`;
+                psStatus.textContent = `Photoshop detected · version ${result.version} · ${result.method === "running" ? "attached to running instance" : (result.method === "rot" ? "attached via Windows ROT fallback" : "COM connection created")} · ${result.invocationMethod || "DoJavaScriptFile"} · JSX OK`;
             } else {
                 psStatus.className = "settings-status error";
                 psStatus.textContent = result?.error || "Photoshop could not be detected. Open Diagnostics for details.";
