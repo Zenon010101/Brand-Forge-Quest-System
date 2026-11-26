@@ -42,6 +42,10 @@ const previewImage = document.getElementById("previewImage");
 const previewName = document.getElementById("previewName");
 const previewInfo = document.getElementById("previewInfo");
 const previewError = document.getElementById("previewError");
+const psdCacheInfo = document.getElementById("amazonPsdCacheInfo");
+const psdCacheRefreshBtn = document.getElementById("amazonPsdCacheRefresh");
+const psdCacheClearBtn = document.getElementById("amazonPsdCacheClear");
+const psdCacheLogsBtn = document.getElementById("amazonPsdCacheLogs");
 
 const orderCount = document.getElementById("orderCount");
 const orderList = document.getElementById("orderList");
@@ -76,11 +80,127 @@ let modalValidatedIds = [];
 
 const SOURCE_TYPE_LABELS = Object.freeze({
     all: "All / Anything",
+    psd_png: "PSD / PSB + PNG",
+    psd_jpg: "PSD / PSB + JPG",
+    png_jpg: "PNG + JPG",
+    psd_png_jpg: "PSD / PSB + PNG + JPG",
+    raster: "All raster (no PSD/PSB)",
     psd: "PSD / PSB",
     png: "PNG",
     jpg: "JPG / JPEG",
     webp: "WEBP",
     other: "Other supported"
+});
+
+// Cache status is a fast filesystem check, never a Photoshop task.
+let psdCacheRefreshTimer = null;
+let psdCacheRefreshToken = 0;
+let lastPsdPathSignature = "";
+function trackedPsdPaths() {
+    const original = (scanData?.variants || []).flatMap(variant =>
+        (variant.files || []).filter(file => file.selected).map(file => file.path));
+    const batch = typeof window.BrandForgeBatchCachePaths === "function"
+        ? window.BrandForgeBatchCachePaths() : [];
+    return [...new Set([...original, ...batch].filter(p => /\.(psd|psb)$/i.test(p || "")))];
+}
+async function refreshPsdFastCache(force = false) {
+    if (!amazonApi.getPsdCacheStatus || !psdCacheInfo) return;
+    const paths = trackedPsdPaths();
+    const signature = paths.slice().sort().join("\n");
+    if (!force && signature === lastPsdPathSignature) return;
+    lastPsdPathSignature = signature;
+    const token = ++psdCacheRefreshToken;
+    psdCacheInfo.textContent = paths.length ? `Checking ${paths.length} PSD/PSB source(s)...` : "No PSD/PSB assigned · ready";
+    try {
+        const result = await amazonApi.getPsdCacheStatus(paths);
+        if (token !== psdCacheRefreshToken) return;
+        if (!result?.ok) throw new Error(result?.error || "Cache status unavailable");
+        psdCacheInfo.textContent = `${result.cached}/${result.total} PSD cached · ${result.needsExtraction} to extract` +
+            (result.missing ? ` · ${result.missing} missing` : "") +
+            ` · ${result.hits} cache hits / ${result.extractions} extractions this session`;
+        psdCacheInfo.title = result.cacheFolder || "Local Amazon PSD cache";
+    } catch (error) {
+        if (token === psdCacheRefreshToken) psdCacheInfo.textContent = `Cache status unavailable: ${error.message || error}`;
+    }
+}
+function schedulePsdFastCache(force = false) {
+    clearTimeout(psdCacheRefreshTimer);
+    psdCacheRefreshTimer = setTimeout(() => refreshPsdFastCache(force), 160);
+}
+window.BrandForgeAmazonFastCache = { refresh: schedulePsdFastCache };
+psdCacheRefreshBtn?.addEventListener("click", () => schedulePsdFastCache(true));
+psdCacheLogsBtn?.addEventListener("click", async () => {
+    const result = await amazonApi.openPsdCacheLogs?.();
+    if (!result?.ok) psdCacheInfo.textContent = `Could not open logs: ${result?.error || "unavailable"}`;
+});
+psdCacheClearBtn?.addEventListener("click", async () => {
+    if (!amazonApi.clearPsdCache) return;
+    if (!window.confirm("Clear cached Amazon PSD previews and no-shadow sources? Originals and generated outputs will not be deleted.")) return;
+    psdCacheClearBtn.disabled = true;
+    try {
+        const result = await amazonApi.clearPsdCache();
+        if (!result?.ok) throw new Error(result?.error || "Unable to clear cache");
+        psdCacheInfo.textContent = "PSD cache cleared · the next PSD preview will re-extract";
+        schedulePsdFastCache(true);
+    } catch (error) {
+        psdCacheInfo.textContent = `Cache clear failed: ${error.message || error}`;
+    } finally { psdCacheClearBtn.disabled = false; }
+});
+
+// Optional global Amazon settings are shared between Folder Mode and Batch Workspace.
+// Selecting files or checking a box never reads a PSD in Photoshop.
+const rkTargetIdEl = document.getElementById("amazonRkTargetId");
+const rkEnabledEl = document.getElementById("amazonRkPlainEnabled");
+
+let rkPlainFolder = "";
+function currentCreativePath() { return ""; }
+function amazonExtraPayload() { return {
+    creativePath: "",
+    rkPlainTargetId: rkTargetIdEl.value.trim(),
+    rkPlainEnabled: rkEnabledEl.checked,
+    rkPlainFolder: rkEnabledEl.checked ? rkPlainFolder : ""
+}; }
+function renderExtras() {
+    rkTargetIdEl.disabled = isProcessing;
+    document.getElementById("amazonChooseRkPlain").disabled = isProcessing;
+    document.getElementById("amazonAutoRkPlain").disabled = isProcessing;
+    rkEnabledEl.disabled = isProcessing;
+    document.getElementById("amazonRkPlainPath").textContent = rkPlainFolder
+        ? `${rkEnabledEl.checked ? "ON" : "OFF"} · ${rkPlainFolder}`
+        : linkedProjectRoot ? "No unique RK Plain marker in this brand - click Find or Choose Folder"
+            : "Link a G: brand folder to detect SINGLE / RAKUEN / !!RAK PLAIN!! / PLAIN.psd";
+    document.dispatchEvent(new Event("brandforge:amazon-extras-changed"));
+}
+window.BrandForgeAmazonExtras = { payload: amazonExtraPayload, creativeActive: () => Boolean(currentCreativePath()),
+    maxOriginalImages: () => 8, reset() {
+        rkTargetIdEl.value = ""; rkPlainFolder = ""; rkEnabledEl.checked = false;
+        renderExtras();
+    } };
+rkEnabledEl.addEventListener("change", () => {
+    renderExtras();
+    if (rkEnabledEl.checked && linkedProjectRoot && !rkPlainFolder) autoFindRkPlain();
+});
+document.getElementById("amazonChooseRkPlain").addEventListener("click", async () => {
+    const result = await amazonApi.chooseRkPlain();
+    if (!result) return;
+    if (result.error) { alert(result.error); return; }
+    rkPlainFolder = result.folder;
+    rkEnabledEl.checked = true;
+    renderExtras();
+});
+async function autoFindRkPlain() {
+    const root = linkedProjectRoot;
+    if (!root) return { folder: null };
+    const result = await amazonApi.findRkPlain(root);
+    // A queued response from another G: brand must never override this link.
+    if (root !== linkedProjectRoot) return { folder: null, stale: true };
+    if (result?.folder) { rkPlainFolder = result.folder; renderExtras(); }
+    return result;
+}
+document.getElementById("amazonAutoRkPlain").addEventListener("click", async () => {
+    const result = await autoFindRkPlain();
+    if (!result?.folder) alert("No unique PLAIN.psd found under the linked brand's SINGLE / RAKUEN / !!RAK PLAIN!! folder. Choose RK Plain Folder manually.");
+    else { rkEnabledEl.checked = true; renderExtras(); }
 });
 
 function setStatus(title, detail = "", mode = "ready") {
@@ -118,7 +238,12 @@ function sourceTypeForFile(file) {
 }
 
 function matchesSourceTypeFilter(file) {
-    return activeSourceType === "all" || sourceTypeForFile(file) === activeSourceType;
+    const group = {
+        psd_png: ["psd", "png"], psd_jpg: ["psd", "jpg"],
+        png_jpg: ["png", "jpg"], psd_png_jpg: ["psd", "png", "jpg"],
+        raster: ["png", "jpg", "webp", "other"]
+    };
+    return activeSourceType === "all" || (group[activeSourceType] || [activeSourceType]).includes(sourceTypeForFile(file));
 }
 
 function eligibleFiles(variant) {
@@ -134,7 +259,7 @@ function clearSelectionsOutsideSourceFilter() {
 
     scanData.variants.forEach(variant => {
         variant.files.forEach(file => {
-            if (!matchesSourceTypeFilter(file)) file.selected = false;
+            // Visibility only: never discard a selected image on filter change.
         });
 
         variant.files = [
@@ -220,7 +345,7 @@ function currentVariant() {
 }
 
 function selectedFiles(variant) {
-    return (variant?.files || []).filter(file => file.selected && matchesSourceTypeFilter(file));
+    return (variant?.files || []).filter(file => file.selected);
 }
 
 function excludedFiles(variant) {
@@ -269,8 +394,8 @@ function setFileSelected(variant, file, shouldSelect) {
     const alreadySelected = Boolean(file.selected);
     if (alreadySelected === shouldSelect) return true;
 
-    if (shouldSelect && selectedFiles(variant).length >= 8) {
-        alert("Maximum is 8 selected images per Variant ID.");
+    if (shouldSelect && selectedFiles(variant).length >= window.BrandForgeAmazonExtras.maxOriginalImages()) {
+        alert(`Maximum is ${window.BrandForgeAmazonExtras.maxOriginalImages()} images per Product ID.`);
         return false;
     }
 
@@ -284,12 +409,21 @@ function setFileSelected(variant, file, shouldSelect) {
     return true;
 }
 
+function setFolderMain(variant, file) {
+    if (!variant || !file || isProcessing) return;
+    if (!file.selected && !setFileSelected(variant, file, true)) return;
+    const selected = selectedFiles(variant).filter(item => item !== file);
+    const selectedSet = new Set([file, ...selected]);
+    variant.files = [file, ...selected, ...variant.files.filter(item => !selectedSet.has(item))];
+    setStatus("Main Image #1 assigned", `${variant.id}: ${file.name} -> Amazon #1 and Colorbox (RK Plain only if selected as RK ID).`);
+    renderAll();
+}
 function checkAllFilesForVariant(variant) {
     if (!variant || !eligibleFiles(variant).length) return;
 
     const selected = selectedFiles(variant);
     const available = excludedFiles(variant);
-    const room = Math.max(0, 8 - selected.length);
+    const room = Math.max(0, window.BrandForgeAmazonExtras.maxOriginalImages() - selected.length);
     const added = available.slice(0, room);
 
     added.forEach(file => { file.selected = true; });
@@ -364,7 +498,7 @@ function renderVariants() {
     const allFull = scanData.variants.every(variant => {
         const eligible = eligibleFiles(variant);
         if (!eligible.length) return true;
-        return selectedFiles(variant).length >= Math.min(8, eligible.length);
+        return selectedFiles(variant).length >= Math.min(window.BrandForgeAmazonExtras.maxOriginalImages(), eligible.length);
     });
 
     checkAllVariantsBtn.disabled = isProcessing || allFull;
@@ -401,7 +535,7 @@ function renderVariants() {
             toggle.className = "variant-toggle";
             toggle.disabled = isProcessing || !eligible.length;
 
-            const maxSelectable = Math.min(8, eligible.length);
+            const maxSelectable = Math.min(window.BrandForgeAmazonExtras.maxOriginalImages(), eligible.length);
             if (selected.length === 0) {
                 toggle.textContent = "×";
                 toggle.title = "Select up to 8 images in this variant";
@@ -574,6 +708,23 @@ function makeFileRow(variant, file, selectedIndex) {
     row.appendChild(check);
     row.appendChild(position);
     row.appendChild(main);
+    if (file.selected && selectedIndex === 0) {
+        const mainBadge = document.createElement("span");
+        mainBadge.className = "folder-main-assigned";
+        mainBadge.textContent = "MAIN #1";
+        generated.appendChild(mainBadge);
+    } else {
+        const mainButton = document.createElement("button");
+        mainButton.type = "button";
+        mainButton.className = "folder-set-main";
+        mainButton.textContent = "Set Main #1";
+        mainButton.disabled = isProcessing;
+        mainButton.addEventListener("click", event => {
+            event.stopPropagation();
+            setFolderMain(variant, file);
+        });
+        generated.appendChild(mainButton);
+    }
     row.appendChild(generated);
 
     row.addEventListener("click", () => previewFile(file));
@@ -641,13 +792,13 @@ function renderFiles() {
     filesTitle.textContent = `${variant.parentId} / ${variant.id}`;
     selectedCount.textContent = `${selected.length} / 8 selected`;
 
-    checkAllFilesBtn.disabled = isProcessing || !eligible.length || selected.length >= Math.min(8, eligible.length);
+    checkAllFilesBtn.disabled = isProcessing || !eligible.length || selected.length >= Math.min(window.BrandForgeAmazonExtras.maxOriginalImages(), eligible.length);
     uncheckAllFilesBtn.disabled = isProcessing || selected.length === 0;
 
     if (!eligible.length) {
         fileList.appendChild(emptyState(
             variant.files.length
-                ? `No ${sourceTypeLabel()} files in this Variant ID.`
+                ? `No ${sourceTypeLabel()} files currently visible (existing selections are preserved).`
                 : "This Variant ID folder is empty."
         ));
         return;
@@ -710,6 +861,7 @@ function renderOrderList() {
         row.appendChild(number);
         row.appendChild(info);
         orderList.appendChild(row);
+
     });
 }
 
@@ -776,9 +928,13 @@ async function previewFile(file) {
 
         previewType.textContent = result.format || "Image";
         previewInfo.textContent = result.width && result.height
-            ? `${result.width} × ${result.height}`
+            ? `${result.width} × ${result.height}` +
+                (/\.(psd|psb)$/i.test(file.path)
+                    ? ` · ${result.cache || "PSD"} · ${result.durationMs ?? "?"}ms`
+                    : "")
             : "Preview ready";
         previewError.textContent = "";
+        if (/\.(psd|psb)$/i.test(file.path)) schedulePsdFastCache(true);
     } catch (error) {
         if (requestId !== previewRequestId) return;
 
@@ -864,6 +1020,7 @@ function renderAll() {
     renderFiles();
     renderOrderList();
     renderCounters();
+    schedulePsdFastCache();
 }
 
 async function selectParents() {
@@ -921,6 +1078,8 @@ async function chooseOutput() {
     outputFolder = result.folderPath;
     linkedProjectRoot = null;
     autoLinkedOutput = null;
+    rkPlainFolder = "";
+    renderExtras();
     document.dispatchEvent(new Event("brandforge:project-manual"));
     outputPath.textContent = outputFolder;
     outputPath.title = outputFolder;
@@ -933,6 +1092,7 @@ function setProcessingState(processing) {
     selectOutputBtn.disabled = processing;
     sourceTypeFilter.disabled = processing;
     psdFileNameInput.disabled = processing;
+    renderExtras();
     renderAll();
     document.dispatchEvent(new CustomEvent("brandforge:project-busy", { detail: { busy: processing } }));
 }
@@ -948,6 +1108,7 @@ function buildProcessingParents() {
                 .filter(variant => selectedFiles(variant).length > 0)
                 .map(variant => ({
                     id: variant.id,
+                    mainPath: selectedFiles(variant)[0]?.path || "",
                     sharedIds: [...(variant.sharedIds || [])],
                     files: selectedFiles(variant).map(file => ({
                         name: file.name,
@@ -994,11 +1155,12 @@ async function startProcessing() {
 
     try {
         const reservedVariantIds = scanData.variants.map(variant => variant.id);
-        const hasSharing = parents.some(parent => parent.variants.some(variant => variant.sharedIds.length)) || Boolean(linkedProjectRoot);
+        const hasSharing = parents.some(parent => parent.variants.some(variant => variant.sharedIds.length)) || Boolean(linkedProjectRoot) ;
         let confirmedExistingFiles = [];
         if (hasSharing) {
             const inspection = await amazonApi.preflightSharing({
-                parents, outputFolder, psdFileName, reservedVariantIds, projectRoot: linkedProjectRoot
+                parents, outputFolder, psdFileName, reservedVariantIds, projectRoot: linkedProjectRoot,
+                ...amazonExtraPayload()
             });
             if (!inspection?.ok) {
                 throw new Error((inspection?.errors || ["Could not validate shared IDs."]).join("\n"));
@@ -1023,7 +1185,8 @@ async function startProcessing() {
             psdFileName,
             reservedVariantIds,
             confirmedExistingFiles,
-            projectRoot: linkedProjectRoot
+            projectRoot: linkedProjectRoot,
+            ...amazonExtraPayload()
         });
 
         if (!result || !result.ok) {
@@ -1050,6 +1213,15 @@ async function startProcessing() {
             failures.forEach(failure => {
                 message += `\n\n${failure.parentId} / ${failure.variantId}\n${failure.error}`;
             });
+        }
+
+        if (result.rkPlainError) message += `\n\nRK Plain: ${result.rkPlainError}`;
+        if (rkEnabledEl.checked && result.rkPlainJobId) {
+            setStatus("RK Plain", "Saving main ID Image #1 beside PLAIN.psd...", "busy");
+            const plain = await amazonApi.offerRkPlain(result.rkPlainJobId);
+            if (plain?.skipped) message += "\n\nRK Plain: skipped";
+            else if (plain?.ok) message += `\n\nRK Plain: ${plain.successful} image(s) saved to ${plain.folder}`;
+            else message += `\n\nRK Plain error: ${plain?.error || "unavailable"}`;
         }
 
         // Amazon has fully finished, including PSD save and its temp cleanup.
@@ -1165,6 +1337,12 @@ amazonApi.onProcessingProgress(progress => {
         const pos = progress.outputPosition || "?";
         const labels = {
             loading: `Loading image ${pos}`,
+            "psd-cache-hit": `PSD Fast Loader: cache hit (${progress.durationMs}ms)`,
+            "psd-cache-shared": "PSD Fast Loader: reusing in-progress extraction",
+            "psd-cache-miss": "PSD Fast Loader: first extraction (cache miss)",
+            "psd-cache-saved": `PSD Fast Loader: cached (${progress.extractionMs}ms extraction)`,
+            "psd-cache-save-skipped": "PSD cache unavailable; continuing with fresh PNG",
+            "source-ready": `Source ready: ${progress.cache || "N/A"} (${progress.durationMs}ms)`,
             "extracting-psd-no-shadow": "PSD: hiding second top-level layer and exporting PNG",
             "background-already-transparent": "Background already transparent — preserving source",
             "removing-background": `Removing background for image ${pos}`,
@@ -1172,7 +1350,7 @@ amazonApi.onProcessingProgress(progress => {
             "cut-detection": `Detecting cut sides for image ${pos}`,
             "trimming-first": "Preparing visible content for 801 × 801 main area",
             rendering: `Rendering image ${pos}`,
-            complete: `Exported ${progress.output || `image ${pos}`}`
+            complete: `Exported ${progress.output || `image ${pos}`} · load ${progress.loadMs ?? "?"}ms · render ${progress.renderMs ?? "?"}ms`
         };
 
         setStatus(
@@ -1180,6 +1358,7 @@ amazonApi.onProcessingProgress(progress => {
             labels[progress.status] || progress.status || "Working...",
             "busy"
         );
+        if (progress.status === "psd-cache-saved" || progress.status === "psd-cache-hit") schedulePsdFastCache(true);
         return;
     }
 
@@ -1242,7 +1421,7 @@ sourceTypeFilter.addEventListener("change", () => {
     if (isProcessing) return;
 
     activeSourceType = sourceTypeFilter.value || "all";
-    clearSelectionsOutsideSourceFilter();
+    // Changing filters only changes what is visible, never assigned selections.
 
     if (activePreviewPath && scanData) {
         const previewFileRecord = scanData.variants
@@ -1288,6 +1467,11 @@ renderAll();
 document.addEventListener("brandforge:project-linked", event => {
     const project = event.detail?.project;
     linkedProjectRoot = project?.roles?.amazon?.folderPath ? project.root : null;
+    // Always refresh RK Plain when linking a different brand. Never reuse the
+    // previous brand's manual destination without explicit selection.
+    rkPlainFolder = project?.roles?.rkplain?.folderPath || "";
+    renderExtras();
+    if (!rkPlainFolder && linkedProjectRoot) autoFindRkPlain();
     autoLinkedOutput = project?.roles?.amazon?.folderPath || null;
     if (autoLinkedOutput) {
         outputFolder = autoLinkedOutput;
@@ -1295,6 +1479,13 @@ document.addEventListener("brandforge:project-linked", event => {
         outputPath.title = outputFolder;
         renderCounters();
     }
+});
+document.addEventListener("brandforge:project-manual", () => {
+    // A manual output choice deliberately breaks the old G: project linkage.
+    // Prevent exporting RK Plain JPEGs into a previous brand's folder.
+    linkedProjectRoot = null;
+    rkPlainFolder = "";
+    renderExtras();
 });
 document.addEventListener("brandforge:project-unlinked", () => {
     if (autoLinkedOutput && outputFolder === autoLinkedOutput) {
@@ -1304,5 +1495,31 @@ document.addEventListener("brandforge:project-unlinked", () => {
     }
     linkedProjectRoot = null;
     autoLinkedOutput = null;
+    rkPlainFolder = "";
+    renderExtras();
     renderCounters();
 });
+
+// Clear only Amazon working state; never delete originals, outputs or PSD cache.
+document.getElementById("amazonClearWorkspace").addEventListener("click", () => {
+    if (document.getElementById("folderModeContent").classList.contains("hidden")) return;
+    if (isProcessing) return;
+    if (!confirm("Clear loaded Amazon parents, selected images, output choice and optional settings?\nNo files on disk will be deleted.")) return;
+    scanData = null;
+    activeVariantIndex = -1;
+    outputFolder = null;
+    linkedProjectRoot = null;
+    autoLinkedOutput = null;
+    psdFileName = "";
+    psdFileNameInput.value = "";
+    parentPath.textContent = "No parent folders selected";
+    outputPath.textContent = "No output folder selected";
+    scanSummary.textContent = "Select one or more parent folders to begin.";
+    parentPath.title = ""; outputPath.title = "";
+    clearPreview();
+    window.BrandForgeAmazonExtras.reset();
+    renderAll();
+    setStatus("Amazon cleared", "Working selections cleared. Files and exported results remain untouched.");
+});
+
+renderExtras();

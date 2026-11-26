@@ -1,3 +1,16 @@
+# BrandForge v1.7.58 - RK Plain G: Auto-Detect + Per-ID Set Main #1
+
+**Amazon, both Original Folder Mode and Batch Workspace:**
+
+- **Clear Amazon** resets the current Amazon selection, imported files/IDs, previews and optional Creative/RK Plain controls. It does not delete source images, generated outputs or the separate PSD Fast Loader cache. A confirmation is shown.
+- **Auto Creative as Image #2** accepts one optional manually chosen creative image for **every main and shared ID**. Choose Image #1 and the remaining images normally; when enabled the output is Main / Creative / original images in their selected order. Creative takes one of Amazon's eight slots: select at most seven other images. No existing selected images are silently dropped.
+- **RK Plain** copies the *finished* Amazon JPEG Image #1 for each primary/main ID to `{id}plain.jpg` beside the existing `PLAIN.psd` location marker, typically `SINGLE/RAKUTEN/!!RAK PLAIN!!/PLAIN.psd`. The marker PSD is **never opened, changed or saved**. When a linked brand root has exactly one matching destination, it is auto-detected; otherwise the user picks a folder containing `PLAIN.psd`. Existing files prompt for confirmation. Shared IDs do not generate extra plain copies.
+- **Quiet PSD browsing**: unassigned PSD/PSB files are shown as manual-preview placeholders. They are **not sent to Photoshop** while browsing, scrolling or changing type filters. Background thumbnails of normal JPG/PNG/WEBP are handled by Sharp only, including errors. Click a PSD explicitly to preview, or include it in Generate, to use Photoshop. Existing persistent PSD Fast Loader caching remains intact.
+
+The original Amazon JPEG and layered master PSD generation, sharing, optional Colorbox, slider, Remove BG, and all other modules are unchanged. See `CHANGELOG_v1.7.58.md`, `PATCH_README_v1.7.58.md`, and `docs/AMAZON_EXTRA_WORKFLOW_v1.7.57.md` for details. Tests run with `npm run validate` and `npm run test:amazon-extras`. Live Windows Electron and Photoshop 2027 still require a production machine smoke test.
+
+---
+
 # BrandForge v1.7.55 — Photoshop Compatibility Manager
 
 New **Settings > Photoshop Compatibility Manager** helps you detect Photoshop updates before production. It scans installed Photoshop/COM registration, parses each module's JSX (including the complete Slider worker), runs an opt-in live scratch PSD/JPEG/Smart Object test, remembers the last successful Photoshop version, and saves a detailed compatibility report. You may require 2026 (27.x), 2027 (28.x), or Auto, but this only **guards against running the wrong version**—it does not change Windows COM registration or automatically install/select Photoshop. The original v1.7.54 Slider JSX fix and the working 2027 ROT fallback are preserved.
@@ -521,3 +534,7 @@ Run `npm install` before `npm run build:portable` to install new ExcelJS depende
 **Settings > Photoshop Compatibility Manager** lets you scan installed Photoshop versions, validate actual BrandForge JSX source syntax, run an opt-in Photoshop connection + temporary PSD/JPEG/Smart Object test, see per-module preflight status, and open a saved diagnostic report. The manager remembers the last verified working version and warns if the registered Photoshop executable changes after an Adobe update.
 
 Set **Require Photoshop version** to Auto, 2026 (27.x) or 2027 (28.x). This is a **safety guard only**, not a version switcher: it prevents job JSX from running against a mismatched Photoshop major. All existing COM/ROT paths remain, including the v1.7.54 Slider JSX string fix. See `CHANGELOG_v1.7.55.md` and `docs/PHOTOSHOP_COMPATIBILITY_MANAGER_v1.7.55.md`. After a Photoshop update, always run one real job per module; a passed preflight is not a production-output guarantee.
+
+## BrandForge v1.7.56 - Amazon PSD Fast Loader
+
+Amazon has a persistent full-resolution **no-shadow** PSD/PSB extraction cache for previews and subsequent generation. A first-time PSD requires Photoshop; subsequent reads use the local PNG cache until the PSD changes. The original source PSD and all Amazon clipping/placement and Smart Object rules are unchanged. Both Amazon modes show cache counters and Refresh / Clear Cache / Open Logs. Per-file preview/generation timings are recorded in `amazon-psd-performance.log` beside the cache directory (Windows: `%LOCALAPPDATA%\BrandForge`). See `CHANGELOG_v1.7.56.md` and `docs/AMAZON_PSD_FAST_LOADER_v1.7.56.md`. Run `npm run test:amazon-fast-loader` for focused tests.

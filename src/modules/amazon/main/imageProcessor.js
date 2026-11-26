@@ -12,6 +12,8 @@ const {
     extractPsdNoShadowToPng,
     convertFileToPng
 } = require("./photoshopBridge");
+const { sharedPsdFastCache, logAmazonPerformance } = require("./psdFastCache");
+const { performance } = require("perf_hooks");
 
 function isPSD(filePath) {
     const ext = path.extname(filePath).toLowerCase();
@@ -51,8 +53,8 @@ async function readNormalizedPng(filePath) {
         .toBuffer();
 }
 
-async function loadSource(filePath, workFolder, progressCallback) {
-    if (!fs.existsSync(filePath)) {
+async function loadSource(filePath, workFolder, progressCallback, metrics = null) {
+    if (!isPSD(filePath) && !fs.existsSync(filePath)) {
         throw new Error(`Source file no longer exists: ${filePath}`);
     }
 
@@ -60,17 +62,19 @@ async function loadSource(filePath, workFolder, progressCallback) {
     let normalizedPath = null;
 
     if (isPSD(filePath)) {
-        progressCallback?.({ status: "extracting-psd-no-shadow" });
-
-        normalizedPath = path.join(
-            workFolder,
-            uniqueTempName("psd_no_shadow")
-        );
-
-        // Production rule: hide the SECOND TOP-LEVEL layer, export PNG, and
-        // close the PSD without saving. This is the Amazon no-shadow source.
-        await extractPsdNoShadowToPng(filePath, normalizedPath);
-        normalizedBuffer = await readNormalizedPng(normalizedPath);
+        // Exact same Main/no-shadow source as before. A cache hit never opens
+        // Photoshop; changed files are re-extracted with the original rule.
+        const result = await sharedPsdFastCache.load(filePath, {
+            extract: extractPsdNoShadowToPng,
+            normalize: readNormalizedPng,
+            onProgress: progressCallback
+        });
+        normalizedBuffer = result.buffer;
+        if (metrics) Object.assign(metrics, {
+            cache: result.cache,
+            loadMs: result.durationMs,
+            extractionMs: result.extractionMs
+        });
     } else {
         try {
             normalizedBuffer = await sharp(filePath, { failOn: "none" })
@@ -151,28 +155,37 @@ async function processVariant(
             });
 
             emit({ status: "loading" });
-
-            let sourceBuffer = await loadSource(
+            const imageStarted = performance.now();
+            const sourceMetrics = {};
+            const loadStarted = performance.now();
+            const sourceBuffer = await loadSource(
                 source.path,
                 variantWorkFolder,
-                extra => emit(extra)
+                extra => emit(extra),
+                sourceMetrics
             );
+            const loadMs = Math.round(performance.now() - loadStarted);
+            emit({ status: "source-ready", cache: sourceMetrics.cache || "N/A", durationMs: loadMs });
 
             // Cut detection happens on the unchanged normalized source BEFORE trimming,
             // so a product genuinely touching a source edge remains detectable.
             emit({ status: "cut-detection" });
+            const cutStarted = performance.now();
             const cut = await detectCutSides(sourceBuffer);
+            const cutMs = Math.round(performance.now() - cutStarted);
 
             // The renderer measures visible product bounds once for every
             // image. No separate first-image trim or cut-corner zoom is used.
             // Detected cut sides only control placement, never product cropping.
             emit({ status: "rendering", cut });
 
+            const renderStarted = performance.now();
             const rendered = await renderAmazonImage(
                 sourceBuffer,
                 outputPosition,
                 cut
             );
+            const renderMs = Math.round(performance.now() - renderStarted);
 
             const baseName = getOutputBaseName(
                 variant.id,
@@ -201,10 +214,19 @@ async function processVariant(
                 layerName: baseName
             });
 
+            const totalMs = Math.round(performance.now() - imageStarted);
+            // Diagnostic timing in local Electron developer console.
+            console.info(`[Amazon Fast Loader] ${baseName}.jpg: source=${sourceMetrics.cache || "N/A"} ` +
+                `load=${loadMs}ms cut=${cutMs}ms render=${renderMs}ms total=${totalMs}ms`);
+            logAmazonPerformance("generate", { productId: variant.id, file: source.name,
+                cache: sourceMetrics.cache || "N/A", loadMs, cutMs, renderMs, totalMs });
             emit({
                 status: "complete",
                 output: `${baseName}.jpg`,
                 cut,
+                cache: sourceMetrics.cache || "N/A",
+                loadMs, cutMs, renderMs,
+                durationMs: totalMs,
                 limitedCutSides: rendered.placement.limitedCutSides
             });
         }
@@ -221,12 +243,17 @@ async function processVariant(
 }
 
 async function createPreviewDataUrl(filePath) {
-    const workFolder = await fs.promises.mkdtemp(
+    const started = performance.now();
+    // Cache hits on PSD require no temporary directory or Photoshop task.
+    const workFolder = isPSD(filePath) ? null : await fs.promises.mkdtemp(
         path.join(os.tmpdir(), "amazon-preview-")
     );
 
     try {
-        const sourceBuffer = await loadSource(filePath, workFolder);
+        const metrics = {};
+        const sourceBuffer = await loadSource(filePath, workFolder, null, metrics);
+        logAmazonPerformance("preview", { file: path.basename(filePath),
+            cache: metrics.cache || "N/A", sourceLoadMs: Math.round(performance.now() - started) });
         const metadata = await sharp(sourceBuffer).metadata();
 
         const previewBuffer = await sharp(sourceBuffer)
@@ -245,10 +272,12 @@ async function createPreviewDataUrl(filePath) {
             height: metadata.height || null,
             format: isPSD(filePath)
                 ? "PSD/PSB · second top-level layer hidden"
-                : "Original image (background preserved)"
+                : "Original image (background preserved)",
+            cache: metrics.cache || "N/A",
+            durationMs: Math.round(performance.now() - started)
         };
     } finally {
-        await fs.promises.rm(workFolder, { recursive: true, force: true })
+        if (workFolder) await fs.promises.rm(workFolder, { recursive: true, force: true })
             .catch(() => {});
     }
 }
@@ -258,5 +287,7 @@ module.exports = {
     clearVariantJpgs,
     createPreviewDataUrl,
     getOutputBaseName,
-    safeFileName
+    safeFileName,
+    getPsdCacheSummary: paths => sharedPsdFastCache.summary(paths),
+    clearPsdFastCache: () => sharedPsdFastCache.clear()
 };

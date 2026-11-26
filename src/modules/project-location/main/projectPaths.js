@@ -4,7 +4,7 @@
 // creates an image, or writes to the linked G: brand project.
 const fs = require("fs");
 const path = require("path");
-const ROLES = ["amazon", "slider", "colorbox"];
+const ROLES = ["amazon", "slider", "colorbox", "rkplain"];
 const MARKER_EXTS = new Set([".psd", ".psb"]);
 const MAX_SCAN_DIRS = 30;
 
@@ -24,8 +24,9 @@ function actualChild(folder, target) {
         return entry ? path.join(folder, entry.name) : null;
     } catch (error) { return null; }
 }
-function markerFiles(folder) {
-    return readEntries(folder).filter(e => e.isFile() && MARKER_EXTS.has(path.extname(e.name).toLowerCase()))
+function markerFiles(folder, role = "") {
+    return readEntries(folder).filter(e => e.isFile() && (role === "rkplain"
+        ? e.name.toLowerCase() === "plain.psd" : MARKER_EXTS.has(path.extname(e.name).toLowerCase())))
         .map(e => path.join(folder, e.name)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 // Folder names in the production Shared Drive are not always equal to the
@@ -46,6 +47,31 @@ function matchingFolders(parent, normalizedName) {
 function candidate(folder, priority) {
     return folder ? { folder, priority } : null;
 }
+// The team stores the RK Plain marker directly below each brand root:
+// SINGLE / RAKUEN / !!RAK PLAIN!! / PLAIN.psd (RAKUTEN spelling also valid).
+// Only inspect this bounded, explicit hierarchy: never walk the entire G: drive.
+function rkPlainCandidates(root) {
+    const found = [];
+    for (const single of matchingFolders(root, "single")) {
+        let rack;
+        try { rack = readEntries(single).filter(e => e.isDirectory() &&
+            ["rakuen", "rakuten"].includes(normalizedFolderName(e.name).replace(/ /g, ""))); }
+        catch (_) { rack = []; }
+        for (const entry of rack) {
+            const rakuten = path.join(single, entry.name);
+            let folders;
+            try { folders = readEntries(rakuten).filter(e => e.isDirectory()); }
+            catch (_) { folders = []; }
+            for (const sub of folders) {
+                const name = normalizedFolderName(sub.name).replace(/ /g, "");
+                if (name.includes("rak") && name.includes("plain")) {
+                    found.push(candidate(path.join(rakuten, sub.name), 0));
+                }
+            }
+        }
+    }
+    return found;
+}
 function proposedMarkers(root) {
     const slider = actualChild(root, "SLIDER");
     const colorbox = actualChild(root, "COLORBOX");
@@ -63,6 +89,7 @@ function proposedMarkers(root) {
     const sliderPsdFolders = sliderImageFolders.map(folder => actualChild(folder, "psd")).filter(Boolean);
     return {
         colorbox: [candidate(colorbox, 0)].filter(Boolean),
+        rkplain: rkPlainCandidates(root),
         slider: [
             ...sliderPsdFolders.map(folder => candidate(folder, 0)),
             candidate(slider, 1) // Legacy project layout only.
@@ -99,7 +126,7 @@ function discoverProject(rootInput) {
             const folderKey = pathKey(entry.folder);
             if (seen.has(folderKey)) continue;
             seen.add(folderKey);
-            for (const marker of markerFiles(entry.folder)) {
+            for (const marker of markerFiles(entry.folder, role)) {
                 const realMarker = fs.realpathSync(marker);
                 if (!beneath(realMarker, root)) continue;
                 choices.push({ markerPath: realMarker, folderPath: path.dirname(realMarker),
@@ -163,6 +190,10 @@ function verifyLinkedProject(link) {
             }
         }
     }
-    return resolveSelections(link.root, Object.fromEntries(ROLES.map(role => [role, link.roles?.[role]?.markerPath || ""])));
+    // Older stored links predate RK Plain. Migrate the fourth role in memory
+    // only when exactly one PLAIN.psd was found beneath this brand root.
+    const discovered = discoverProject(link.root);
+    return resolveSelections(link.root, Object.fromEntries(ROLES.map(role => [role,
+        link.roles?.[role]?.markerPath || (role === "rkplain" ? discovered.roles.rkplain?.selectedMarker : "") || ""])));
 }
 module.exports = { ROLES, pathKey, beneath, discoverProject, resolveSelections, verifyLinkedProject, assertMarkerSafe };

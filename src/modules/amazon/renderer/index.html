@@ -18,8 +18,16 @@
                 <div class="eyebrow">IMAGE WORKFLOW STUDIO</div>
                 <h1 id="amazonHeaderTitle">Amazon Batch Workspace</h1>
                 <p class="subtitle" id="amazonHeaderSubtitle">No ID folders needed. Import images, assign Product IDs, drag to arrange, and Generate Amazon.</p>
+                <div class="amazon-fast-cache" aria-label="Amazon PSD Fast Loader">
+                    <strong>PSD FAST LOADER</strong>
+                    <span id="amazonPsdCacheInfo" aria-live="polite">Cache ready · select PSD/PSB files to check.</span>
+                    <button class="mini-btn ghost" type="button" id="amazonPsdCacheRefresh">Refresh</button>
+                    <button class="mini-btn ghost" type="button" id="amazonPsdCacheClear">Clear Cache</button>
+                    <button class="mini-btn ghost" type="button" id="amazonPsdCacheLogs">Open Logs</button>
+                </div>
             </div>
             <div class="topbar-right">
+                <button type="button" id="amazonClearWorkspace" class="mini-btn ghost amazon-clear-workspace" title="Reset loaded Amazon images, IDs and optional settings; never delete files">Clear Amazon</button>
                 <div class="quality-badge">1001 × 1001 AMAZON</div>
                 <div class="version" id="versionLabel">v1.7.14</div>
             </div>
@@ -31,6 +39,16 @@
             <span class="amazon-mode-hint">v1.7.26 · Four-edge full-canvas cover +4% · Centered, proportional, PSD overflow preserved.</span>
         </nav>
         <section id="amazonBrandProject" class="projectlink-panel" aria-label="Google Drive output location linking"></section>
+        <section class="amazon-extras card" id="amazonExtrasPanel" aria-label="Amazon optional output settings">
+            <div class="amazon-extras-row">
+                <label class="amazon-extra-check"><input id="amazonRkPlainEnabled" type="checkbox"> RK Plain: export ONE chosen ID / Main #1</label>
+                <button type="button" id="amazonChooseRkPlain" class="mini-btn secondary">Choose RK Plain Folder</button>
+                <button type="button" id="amazonAutoRkPlain" class="mini-btn ghost">Find PLAIN.psd</button>
+                <label for="amazonRkTargetId">RK ID</label><input id="amazonRkTargetId" class="psd-name-input" type="text" placeholder="Choose one Product ID" autocomplete="off" spellcheck="false" title="One Amazon output ID (including a shared ID); only its image #1 is copied to RK Plain">
+                <span class="amazon-extra-value" id="amazonRkPlainPath">Auto-find under linked G: brand / SINGLE / RAKUEN / !!RAK PLAIN!!</span>
+            </div>
+            <div class="amazon-extras-tip" id="amazonExtrasTip">Pick Creative PNGs directly from the image library and put them at position #2 using image order. File-type filters never remove selections. RK Plain saves <code>idplain.jpg</code> for only the ID entered above, using its Amazon image #1. PLAIN.psd remains unchanged.</div>
+        </section>
         <div class="folder-mode-view hidden" id="folderModeContent">
         <section class="project-bar card">
             <div class="project-block">
@@ -49,6 +67,11 @@
                         <option value="jpg">JPG / JPEG</option>
                         <option value="webp">WEBP</option>
                         <option value="other">Other supported</option>
+                        <option value="psd_png">PSD / PSB + PNG</option>
+                        <option value="psd_jpg">PSD / PSB + JPG</option>
+                        <option value="png_jpg">PNG + JPG</option>
+                        <option value="psd_png_jpg">PSD / PSB + PNG + JPG</option>
+                        <option value="raster">All raster (no PSD/PSB)</option>
                     </select>
                     <span class="source-filter-summary" id="sourceFilterSummary">All supported source types</span>
                 </div>
@@ -72,7 +95,7 @@
                     />
                     <span class="psd-extension">.psd</span>
                 </div>
-                <div class="helper">All JPG files + the named PSD are saved directly in this folder. You may type the name with or without .psd.</div>
+                <div class="helper">All JPGs + the master PSD are saved here. Optional RK Plain uses the selected target ID above; PLAIN.psd is never changed.</div>
             </div>
 
             <div class="summary-counters">
@@ -290,10 +313,11 @@
                         </div>
                         <div class="batch-row">
                             <button type="button" id="batchAssignBtn" class="secondary batch-control">Add Selected in Pick Order</button>
+                            <button type="button" id="batchAssignMainBtn" class="secondary batch-control" title="Assign the first picked library image as Main Image #1 for the selected ID">Set First Pick as Main #1</button>
                             <button type="button" id="batchClearSelectionBtn" class="mini-btn ghost">Clear Picks</button>
                             <button type="button" id="batchClearPoolBtn" class="mini-btn ghost">Clear Unassigned</button>
                         </div>
-                        <div id="batchSelectionPreview" class="batch-selection-preview" aria-live="polite">Click images in the order you want: 1 = Main + Colorbox, then 2–8.</div>
+                        <div id="batchSelectionPreview" class="batch-selection-preview" aria-live="polite">Click images in order: 1 = Main + Colorbox; pick any PNG or PSD as #2. RK Plain exports one chosen ID only.</div>
                     </div>
                     <div class="batch-pool-grid" id="batchImagePool" aria-label="Imported images">
                         <div class="empty-state">Import images to build your library.</div>
@@ -381,6 +405,7 @@
     <script src="../shared/batchSharingEditor.js"></script>
     <script src="../shared/imageFilters.js"></script>
     <script src="../shared/selectionOrder.js"></script>
+    <script src="../shared/thumbnailPolicy.js"></script>
     <script src="../shared/batchVisibility.js"></script>
     <script src="../../project-location/renderer/projectLink.js"></script>
     <script src="app.js"></script>

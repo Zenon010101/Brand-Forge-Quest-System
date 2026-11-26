@@ -2,12 +2,14 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const { randomUUID } = require("crypto");
+const sharp = require("sharp");
 
 const {
     app,
     BrowserWindow,
     dialog,
-    ipcMain
+    ipcMain,
+    shell
 } = require("electron");
 
 const { scanParentFolder, SUPPORTED_EXTENSIONS } = require("./folderScanner");
@@ -16,9 +18,13 @@ const { scanBatchImageFolder } = require("./batchImageScanner");
 const {
     processVariant,
     createPreviewDataUrl,
+    getPsdCacheSummary,
+    clearPsdFastCache,
     safeFileName
 } = require("./imageProcessor");
 const { buildAmazonPsd } = require("./psdBuilder");
+const { getAmazonPerformanceLogPath } = require("./psdFastCache");
+const { withCreativeSecond, verifyCreativeImage, findRkPlainFolder, validatedRkPlainFolder, exportRkPlain } = require("./amazonExtras");
 const { inspectSharingRequest, processSharedAmazonJob } = require("./sharedJob");
 const { recordProductionEvent } = require("../../profile/main/service");
 const { getStoredLink } = require("../../project-location/main/register");
@@ -43,6 +49,8 @@ const previewCache = new Map();
 let amazonIsRunning = false;
 let colorboxIsRunning = false;
 let pendingColorboxJob = null;
+let pendingRkPlainJob = null;
+let rkPlainIsRunning = false;
 
 function safeWorkName(value) {
     return String(value || "")
@@ -235,6 +243,47 @@ ipcMain.handle("amazon:choose-batch-images", async () => {
     return readImageRecords(response.filePaths);
 });
 
+// Creative is an optional ONE-file source applied as Amazon image #2 to every ID.
+ipcMain.handle("amazon:choose-creative", async () => {
+    if (amazonIsRunning || colorboxIsRunning || rkPlainIsRunning) return { error: "Wait for processing to finish." };
+    const state = readDialogState();
+    const response = await dialog.showOpenDialog({
+        title: "Choose one Amazon Creative image (Image 2 for every ID)",
+        defaultPath: usableDirectory(state.lastBatchImageFolder) || usableDirectory(state.lastParentLocation),
+        properties: ["openFile"],
+        filters: [{ name: "Creative images", extensions: [...SUPPORTED_EXTENSIONS].map(ext => ext.slice(1)) }]
+    });
+    if (response.canceled || !response.filePaths.length) return null;
+    try {
+        const creative = await verifyCreativeImage(response.filePaths[0]);
+        return { creative };
+    } catch (error) { return { error: error.message || String(error) }; }
+});
+
+ipcMain.handle("amazon:rk-plain-find", async (_event, payload) => {
+    try {
+        const folder = findRkPlainFolder(payload?.projectRoot);
+        return { folder, source: folder ? "linked-brand" : "not-found-or-ambiguous" };
+    }
+    catch (error) { return { error: error.message || String(error) }; }
+});
+
+ipcMain.handle("amazon:rk-plain-choose", async () => {
+    if (amazonIsRunning || colorboxIsRunning || rkPlainIsRunning) return { error: "Wait for processing to finish." };
+    const state = readDialogState();
+    const answer = await dialog.showOpenDialog({
+        title: "Select SINGLE / RAKUEN / !!RAK PLAIN!! containing PLAIN.psd",
+        defaultPath: usableDirectory(state.lastRkPlainFolder) || usableDirectory(state.lastOutputFolder),
+        properties: ["openDirectory"]
+    });
+    if (answer.canceled || !answer.filePaths.length) return null;
+    try {
+        const verified = validatedRkPlainFolder(answer.filePaths[0]);
+        writeDialogState({ lastRkPlainFolder: verified.folder });
+        return { folder: verified.folder };
+    } catch (error) { return { error: error.message || String(error) }; }
+});
+
 ipcMain.handle("amazon:inspect-batch-images", async (_event, payload) => {
     return readImageRecords(payload?.paths);
 });
@@ -245,8 +294,9 @@ ipcMain.handle("amazon:preflight-batch", async (_event, payload) => {
         verifiedAmazonProject(payload, psdName);
         const checked = await validateVirtualBatch(payload);
         if (!checked.ok) return { ok: false, errors: checked.errors };
+        const preparedParents = await withCreativeSecond(checked.parents, payload?.creativePath);
         const inspection = await inspectSharingRequest({
-            parents: checked.parents, outputFolder: payload.outputFolder
+            parents: preparedParents, outputFolder: payload.outputFolder
         }, psdName);
         return {
             ok: inspection.ok,
@@ -262,6 +312,56 @@ ipcMain.handle("amazon:preflight-batch", async (_event, payload) => {
     }
 });
 
+// Fast Loader counters are read-only; status checks never open Photoshop.
+ipcMain.handle("amazon:psd-cache-status", async (_event, payload) => {
+    try {
+        const paths = Array.isArray(payload?.paths) ? payload.paths.slice(0, 2500) : [];
+        return { ok: true, ...(await getPsdCacheSummary(paths)) };
+    } catch (error) {
+        return { ok: false, error: error?.message || String(error) };
+    }
+});
+
+ipcMain.handle("amazon:psd-cache-open-logs", async () => {
+    try {
+        const folder = path.dirname(getAmazonPerformanceLogPath());
+        await fs.promises.mkdir(folder, { recursive: true });
+        const error = await shell.openPath(folder);
+        return { ok: !error, error: error || null };
+    } catch (error) {
+        return { ok: false, error: error?.message || String(error) };
+    }
+});
+
+ipcMain.handle("amazon:psd-cache-clear", async () => {
+    if (amazonIsRunning || colorboxIsRunning) {
+        return { ok: false, error: "Wait for Amazon / Colorbox processing to finish." };
+    }
+    try {
+        const result = await clearPsdFastCache();
+        previewCache.clear();
+        return result;
+    } catch (error) {
+        return { ok: false, error: error?.message || String(error) };
+    }
+});
+
+// Automatic Library thumbnails are intentionally Sharp-only. They must not
+// open Photoshop, even on a broken JPG/PNG, PSD filter, or stale queue item.
+ipcMain.handle("amazon:get-file-thumbnail", async (_event, payload) => {
+    try {
+        const filePath = payload?.filePath;
+        if (typeof filePath !== "string" || !path.isAbsolute(filePath) ||
+            !/\.(jpe?g|png|webp)$/i.test(filePath)) {
+            return { ok: false, error: "Automatic thumbnail not available for this file type. Click to preview manually." };
+        }
+        const content = await sharp(filePath, { failOn: "error", limitInputPixels: 150000000 })
+            .rotate().resize({ width: 230, height: 230, fit: "inside", withoutEnlargement: true })
+            .png().toBuffer();
+        return { ok: true, dataUrl: `data:image/png;base64,${content.toString("base64")}` };
+    } catch (error) { return { ok: false, error: error.message || String(error) }; }
+});
+
 ipcMain.handle("amazon:get-file-preview", async (event, payload) => {
     if (colorboxIsRunning) {
         return { ok: false, error: "Preview is paused while the Colorbox step is open." };
@@ -274,13 +374,16 @@ ipcMain.handle("amazon:get-file-preview", async (event, payload) => {
 
     try {
         const stat = await fs.promises.stat(filePath);
-        const cacheKey = `${filePath}|${stat.size}|${stat.mtimeMs}`;
+        const cacheKey = `${filePath}|${stat.size}|${stat.mtimeMs}|${stat.ctimeMs}|${stat.birthtimeMs}`;
 
         if (previewCache.has(cacheKey)) {
-            return { ok: true, ...previewCache.get(cacheKey) };
+            return { ok: true, ...previewCache.get(cacheKey), cache: "MEMORY-HIT", durationMs: 0 };
         }
 
         const preview = await createPreviewDataUrl(filePath);
+        if (/\.(psd|psb)$/i.test(filePath)) {
+            console.info(`[Amazon Fast Loader] Preview ${path.basename(filePath)}: ${preview.cache} (${preview.durationMs}ms)`);
+        }
         previewCache.set(cacheKey, preview);
 
         if (previewCache.size > 80) {
@@ -580,7 +683,8 @@ ipcMain.handle("amazon:preflight-sharing", async (_event, payload) => {
     try {
         const psdName = normalizePsdFileName(payload?.psdFileName);
         verifiedAmazonProject(payload, psdName);
-        const inspected = await inspectSharingRequest(payload || {}, psdName);
+        const preparedParents = await withCreativeSecond(payload?.parents || [], payload?.creativePath);
+        const inspected = await inspectSharingRequest({ ...payload, parents: preparedParents }, psdName);
         return {
             ok: inspected.ok,
             errors: inspected.errors || [],
@@ -597,18 +701,20 @@ ipcMain.handle("amazon:preflight-sharing", async (_event, payload) => {
 
 // Colorbox is a SEPARATE IPC step invoked only after processAmazonJob resolves.
 ipcMain.handle("amazon:start-processing", async (event, payload) => {
-    if (amazonIsRunning || colorboxIsRunning) {
-        return { ok: false, error: "Another Amazon/Colorbox operation is still running." };
+    if (amazonIsRunning || colorboxIsRunning || rkPlainIsRunning) {
+        return { ok: false, error: "Another Amazon/Colorbox/RK Plain operation is still running." };
     }
     amazonIsRunning = true;
     pendingColorboxJob = null;
+    pendingRkPlainJob = null;
     try {
         const psdNameForProject = normalizePsdFileName(payload?.psdFileName);
         const linkedProject = verifiedAmazonProject(payload, psdNameForProject);
         const isBatchWorkspace = payload?.mode === "batch";
-        const hasSharing = (payload?.parents || []).some(parent =>
+        const hasSharing = Boolean(payload?.creativePath) || (payload?.parents || []).some(parent =>
             (parent.variants || []).some(variant => Array.isArray(variant.sharedIds) && variant.sharedIds.length > 0)
         );
+        let effectiveParents = payload?.parents || [];
         let result;
         if (isBatchWorkspace) {
             // Never trust a renderer-only preflight: validate all real files and
@@ -616,24 +722,54 @@ ipcMain.handle("amazon:start-processing", async (event, payload) => {
             const psdName = normalizePsdFileName(payload?.psdFileName);
             const checked = await validateVirtualBatch(payload);
             if (!checked.ok) return { ok: false, error: checked.errors.join("\n") };
-            const virtualPayload = { ...payload, parents: checked.parents };
+            effectiveParents = await withCreativeSecond(checked.parents, payload?.creativePath);
+            const virtualPayload = { ...payload, parents: effectiveParents };
             const inspection = await inspectSharingRequest(virtualPayload, psdName);
             if (!inspection.ok) {
                 return { ok: false, error: (inspection.errors || []).join("\n") || "Batch Workspace preflight failed." };
             }
             result = await processSharedAmazonJob(event, virtualPayload, psdName, inspection);
-        } else if (hasSharing || linkedProject) {
+        } else if (hasSharing || linkedProject || payload?.rkPlainEnabled) {
             const psdName = normalizePsdFileName(payload?.psdFileName);
-            const inspection = await inspectSharingRequest(payload, psdName);
+            effectiveParents = await withCreativeSecond(payload?.parents || [], payload?.creativePath);
+            const effectivePayload = { ...payload, parents: effectiveParents };
+            const inspection = await inspectSharingRequest(effectivePayload, psdName);
             if (!inspection.ok) {
                 return { ok: false, error: (inspection.errors || []).join("\n") || "Sharing preflight failed." };
             }
-            result = await processSharedAmazonJob(event, payload, psdName, inspection);
+            result = await processSharedAmazonJob(event, effectivePayload, psdName, inspection);
         } else {
             // The original non-sharing Amazon pipeline is unchanged.
             result = await processAmazonJob(event, payload);
         }
         if (!result?.ok) return result;
+
+        // RK Plain exports exactly ONE explicitly designated ID from the completed run.
+        // Normal Amazon JPGs, Shared IDs and Colorbox outputs remain unaffected.
+        if (payload?.rkPlainEnabled) {
+            const targetId = String(payload.rkPlainTargetId || "").trim();
+            if (!targetId) {
+                result.rkPlainError = "Enter one RK Plain Product ID in Amazon settings; Amazon images were generated normally.";
+            } else {
+                const matching = (result.results || []).filter(item => item.ok &&
+                    String(item.variantId || "").toLowerCase() === targetId.toLowerCase() &&
+                    Array.isArray(item.jpgs) && item.jpgs[0]);
+                if (matching.length !== 1) {
+                    result.rkPlainError = `RK Plain ID ${targetId} must match exactly one successfully generated Amazon ID.`;
+                } else {
+                    pendingRkPlainJob = {
+                        id: randomUUID(), ownerId: event.sender.id,
+                        items: [{ id: matching[0].variantId, jpg: matching[0].jpgs[0] }],
+                        sources: effectiveParents.flatMap(parent => (parent.variants || [])
+                            .flatMap(variant => (variant.files || []).map(file => file.path))),
+                        projectRoot: linkedProject?.root || payload?.projectRoot || null,
+                        requestedFolder: payload?.rkPlainFolder || linkedProject?.roles?.rkplain?.folderPath || null
+                    };
+                    result.rkPlainJobId = pendingRkPlainJob.id;
+                    result.rkPlainEligibleCount = 1;
+                }
+            }
+        }
 
         const successfulBrands = (result.parentResults || [])
             .filter(item => Number(item?.successful) > 0)
@@ -707,6 +843,53 @@ ipcMain.handle("amazon:start-processing", async (event, payload) => {
     } finally {
         amazonIsRunning = false;
     }
+});
+
+// RK Plain is a separate post-Amazon step, like optional Colorbox. Selecting
+// it never modifies PLAIN.psd, the source PSD, or source JPGs.
+ipcMain.handle("amazon:offer-rk-plain", async (event, payload) => {
+    if (amazonIsRunning || colorboxIsRunning || rkPlainIsRunning) {
+        return { ok: false, error: "Another export is running." };
+    }
+    const job = pendingRkPlainJob;
+    if (!job || job.id !== payload?.jobId || job.ownerId !== event.sender.id) {
+        return { ok: false, error: "RK Plain export is no longer available for this Amazon job." };
+    }
+    rkPlainIsRunning = true;
+    try {
+        let folder = job.requestedFolder || findRkPlainFolder(job.projectRoot);
+        if (!folder) {
+            const state = readDialogState();
+            const answer = await dialog.showOpenDialog({
+                title: "Select SINGLE / RAKUEN / !!RAK PLAIN!! (must contain PLAIN.psd)",
+                defaultPath: usableDirectory(state.lastRkPlainFolder) || usableDirectory(job.projectRoot),
+                properties: ["openDirectory"]
+            });
+            if (answer.canceled || !answer.filePaths.length) return { ok: true, skipped: true, reason: "folder-canceled" };
+            folder = answer.filePaths[0];
+        }
+        const verified = validatedRkPlainFolder(folder);
+        writeDialogState({ lastRkPlainFolder: verified.folder });
+        const protectedPaths = [...job.sources, ...job.items.map(item => item.jpg)];
+        let report = await exportRkPlain(job.items, verified.folder, [], protectedPaths);
+        if (report.requiresApproval) {
+            const owner = BrowserWindow.fromWebContents(event.sender);
+            const msg = {
+                type: "question", title: "Replace existing RK Plain JPEGs?",
+                message: `${report.existing.length} RK Plain file(s) already exist.`,
+                detail: report.existing.slice(0, 15).join("\n") +
+                    "\nPLAIN.psd and original source files will not be modified.",
+                buttons: ["Replace JPEGs", "Skip RK Plain"], defaultId: 1, cancelId: 1, noLink: true
+            };
+            const answer = owner ? await dialog.showMessageBox(owner, msg) : await dialog.showMessageBox(msg);
+            if (answer.response !== 0) return { ok: true, skipped: true, reason: "existing-files-kept" };
+            report = await exportRkPlain(job.items, verified.folder, report.existing, protectedPaths);
+        }
+        pendingRkPlainJob = null;
+        return { ...report, successful: report.saved.length };
+    } catch (error) {
+        return { ok: false, error: error.message || String(error) };
+    } finally { rkPlainIsRunning = false; }
 });
 
 function sendColorboxProgress(event, data) {

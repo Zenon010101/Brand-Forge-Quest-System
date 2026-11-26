@@ -74,6 +74,7 @@ async function validateVirtualBatch(payload) {
         if (!filePaths.length || filePaths.length > 8) {
             errors.push(`${label}: assign 1 to 8 images (currently ${filePaths.length}).`);
         }
+        const explicitMain = typeof raw.mainPath === "string" ? raw.mainPath : "";
         const sharedIds = Array.isArray(raw.sharedIds) ? raw.sharedIds : [];
         if (!Array.isArray(raw.sharedIds) && raw.sharedIds !== undefined) {
             errors.push(`${label}: shared IDs must be an array.`);
@@ -109,7 +110,13 @@ async function validateVirtualBatch(payload) {
         if (!Array.isArray(sharedIds) || sharedIds.some(id => typeof id !== "string")) {
             errors.push(`${label}: invalid shared IDs.`);
         }
-        variants.push({ id, files, sharedIds: Array.isArray(sharedIds) ? sharedIds : [] });
+        if (explicitMain) {
+            const first = files.findIndex(file => path.normalize(file.path).toLowerCase() === path.normalize(explicitMain).toLowerCase());
+            if (first < 0) errors.push(`${label}: the assigned Main Image #1 must be one of this ID's images.`);
+            else if (first > 0) files.unshift(files.splice(first, 1)[0]);
+        }
+        variants.push({ id, mainPath: explicitMain || files[0]?.path || "", files,
+            sharedIds: Array.isArray(sharedIds) ? sharedIds : [] });
     }
     const parents = [{ id: "Batch Workspace", folderPath: null, variants }];
     const plan = buildSharingPlan(parents);

@@ -71,7 +71,7 @@
         function informLinked(project) {
             linked = project;
             document.dispatchEvent(new CustomEvent("brandforge:project-linked", { detail: { project } }));
-            const used = Object.entries(project.roles).filter(([, info]) => info).map(([role]) => role.toUpperCase());
+            const used = Object.entries(project.roles).filter(([, info]) => info).map(([role]) => role === "rkplain" ? "RK PLAIN" : role.toUpperCase());
             const output = project.roles?.[requiredRole]?.folderPath || "";
             say(`Linked ${project.name}: ${used.join(" + ")}. ${requiredRole.toUpperCase()} output: ${output}. PSD markers stay untouched.`);
         }
@@ -108,10 +108,10 @@
             if (!result?.ok) { say(result?.error || "Project scan failed.", true); return; }
             scanned = result.project;
             pathInput.value = scanned.root;
-            for (const role of ["amazon", "slider", "colorbox"]) {
+            for (const role of ["amazon", "slider", "colorbox", "rkplain"]) {
                 const spec = scanned.roles[role];
                 const group = node("div", "projectlink-role");
-                const label = node("label", "", role.toUpperCase());
+                const label = node("label", "", role === "rkplain" ? "RK PLAIN" : role.toUpperCase());
                 const select = node("select", "projectlink-select");
                 select.setAttribute("aria-label", `${role} PSD location marker`);
                 const empty = node("option", "", spec.choices.length ? "Choose PSD marker / output folder" : "No PSD marker found — choose output manually");
@@ -157,7 +157,7 @@
                 say(`Choose a valid ${requiredRole.toUpperCase()} PSD marker before applying the detected paths.`, true);
                 return;
             }
-            const selection = Object.fromEntries(["amazon", "slider", "colorbox"].map(role => [role, selectors[role]?.value || ""]));
+            const selection = Object.fromEntries(["amazon", "slider", "colorbox", "rkplain"].map(role => [role, selectors[role]?.value || ""]));
             const result = await api.link(scanned.root, selection);
             if (!result?.ok) { say(result?.error || "Could not link this brand project.", true); return; }
             last = result.project;
@@ -175,7 +175,7 @@
             pathInput.value = project.root;
             await scan();
             if (!scanned) return;
-            for (const role of ["amazon", "slider", "colorbox"]) {
+            for (const role of ["amazon", "slider", "colorbox", "rkplain"]) {
                 const marker = project.roles?.[role]?.markerPath || "";
                 if (selectors[role]) {
                     selectors[role].value = marker;

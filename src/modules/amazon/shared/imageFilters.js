@@ -7,6 +7,11 @@
     "use strict";
     const filters = Object.freeze([
         { value: "all", label: "All supported images", extensions: [".psd", ".psb", ".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp", ".gif", ".heic", ".heif", ".avif"] },
+        { value: "psd_png", label: "PSD / PSB + PNG", extensions: [".psd", ".psb", ".png"] },
+        { value: "psd_jpg", label: "PSD / PSB + JPG", extensions: [".psd", ".psb", ".jpg", ".jpeg"] },
+        { value: "png_jpg", label: "PNG + JPG", extensions: [".png", ".jpg", ".jpeg"] },
+        { value: "psd_png_jpg", label: "PSD / PSB + PNG + JPG", extensions: [".psd", ".psb", ".png", ".jpg", ".jpeg"] },
+        { value: "raster", label: "All raster (no PSD/PSB)", extensions: [".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp", ".gif", ".heic", ".heif", ".avif"] },
         { value: "psd", label: "PSD only", extensions: [".psd"] },
         { value: "psb", label: "PSB only", extensions: [".psb"] },
         { value: "png", label: "PNG only", extensions: [".png"] },

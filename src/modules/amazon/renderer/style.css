@@ -1017,3 +1017,49 @@ body { overflow-y: auto; }
 .batch-group-entry.is-done .batch-group-card { border-color:#527961; background:#17251b; }
 .batch-group-done-badge { font-size:9px; font-weight:850; color:#aaf0bd; }
 .batch-group-card .batch-group-done-badge { display:inline-block; margin-top:3px; }
+
+/* Amazon PSD Fast Loader - shared by Batch Workspace and Original Folder Mode. */
+.amazon-fast-cache { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: var(--muted); }
+.amazon-fast-cache strong { color: var(--ok); font-size: 10px; letter-spacing: .7px; }
+.amazon-fast-cache .mini-btn { padding: 3px 7px; font-size: 10px; min-height: 23px; }
+#amazonPsdCacheInfo { max-width: 610px; overflow-wrap: anywhere; }
+
+/* v1.7.57: Amazon Creative Image #2, RK Plain and non-destructive Clear. */
+.app-shell { grid-template-rows: auto auto auto auto minmax(680px, 1fr); }
+.amazon-extras { display:flex; flex-direction:column; gap:6px; padding:10px 13px; min-width:0; }
+.amazon-extras-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.amazon-extra-check { display:inline-flex; align-items:center; gap:6px; min-width:245px; font-size:11px; font-weight:800; color:#e4e8ed; }
+.amazon-extra-check input { accent-color:#65bd8b; }
+.amazon-extras .mini-btn { padding:5px 8px; min-height:27px; font-size:10px; }
+.amazon-extra-value { min-width:140px; max-width:780px; font-size:10px; color:#b4c5d3; overflow-wrap:anywhere; }
+.amazon-extras-tip { font-size:9px; color:#7f9cac; line-height:1.5; }
+.amazon-extras-tip code { font-size:10px; color:#d5b4c0; }
+.amazon-clear-workspace { color:#f7c9cf; border:1px solid #875462; padding:7px 11px; white-space:nowrap; }
+.batch-order-row.creative-locked { border:1px solid #476e55; background:#172c20; cursor:default; }
+.batch-pool-thumb.psd-manual { background:#1f2936; border:1px dashed #56708f; }
+.batch-pool-thumb.psd-manual em { font-size:11px; font-weight:800; color:#acc3e2; }
+
+/* v1.7.58 - explicit per-ID Main Image assignment (no implicit source edits). */
+.batch-set-main, .folder-set-main {
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-size: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.batch-set-main:hover, .folder-set-main:hover { background: var(--accent-hover); }
+.batch-main-assigned, .folder-main-assigned {
+    color: var(--ok);
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+    padding: 5px;
+}
+.batch-group-main { color: var(--ok); }
+
+.folder-set-main, .folder-main-assigned { display: inline-block; margin: 5px 0 0 auto; }
+.output-name { white-space: normal; }
+.batch-order-row button.batch-set-main { border-color: var(--accent); background: var(--accent-soft); white-space: nowrap; }

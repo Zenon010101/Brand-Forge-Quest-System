@@ -10,10 +10,11 @@
     const sharing = window.AmazonSharing;
     const formatFilters = window.BrandForgeImageFilters;
     const selectionOrder = window.BrandForgeSelectionOrder;
+    const thumbnailPolicy = window.BrandForgeAmazonThumbnailPolicy;
     const sharingEditor = window.BrandForgeBatchSharingEditor;
     const visibility = window.BrandForgeBatchVisibility;
     const $ = id => document.getElementById(id);
-    if (!api || !sharing || !formatFilters || !selectionOrder || !sharingEditor || !visibility) return;
+    if (!api || !sharing || !formatFilters || !selectionOrder || !thumbnailPolicy || !sharingEditor || !visibility) return;
 
     const folderTab = $("folderModeTab");
     const batchTab = $("batchModeTab");
@@ -25,8 +26,12 @@
     const orderList = $("batchOrderList");
     const generate = $("batchGenerateBtn");
     const pool = new Map();
+    // Reuse the same PSD Fast Loader status panel in both Amazon modes.
+    window.BrandForgeBatchCachePaths = () => groups.flatMap(g => g.files);
     const thumbnails = new Map();
     const thumbnailJobs = [];
+    const pendingThumbnails = new Set();
+    let thumbnailEpoch = 0;
     let thumbnailsActive = 0;
     let groups = [];
     let activeUid = null;
@@ -59,6 +64,9 @@
     const group = () => groups.find(g => g.uid === activeUid) || null;
     const assigned = () => visibility.usedImageKeys(groups);
     const totalIds = () => groups.reduce((sum, g) => sum + 1 + g.sharedIds.length, 0);
+    const extras = () => window.BrandForgeAmazonExtras;
+    const creativeEnabled = () => Boolean(extras()?.creativeActive());
+    const maxOriginal = () => extras()?.maxOriginalImages() || 8;
 
     function setMode(value) {
         if (isBusy) return;
@@ -171,7 +179,7 @@
         editingShareUid = uid;
         shareModalReturnFocus = trigger;
         renderAll();
-        $("batchShareSourceSummary").textContent = `${item.id || "(enter Product ID)"} · ${item.files.length}/8 images selected. Linked IDs reuse Image 1 (Colorbox source) and the exact selected order.`;
+        $("batchShareSourceSummary").textContent = `${item.id || "(enter Product ID)"} · ${item.files.length}/${maxOriginal()} originals selected. Linked IDs reuse the selected images and order.`;
         $("batchShareIdsInput").value = item.sharedIds.join("\n");
         $("batchShareModalBackdrop").classList.remove("hidden");
         refreshBatchShareValidation();
@@ -241,7 +249,10 @@
             button.append(el("span", "batch-group-number", String(index + 1).padStart(2, "0")));
             const body = el("span", "batch-group-details");
             body.append(el("strong", "", item.id || "(enter Product ID)"));
-            body.append(el("small", "", `${item.files.length}/8 images · ${item.sharedIds.length} shared ID(s)`));
+            body.append(el("small", "", `${item.files.length}/${maxOriginal()} images · ${item.sharedIds.length} shared ID(s)`));
+            body.append(el("small", "batch-group-main", item.files.length
+                ? `Main #1: ${(pool.get(norm(item.files[0]))?.name || item.files[0].split(/[\\/]/).pop())}`
+                : "Main #1: NOT ASSIGNED"));
             if (item.done) body.append(el("small", "batch-group-done-badge", "✓ Done · image order retained"));
             if (item.sharedIds.length) body.append(el("small", "batch-share-names", `Linked: ${item.sharedIds.slice(0, 2).join(", ")}${item.sharedIds.length > 2 ? " …" : ""}`));
             button.append(body);
@@ -299,11 +310,17 @@
             ? `${item.sharedIds.length} shared ID${item.sharedIds.length === 1 ? "" : "s"}` : "0 shared IDs";
         $("batchRemoveGroupBtn").disabled = isBusy || !item;
     }
+    // Thumbnail work is only for Sharp-native jpg/png/webp. PSD/PSB, TIFF,
+    // HEIC etc. must never start Photoshop during pool scrolling/filtering.
     function runThumbQueue() {
         while (thumbnailsActive < 2 && thumbnailJobs.length) {
             const task = thumbnailJobs.shift();
+            if (task.epoch !== thumbnailEpoch || !task.node.isConnected) {
+                pendingThumbnails.delete(norm(task.path)); continue;
+            }
             thumbnailsActive++;
-            api.getFilePreview(task.path).then(result => {
+            api.getFileThumbnail(task.path).then(result => {
+                if (task.epoch !== thumbnailEpoch) return;
                 if (result?.ok && result.dataUrl) {
                     thumbnails.set(norm(task.path), result.dataUrl);
                     for (const node of imagePool.querySelectorAll(".batch-pool-thumb[data-source-path]")) {
@@ -314,12 +331,10 @@
                         image.alt = task.name;
                         node.append(image);
                     }
-                } else if (task.node.isConnected) {
-                    task.node.textContent = "Preview unavailable";
-                }
+                } else if (task.node.isConnected) task.node.textContent = "Preview unavailable";
             }).catch(() => {
-                if (task.node.isConnected) task.node.textContent = "Preview unavailable";
-            }).finally(() => { thumbnailsActive--; runThumbQueue(); });
+                if (task.epoch === thumbnailEpoch && task.node.isConnected) task.node.textContent = "Preview unavailable";
+            }).finally(() => { pendingThumbnails.delete(norm(task.path)); thumbnailsActive--; runThumbQueue(); });
         }
     }
     function thumb(node, file) {
@@ -332,19 +347,26 @@
             node.append(img);
             return;
         }
-        node.append(el("em", "", file.extension.replace(".", "")));
-        // Lazy preview: only visible thumbnails request Photoshop/Sharp work.
+        const ext = String(file.extension || "").toLowerCase();
+        node.append(el("em", "", /\.(psd|psb)$/i.test(ext) ? "PSD · click to preview" : file.extension.replace(".", "")));
+        if (!thumbnailPolicy.canBackgroundPreview(ext)) {
+            node.classList.add("psd-manual");
+            // Explicit preview on click is the ONLY PSD extraction path.
+            // Unassigned PSDs, even if filtered and visible, cost zero Photoshop jobs.
+            return;
+        }
         node.dataset.sourcePath = file.path;
         thumbnailObserver.observe(node);
     }
     const thumbnailObserver = new IntersectionObserver(entries => {
         for (const entry of entries) {
-            if (!entry.isIntersecting) continue;
+            if (!entry.isIntersecting || !entry.target.isConnected) continue;
             const node = entry.target;
             thumbnailObserver.unobserve(node);
             const filePath = node.dataset.sourcePath;
-            if (!filePath || thumbnails.has(norm(filePath))) continue;
-            thumbnailJobs.push({ path: filePath, node, name: filePath.split(/[\\/]/).pop() });
+            if (!filePath || thumbnails.has(norm(filePath)) || pendingThumbnails.has(norm(filePath))) continue;
+            pendingThumbnails.add(norm(filePath));
+            thumbnailJobs.push({ path: filePath, node, epoch: thumbnailEpoch, name: filePath.split(/[\\/]/).pop() });
         }
         runThumbQueue();
     }, { root: imagePool, rootMargin: "100px" });
@@ -356,15 +378,16 @@
             return `${index + 1}. ${file?.name || key.split(/[\\/]/).pop()}`;
         });
         $("batchSelectionPreview").textContent = picked.length
-            ? `PICK ORDER → ${pickedNames.join("  →  ")} · Add Selected preserves this exact order (1 = Main + Colorbox).`
-            : "Click images in the order you want: 1 = Main + Colorbox, then 2–8. Filters don't change your picks.";
+            ? `PICK ORDER → ${pickedNames.join("  →  ")} · Drag into the group; choose PNG as #2 if needed.`
+            : `Click in order: first = Main + Colorbox; PNG or PSD can be #2. Filtering preserves assigned images.`;
         const matching = [...pool.values()].filter(file => formatFilters.matchesFile(file, $("batchLibraryFilter").value));
         const shown = visibility.visibleImages(matching, groups, {
             hideAssigned: hideAssignedImages, pickedKeys: picked, matchesFile: () => true
         }).length;
-        $("batchPoolCount").textContent = `${shown} of ${pool.size} image(s) visible · ${picked.length}/8 selected in click order`;
+        $("batchPoolCount").textContent = `${shown} of ${pool.size} image(s) visible · ${picked.length}/${maxOriginal()} picked (PSD thumbnails manual)`;
         $("batchLibraryVisibilityCount").textContent = `${shown} shown${hideAssignedImages ? " · assigned hidden" : ""}`;
         $("batchAssignBtn").disabled = isBusy || !picked.length;
+        $("batchAssignMainBtn").disabled = isBusy || !picked.length;
         $("batchClearSelectionBtn").disabled = isBusy || !picked.length;
         for (const tile of imagePool.querySelectorAll(".batch-pool-tile")) {
             const key = tile.dataset.poolKey;
@@ -382,6 +405,11 @@
         // The filter affects only the visible Library, never stored assignments
         // or the user's selection sequence across multiple filter changes.
         const previousScroll = imagePool.scrollTop;
+        thumbnailObserver.disconnect();
+        // Filter changes must not continue draining queued previews for removed tiles.
+        thumbnailEpoch++;
+        thumbnailJobs.length = 0;
+        pendingThumbnails.clear();
         imagePool.replaceChildren();
         const matching = [...pool.values()].filter(file => formatFilters.matchesFile(file, $("batchLibraryFilter").value));
         const visible = visibility.visibleImages(matching, groups, {
@@ -415,6 +443,10 @@
             tile.append(el("small", "", alreadyAssigned.has(key) ? "Assigned · click or drag" : "Available · click or drag"));
             tile.addEventListener("click", () => {
                 if (isBusy || scanningFolder) return;
+                if (!selectedPool.has(key) && selectedPool.size >= maxOriginal()) {
+                    status("Selection limit reached", `Maximum ${maxOriginal()} images per ID.`, true);
+                    return;
+                }
                 const result = selectedPool.toggle(key);
                 if (!result.ok) { status("Selection limit reached", result.error, true); return; }
                 // Update the badges in place, preserving current scroll and the
@@ -437,7 +469,7 @@
     function renderOrder() {
         const item = group();
         $("batchArrangeTitle").textContent = item?.id || "Select Product ID";
-        $("batchOrderCount").textContent = `${item?.files.length || 0} / 8 · Image 1 = Colorbox source`;
+        $("batchOrderCount").textContent = `${item?.files.length || 0} / 8 · Image 1 = Main + Colorbox; optional RK Plain for chosen ID`;
         orderList.replaceChildren();
         if (!item || !item.files.length) {
             orderList.append(el("div", "empty-state", "Click images in the library and Add, or drag them onto this panel."));
@@ -451,9 +483,19 @@
             row.append(el("span", "batch-order-position", `${index + 1}`));
             const label = el("div", "batch-order-label");
             label.append(el("strong", "", file?.name || filePath.split(/[\\/]/).pop()));
-            label.append(el("small", "", index === 0 ? "Main + Colorbox source" : `Amazon image ${index + 1}`));
+            label.append(el("small", "", index === 0 ? "Main + Colorbox" : `Amazon image ${index + 1}`));
             label.addEventListener("click", () => showPreview(filePath));
             row.append(label);
+            if (index === 0) {
+                row.append(el("span", "batch-main-assigned", "MAIN #1"));
+            } else {
+                const mainButton = el("button", "batch-set-main", "Set Main #1");
+                mainButton.type = "button";
+                mainButton.title = `Use this image as Amazon and Colorbox #1 for ${item.id}`;
+                mainButton.disabled = isBusy;
+                mainButton.addEventListener("click", () => moveFile(index, 0));
+                row.append(mainButton);
+            }
             for (const [symbol, delta, hint] of [["↑", -1, "Move Up"], ["↓", 1, "Move Down"]]) {
                 const btn = el("button", "", symbol);
                 btn.type = "button";
@@ -493,6 +535,7 @@
                 else if (event.dataTransfer?.files?.length) await importFiles(event.dataTransfer.files, true);
             });
             orderList.append(row);
+
         });
     }
     function moveFile(start, end) {
@@ -509,7 +552,7 @@
             id: g.id, files: g.files.map(p => ({ path: p })), sharedIds: g.sharedIds
         })) }];
         const plan = sharing.buildSharingPlan(virtual);
-        const missing = groups.filter(g => !g.files.length || !g.id.trim()).length;
+        const missing = groups.filter(g => !g.files.length || !g.id.trim() || g.files.length > maxOriginal()).length;
         $("batchTotals").textContent = `${groups.length} source sets · ${visibility.completedCount(groups)} done · ${groups.reduce((s,g)=>s+g.files.length,0)} assigned images · ${totalIds()} total IDs · ${plan.jpgCount} JPGs`;
         generate.disabled = isBusy || scanningFolder || !groups.length || missing > 0 || !outputFolder || !$("batchPsdName").value.trim() || !plan.ok;
         if (!isBusy && !plan.ok) {
@@ -523,6 +566,7 @@
         renderPool();
         renderOrder();
         renderSummary();
+        window.BrandForgeAmazonFastCache?.refresh();
     }
     function addPathsToActive(paths, at = null) {
         let item = group();
@@ -530,7 +574,7 @@
         let count = 0;
         for (const p of paths) {
             if (!pool.has(norm(p)) || item.files.some(x => norm(x) === norm(p))) continue;
-            if (item.files.length >= 8) break;
+            if (item.files.length >= maxOriginal()) break;
             if (Number.isInteger(at)) item.files.splice(at + count++, 0, p);
             else { item.files.push(p); count++; }
         }
@@ -539,8 +583,27 @@
         if (!count && paths.length) status("Nothing new assigned", "Each group allows up to eight distinct images.", true);
         else if (count) status(`${count} image(s) added`, skipped
             ? `${skipped} image(s) skipped because this product reached the 8-image limit.`
-            : `${item.id || "Product"}: ${item.files.length}/8 images · drag to reorder`, Boolean(skipped));
+            : `${item.id || "Product"}: ${item.files.length}/${maxOriginal()} original images · drag to reorder`, Boolean(skipped));
         renderAll();
+    }
+    function setFirstPickAsMain() {
+        if (isBusy || scanningFolder) return;
+        const first = selectedPool.values()[0];
+        const chosen = pool.get(first);
+        if (!chosen) return;
+        let item = group();
+        if (!item) item = newGroup();
+        const existing = item.files.findIndex(filePath => norm(filePath) === first);
+        if (existing < 0 && item.files.length >= maxOriginal()) {
+            status("Main assignment blocked", `Remove another image from ${item.id || "this ID"} before assigning a different Main #1.`, true);
+            return;
+        }
+        if (existing >= 0) item.files.splice(existing, 1);
+        item.files.unshift(chosen.path);
+        reopenOnEdit(item);
+        selectedPool.clear();
+        renderAll();
+        status("Main Image #1 assigned", `${item.id || "Product ID"}: ${chosen.name} -> Amazon #1 and Colorbox (RK Plain if chosen ID).`);
     }
     async function importFiles(fileList, assign = false) {
         if (isBusy || scanningFolder) return;
@@ -592,8 +655,9 @@
         if (isBusy || scanningFolder) return;
         const payload = {
             mode: "batch",
-            groups: groups.map(item => ({ id: item.id.trim(), files: item.files.map(filePath => ({ path: filePath })), sharedIds: [...item.sharedIds] })),
-            outputFolder, psdFileName: $("batchPsdName").value.trim(), projectRoot: linkedProjectRoot
+            groups: groups.map(item => ({ id: item.id.trim(), files: item.files.map(filePath => ({ path: filePath })), mainPath: item.files[0] || "", sharedIds: [...item.sharedIds] })),
+            outputFolder, psdFileName: $("batchPsdName").value.trim(), projectRoot: linkedProjectRoot,
+            ...(extras()?.payload() || {})
         };
         busy(true);
         status("Checking entire batch", "Validating product IDs, physical images, output names and existing files...");
@@ -618,6 +682,14 @@
                 `\nMaster PSD: ${result.masterPsdPath || "FAILED / NOT GENERATED"}`;
             if (result.masterPsdError) report += `\nPSD ERROR: ${result.masterPsdError}`;
             failed.forEach(f => { report += `\n${f.variantId}: ${f.error}`; });
+            if (result.rkPlainError) report += `\nRK Plain: ${result.rkPlainError}`;
+            if (result.rkPlainJobId && extras()?.payload().rkPlainEnabled) {
+                status("Amazon finished · RK Plain", "Saving image #1 from the chosen RK ID next to PLAIN.psd...");
+                const plain = await api.offerRkPlain(result.rkPlainJobId);
+                if (plain?.skipped) report += "\nRK Plain: skipped";
+                else if (plain?.ok) report += `\nRK Plain: ${plain.successful} saved to ${plain.folder}`;
+                else report += `\nRK Plain ERROR: ${plain?.error || "unknown error"}`;
+            }
             // Preserve the EXISTING post-Amazon Colorbox choice. Image 1 of
             // each successful ID is the exact Amazon JPG used as Colorbox source.
             let colorbox = null;
@@ -650,6 +722,7 @@
     $("batchScanFormat").value = "all";
     $("batchLibraryFilter").value = "all";
     $("batchLibraryFilter").addEventListener("change", renderPool);
+    $("batchAssignMainBtn").addEventListener("click", setFirstPickAsMain);
     $("batchHideCompletedIds").addEventListener("change", event => {
         hideCompletedIds = event.target.checked;
         if (hideCompletedIds && group()?.done) activeUid = visibility.nextPendingUid(groups, activeUid);
@@ -876,7 +949,17 @@
             "colorbox-file-complete": `Colorbox ready: ${progress.variantId}`,
             "colorbox-file-error": `Colorbox failed: ${progress.variantId}`
         };
-        if (labels[progress.type]) status(labels[progress.type], progress.error || `${progress.current || 0}/${progress.total || 0}`, Boolean(progress.error));
+        if (labels[progress.type]) {
+            const timing = progress.type === "image-progress" && progress.status === "complete"
+                ? `load ${progress.loadMs ?? "?"}ms · cut ${progress.cutMs ?? "?"}ms · render ${progress.renderMs ?? "?"}ms`
+                : progress.type === "image-progress" && progress.status === "psd-cache-hit"
+                    ? `Cached · ${progress.durationMs}ms (no Photoshop)`
+                    : progress.error || `${progress.current || 0}/${progress.total || 0}`;
+            status(labels[progress.type], timing, Boolean(progress.error));
+            if (progress.type === "image-progress" && ["psd-cache-hit", "psd-cache-saved"].includes(progress.status)) {
+                window.BrandForgeAmazonFastCache?.refresh(true);
+            }
+        }
     });
     document.addEventListener("brandforge:project-linked", event => {
         const project = event.detail?.project;
@@ -899,6 +982,39 @@
         linkedProjectRoot = null;
         autoLinkedOutput = null;
         renderSummary();
+    });
+    // Clear resets only Batch Workspace memory; no imported source or generated
+    // files are deleted. Also invalidate old thumbnail and preview requests.
+    $("amazonClearWorkspace").addEventListener("click", () => {
+        if (mode !== "batch" || isBusy || scanningFolder) return;
+        if (!confirm("Clear ALL Batch Workspace IDs, imported images, assignments, output choice and optional settings?\nOriginal files and completed exports will not be deleted.")) return;
+        closeBatchShareModal();
+        ++previewToken;
+        ++thumbnailEpoch;
+        thumbnailJobs.length = 0;
+        pendingThumbnails.clear();
+        thumbnailObserver.disconnect();
+        thumbnails.clear(); pool.clear(); groups = []; selectedPool.clear();
+        activeUid = null; nextUid = 1;
+        outputFolder = ""; linkedProjectRoot = null; autoLinkedOutput = null;
+        $("batchSourcePath").value = "";
+        $("batchBulkIds").value = "";
+        $("batchPsdName").value = "AMAZON_BATCH";
+        $("batchOutputPath").textContent = "No output folder selected";
+        $("batchScanSummary").textContent = "Scan a folder to add images automatically.";
+        $("batchPreviewImage").removeAttribute("src");
+        $("batchPreviewImage").classList.add("hidden");
+        $("batchPreviewPlaceholder").classList.remove("hidden");
+        $("batchPreviewPlaceholder").textContent = "Click a source image to inspect it.";
+        $("batchPreviewText").textContent = "—";
+        extras()?.reset();
+        renderAll();
+        status("Amazon workspace cleared", "No disk files were changed. Reimport images or add Product IDs.");
+    });
+    document.addEventListener("brandforge:amazon-extras-changed", () => {
+        if (isBusy) return;
+        // Render order/counts but avoid a full pool rerender on checkbox toggle.
+        renderOrder(); renderSummary();
     });
     setMode("batch");
     renderAll();
